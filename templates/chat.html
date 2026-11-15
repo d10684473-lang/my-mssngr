@@ -5,132 +5,125 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Ramplez</title>
 <style>
-:root{--bg:#dadbd3;--side:#fff;--chat:#efeae2;--head:#008069;--txt:#111b21;--sub:#667781;--brd:#e9edef;--hov:#f0f2f5;--mine:#d9fdd3;--theirs:#fff;--inp:#f0f2f5;--fld:#fff}
-body.dark{--bg:#091014;--side:#111b21;--chat:#0b141a;--head:#202c33;--txt:#e9edef;--sub:#8696a0;--brd:#222d34;--hov:#202c33;--mine:#005c4b;--theirs:#202c33;--inp:#202c33;--fld:#2a3942}
-*{box-sizing:border-box;-webkit-touch-callout:none}
-body{font-family:Arial,sans-serif;margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);overflow:hidden}
-.sidebar{width:35%;max-width:360px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
-.my-profile{background:var(--head);color:#fff;padding:12px 15px;display:flex;justify-content:space-between;align-items:center}
-.icon-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;text-decoration:none}
-.search-box{padding:8px;border-bottom:1px solid var(--brd)}
-.search-box input{width:100%;padding:8px 12px;border:none;border-radius:18px;background:var(--inp);color:var(--txt);outline:none}
-.user-list{flex:1;overflow-y:auto}
-.user-item{padding:12px 15px;border-bottom:1px solid var(--brd);text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
-.user-item:hover{background:var(--hov)}
-.badge{margin-left:auto;background:#00a884;color:#fff;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:12px}
-.avatar{width:42px;height:42px;background:#00a884;color:#fff;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:bold;flex-shrink:0;overflow:hidden;position:relative}
-.avatar img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
-.chat-area{flex:1;display:flex;flex-direction:column;background:var(--chat)}
-.chat-header{background:var(--head);color:#fff;padding:10px 15px;display:flex;align-items:center;gap:10px;min-height:58px}
-.pin-bar{padding:6px 15px;background:var(--side);border-bottom:1px solid var(--brd);font-size:12px;color:#00a884;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.messages-box{flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
-.msg{padding:8px 12px;border-radius:12px;max-width:75%;font-size:15px;word-wrap:break-word;cursor:pointer;user-select:none;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.msg.mine{background:var(--mine);align-self:flex-end}
-.msg.theirs{background:var(--theirs);align-self:flex-start}
-.msg img.cimg{max-width:100%;max-height:250px;border-radius:8px;display:block;margin-top:4px}
-.msg audio{max-width:220px;height:35px;margin-top:4px}
-.file-box{display:inline-block;padding:8px 12px;background:rgba(0,0,0,.07);border-radius:8px;color:inherit;text-decoration:none;font-weight:bold;margin-top:4px}
-.reply-bar{display:none;padding:6px 15px;background:var(--inp);border-left:4px solid #00a884;justify-content:space-between;font-size:13px}
-.input-area{padding:10px;background:var(--inp);display:flex;gap:8px;align-items:center}
-.txt-inp{flex:1;padding:10px 15px;border:none;border-radius:20px;background:var(--fld);color:var(--txt);outline:none}
-.tool-btn{background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)}
-.send-btn{background:#00a884;color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99;justify-content:center;align-items:center}
-.modal-card{background:var(--side);color:var(--txt);padding:18px;border-radius:12px;width:90%;max-width:320px}
-.m-inp{width:100%;padding:8px;margin:5px 0 10px;border:1px solid var(--brd);border-radius:6px;background:var(--fld);color:var(--txt)}
-.ctx-btn{display:block;width:100%;padding:11px;margin:5px 0;border:none;border-radius:8px;background:var(--inp);color:var(--txt);font-size:15px;text-align:left;cursor:pointer;text-decoration:none}
-.ctx-emojis{display:flex;justify-content:space-around;padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:8px;font-size:24px}
-.ctx-emojis a{text-decoration:none}
-#img-viewer img{max-width:95vw;max-height:90vh;border-radius:8px}
-@media(max-width:768px){body.no-chat .sidebar{width:100%;max-width:none}body.no-chat .chat-area{display:none}body.has-chat .sidebar{display:none}body.has-chat .chat-area{display:flex;width:100%}}
+:root{--bg:#e5e9f0;--side:#fff;--chat:#f0f4f8;--txt:#0f172a;--sub:#64748b;--brd:#e2e8f0;--hov:#f1f5f9;--mine:#2563eb;--mtxt:#fff;--theirs:#fff;--acc:#2563eb}
+body.dark{--bg:#090d16;--side:#0f172a;--chat:#0b1120;--txt:#f8fafc;--sub:#94a3b8;--brd:#1e293b;--hov:#1e293b;--theirs:#1e293b;--acc:#3b82f6}
+*{box-sizing:border-box;-webkit-touch-callout:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);overflow:hidden}
+.sidebar{width:34%;max-width:350px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
+.top{padding:12px 15px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--brd)}
+.ibtn{background:var(--hov);border:none;color:var(--txt);width:34px;height:34px;border-radius:50%;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.sbox{padding:8px 12px}
+.sbox input{width:100%;padding:9px 14px;border:1px solid var(--brd);border-radius:20px;background:var(--chat);color:var(--txt);outline:none}
+.ulist{flex:1;overflow-y:auto;padding:0 8px}
+.uitem{padding:10px;border-radius:12px;margin-bottom:4px;text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.uitem:hover,.uitem.active{background:var(--hov)}
+.badge{margin-left:auto;background:var(--acc);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px}
+.av{width:42px;height:42px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:700;flex-shrink:0;overflow:hidden;position:relative}
+.av img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.chat{flex:1;display:flex;flex-direction:column;background:var(--chat)}
+.chead{background:var(--side);padding:10px 16px;display:flex;align-items:center;gap:10px;min-height:60px;border-bottom:1px solid var(--brd)}
+.back{display:none;color:var(--txt);text-decoration:none;font-size:22px}
+.pin{padding:6px 14px;background:var(--side);border-bottom:1px solid var(--brd);font-size:12px;color:var(--acc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mbox{flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.msg{padding:9px 13px;border-radius:16px;max-width:75%;font-size:15px;word-wrap:break-word;cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.msg.mine{background:var(--mine);color:var(--mtxt);align-self:flex-end;border-bottom-right-radius:4px}
+.msg.theirs{background:var(--theirs);color:var(--txt);align-self:flex-start;border-bottom-left-radius:4px}
+.msg img{max-width:100%;max-height:240px;border-radius:10px;display:block;margin-top:4px}
+.msg audio{max-width:220px;height:34px;margin-top:4px}
+.fbox{display:inline-block;padding:6px 10px;background:rgba(128,128,128,.15);border-radius:8px;color:inherit;text-decoration:none;font-size:13px;margin-top:4px}
+.rbar{display:none;padding:6px 14px;background:var(--side);border-left:3px solid var(--acc);justify-content:space-between;font-size:13px}
+.iarea{padding:10px 14px;background:var(--side);border-top:1px solid var(--brd);display:flex;gap:8px;align-items:center}
+.tinp{flex:1;padding:10px 16px;border:1px solid var(--brd);border-radius:22px;background:var(--chat);color:var(--txt);outline:none;font-size:15px}
+.tbtn{background:var(--hov);border:none;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;color:var(--txt);flex-shrink:0}
+.sbtn{background:var(--acc);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;justify-content:center;align-items:center}
+.mcard{background:var(--side);color:var(--txt);padding:20px;border-radius:18px;width:90%;max-width:330px;border:1px solid var(--brd)}
+.minp{width:100%;padding:9px;margin:5px 0 12px;border:1px solid var(--brd);border-radius:10px;background:var(--chat);color:var(--txt);outline:none}
+.cbtn{display:block;width:100%;padding:11px;margin:5px 0;border:none;border-radius:10px;background:var(--hov);color:var(--txt);font-size:14px;text-align:left;cursor:pointer;text-decoration:none}
+.cemj{display:flex;justify-content:space-around;padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:6px;font-size:22px}
+.cemj a{text-decoration:none}
+#iv img{max-width:94vw;max-height:88vh;border-radius:12px}
+@media(max-width:768px){body.no-chat .sidebar{width:100%;max-width:none}body.no-chat .chat{display:none}body.has-chat .sidebar{display:none}body.has-chat .chat{display:flex;width:100%}.back{display:block}}
 </style>
 </head>
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 <div class="sidebar">
-<div class="my-profile">
+<div class="top">
 <div style="display:flex;align-items:center;gap:10px">
-<div class="avatar">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
-<div><b>{{ current_user.name }}</b><br><small>@{{ current_user.username }}</small></div>
+<div class="av">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
+<div><b>{{ current_user.name }}</b><br><small style="color:var(--sub)">@{{ current_user.username }}</small></div>
 </div>
-<div>
-<button type="button" class="icon-btn" onclick="document.body.classList.toggle('dark');localStorage.setItem('t',document.body.classList.contains('dark')?'1':'0')">🌓</button>
-<button type="button" class="icon-btn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
-<a href="/logout" class="icon-btn">🚪</a>
+<div style="display:flex;gap:5px">
+<button type="button" class="ibtn" onclick="document.body.classList.toggle('dark');localStorage.setItem('t',document.body.classList.contains('dark')?'1':'0')">🌓</button>
+<button type="button" class="ibtn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
+<a href="/logout" class="ibtn">🚪</a>
 </div>
 </div>
-<div class="search-box"><input type="text" id="si" placeholder="Поиск..." onkeyup="fu()"></div>
-<div class="user-list">
+<div class="sbox"><input type="text" id="si" placeholder="Поиск..." onkeyup="fu()"></div>
+<div class="ulist">
 {% for item in users_data %}
-<a href="/chat?u={{ item.u.id }}" class="user-item" data-s="{{ item.u.name.lower() }} {{ item.u.username.lower() }}">
-<div class="avatar">{{ item.u.name[:1].upper() }}<img src="{{ item.u.avatar }}" onerror="this.remove()"></div>
-<div><b>{{ item.u.name }}</b><br><small style="color:var(--sub)">{{ item.u.bio }}</small></div>
+<a href="/chat?u={{ item.u.id }}" class="uitem {{ 'active' if active_user and active_user.id == item.u.id else '' }}" data-s="{{ item.u.name.lower() }} {{ item.u.username.lower() }}">
+<div class="av">{{ item.u.name[:1].upper() }}<img src="{{ item.u.avatar }}" onerror="this.remove()"></div>
+<div style="overflow:hidden"><b>{{ item.u.name }}</b><br><small style="color:var(--sub)">{{ item.u.bio }}</small></div>
 <span class="badge" style="{{ '' if item.unread > 0 else 'display:none' }}">{{ item.unread }}</span>
 </a>
 {% endfor %}
 </div>
 </div>
 
-<div class="chat-area">
-<div class="chat-header">
-<a href="/chat" style="color:#fff;text-decoration:none;font-size:22px;margin-right:6px">←</a>
-<div>
-<b>{{ active_user.name if active_user else 'Выбери чат слева' }}</b><br>
-<small id="st-txt" style="color:#b2dfdb">{{ active_user.bio if active_user else '' }}</small>
+<div class="chat">
+<div class="chead">
+<a href="/chat" class="back">←</a>
+<div><b>{{ active_user.name if active_user else 'Ramplez' }}</b><br><small id="st" style="color:var(--sub)">{{ active_user.bio if active_user else 'Выбери чат' }}</small></div>
+<small id="up" style="margin-left:auto;color:var(--acc);font-weight:700"></small>
 </div>
-<small id="up-stat" style="margin-left:auto;color:#69f0ae;font-weight:bold"></small>
-</div>
-<div class="pin-bar" style="{{ '' if pinned else 'display:none' }}">📌 Закреплено: {{ pinned.content if pinned else '' }}</div>
-<div class="messages-box" id="mb">
+<div class="pin" style="{{ '' if pinned else 'display:none' }}">📌 {{ pinned.content if pinned else '' }}</div>
+<div class="mbox" id="mb">
 {% for m in messages %}
 {% set mine = (m.sender_id == current_user.id) %}
 <div class="msg {{ 'mine' if mine else 'theirs' }}" data-id="{{ m.id }}" data-txt="{{ m.content if m.msg_type == 'text' else m.file_name }}">
-<b style="font-size:11px;color:#00a884">{{ 'Вы' if mine else active_user.name }}</b>
-<img src="{{ m.content }}" class="cimg" onclick="event.stopPropagation();openImg(this.src)" style="{{ '' if m.msg_type == 'image' else 'display:none' }}">
+<img src="{{ m.content }}" onclick="event.stopPropagation();oimg(this.src)" style="{{ '' if m.msg_type == 'image' else 'display:none' }}">
 <audio controls src="{{ m.content }}" onclick="event.stopPropagation()" style="{{ '' if m.msg_type == 'audio' else 'display:none' }}"></audio>
-<a href="{{ m.content }}" download="{{ m.file_name }}" class="file-box" onclick="event.stopPropagation()" style="{{ '' if m.msg_type == 'file' else 'display:none' }}">📄 {{ m.file_name }}</a>
+<a href="{{ m.content }}" download="{{ m.file_name }}" class="fbox" onclick="event.stopPropagation()" style="{{ '' if m.msg_type == 'file' else 'display:none' }}">📄 {{ m.file_name }}</a>
 <div style="white-space:pre-line;{{ '' if m.msg_type == 'text' else 'display:none' }}">{{ m.content }}</div>
-<div style="font-size:10px;color:var(--sub);text-align:right;margin-top:3px">
-{{ m.reaction }} {{ m.timestamp }} <span style="color:#53bdeb;{{ '' if mine else 'display:none' }}">{{ '✓✓' if m.is_read else '✓' }}</span>
-</div>
+<div style="font-size:10px;opacity:.75;text-align:right;margin-top:3px">{{ m.reaction }} {{ m.timestamp }} <span style="{{ '' if mine else 'display:none' }}">{{ '✓✓' if m.is_read else '✓' }}</span></div>
 </div>
 {% endfor %}
 </div>
-<div class="reply-bar" id="rb"><span id="rt"></span><span onclick="cancelReply()" style="cursor:pointer">✖</span></div>
-<form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="prepSend()">
-<button type="button" class="tool-btn" onclick="document.getElementById('pi').click()">📎</button>
-<input type="file" id="pi" style="display:none" onchange="uploadFile(this.files.item(0))">
-<input type="text" name="text" id="ti" class="txt-inp" placeholder="Сообщение..." oninput="sendTyping()" required autofocus>
-<button type="button" class="tool-btn" id="mb2" onclick="tr()">🎤</button>
-<button type="submit" class="send-btn">➤</button>
+<div class="rbar" id="rb"><span id="rt"></span><span onclick="crep()" style="cursor:pointer">✕</span></div>
+<form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="iarea" style="{{ '' if active_user else 'display:none' }}" onsubmit="psend()">
+<button type="button" class="tbtn" onclick="document.getElementById('pi').click()">📎</button>
+<input type="file" id="pi" style="display:none" onchange="upf(this.files.item(0))">
+<input type="text" name="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus>
+<button type="button" class="tbtn" id="mb2" onclick="tr()">🎤</button>
+<button type="submit" class="sbtn">➤</button>
 </form>
 </div>
 
 <div class="modal" id="ctx" onclick="this.style.display='none'">
-<div class="modal-card" onclick="event.stopPropagation()">
-<div class="ctx-emojis" id="ctx-em"></div>
-<button type="button" class="ctx-btn" onclick="doReply()">↩️ Ответить</button>
-<a href="#" class="ctx-btn" id="btn-pin">📌 Закрепить / Открепить</a>
-<a href="#" class="ctx-btn" id="btn-del-me">🗑️ Удалить у себя</a>
-<a href="#" class="ctx-btn" id="btn-del-all" style="color:#e53935">❌ Удалить у всех</a>
+<div class="mcard" onclick="event.stopPropagation()">
+<div class="cemj" id="cem"></div>
+<button type="button" class="cbtn" onclick="drep()">↩️ Ответить</button>
+<a href="#" class="cbtn" id="bpin">📌 Закрепить</a>
+<a href="#" class="cbtn" id="bdm">🗑️ Удалить у себя</a>
+<a href="#" class="cbtn" id="bda" style="color:#ef4444">❌ Удалить у всех</a>
 </div>
 </div>
 
-<div class="modal" id="img-viewer" onclick="this.style.display='none'"><img id="full-img" src=""></div>
+<div class="modal" id="iv" onclick="this.style.display='none'"><img id="fi" src=""></div>
 
 <div class="modal" id="pm" onclick="this.style.display='none'">
-<div class="modal-card" onclick="event.stopPropagation()">
-<h3>Профиль</h3>
-<textarea class="m-inp" id="pn" rows="1">{{ current_user.name }}</textarea>
-<textarea class="m-inp" id="pb" rows="2">{{ current_user.bio }}</textarea>
-<input type="file" class="m-inp" accept="image/*" onchange="pa(this)">
-<button type="button" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
-<button type="button" onclick="svp()" style="background:#00a884;color:#fff;border:none;padding:8px 15px;border-radius:6px">Сохранить</button>
+<div class="mcard" onclick="event.stopPropagation()">
+<h3 style="margin-top:0">Профиль</h3>
+<textarea class="minp" name="name" form="pf" rows="1">{{ current_user.name }}</textarea>
+<textarea class="minp" name="bio" form="pf" rows="2">{{ current_user.bio }}</textarea>
+<input type="file" name="avatar_file" form="pf" class="minp" accept="image/*">
+<form id="pf" method="POST" action="/save_profile" enctype="multipart/form-data" style="display:flex;justify-content:flex-end;gap:8px">
+<button type="button" class="cbtn" style="width:auto;margin:0" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
+<button type="submit" class="sbtn" style="width:auto;border-radius:10px;padding:0 16px">Сохранить</button>
+</form>
 </div>
 </div>
 
 <script>
 if(localStorage.getItem('t')==='1')document.body.classList.add('dark');
-var b=document.getElementById('mb');if(b)b.scrollTop=b.scrollHeight;
-var oid=Number("{{ active_user.id if active_user else 0 }}"),mc=Number("{{ messages|length if messages else 0 }}"),av="",selTxt="",repTxt="",lastTyp=0;
-var baseBio="{{ active_user.bio if active_user else '' }}";
-
