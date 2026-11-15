@@ -38,7 +38,7 @@
         .msg.theirs { background: var(--theirs); align-self: flex-start; }
         .msg-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
         .msg-sender { font-size: 11px; font-weight: bold; color: #00a884; }
-        .act-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 3px; color: var(--sub); }
+        .act-link { text-decoration: none; font-size: 12px; padding: 0 3px; }
         .msg img.chat-img { max-width: 100%; max-height: 260px; border-radius: 8px; margin-top: 4px; display: block; }
         .msg audio { max-width: 230px; height: 36px; margin-top: 4px; }
         .msg-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 8px; }
@@ -64,11 +64,7 @@
         }
     </style>
 </head>
-<body class="{{ 'has-chat' if active_user else 'no-chat' }}"
-      data-my-id="{{ current_user.id }}"
-      data-other-id="{{ active_user.id if active_user else 0 }}"
-      data-other-name="{{ active_user.name if active_user else '' }}"
-      data-other-bio="{{ active_user.bio if active_user else '' }}">
+<body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 
     <div class="sidebar">
         <div class="my-profile">
@@ -82,15 +78,15 @@
                 </div>
             </div>
             <div>
-                <button type="button" class="icon-btn" id="btn-theme">🌓</button>
-                <button type="button" class="icon-btn" id="btn-settings">⚙️</button>
+                <button type="button" class="icon-btn" onclick="document.body.classList.toggle('dark'); localStorage.setItem('ramplez_theme', document.body.classList.contains('dark') ? 'dark' : 'light');">🌓</button>
+                <button type="button" class="icon-btn" onclick="document.getElementById('profile-modal').style.display='flex';">⚙️</button>
                 <a href="/logout" class="icon-btn">🚪</a>
             </div>
         </div>
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="Поиск...">
+            <input type="text" id="search-input" placeholder="Поиск..." onkeyup="filterUsers()">
         </div>
-        <div class="user-list" id="user-list">
+        <div class="user-list">
             {% if not users %}
                 <div class="empty-state">Пока никого нет. Зарегистрируй второй аккаунт!</div>
             {% endif %}
@@ -121,34 +117,34 @@
                 </div>
             </div>
 
-            <div class="messages-box" id="messages-box"></div>
+            <div class="messages-box" id="messages-box">
+                {% for m in messages %}
+                {% set mine = (m.sender_id == current_user.id) %}
+                <div class="msg {{ 'mine' if mine else 'theirs' }}">
+                    <div class="msg-header">
+                        <span class="msg-sender">{{ 'Вы' if mine else active_user.name }}</span>
+                        <div>
+                            <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/❤️" class="act-link">❤️</a>
+                            <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/👍" class="act-link">👍</a>
+                            <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/😂" class="act-link">😂</a>
+                            {% if mine %}
+                                <a href="/delete_msg/{{ m.id }}/{{ active_user.id }}" class="act-link">🗑️</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if m.msg_type == 'image' %}
+                        <img src="{{ m.content }}" class="chat-img">
+                    {% elif m.msg_type == 'audio' %}
+                        <audio controls src="{{ m.content }}"></audio>
+                    {% else %}
+                        <div>{{ m.content }}</div>
+                    {% endif %}
+                    <div class="msg-footer">
+                        {% if m.reaction %}<span class="reaction-badge">{{ m.reaction }}</span>{% endif %}
+                        <span class="msg-time">{{ m.timestamp }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
 
             <div class="emoji-bar" id="emoji-bar">
-                <span>😀</span><span>😂</span><span>🔥</span><span>❤️</span>
-                <span>👍</span><span>😎</span><span>😭</span><span>🎉</span>
-            </div>
-
-            <div class="input-area">
-                <button type="button" class="tool-btn" id="btn-emoji">😊</button>
-                <button type="button" class="tool-btn" id="btn-photo">📎</button>
-                <input type="file" id="photo-input" accept="image/*" style="display:none;">
-                <input type="text" class="txt-inp" id="msg-input" placeholder="Сообщение...">
-                <button type="button" class="tool-btn" id="btn-mic">🎤</button>
-                <button type="button" class="send-btn" id="btn-send">➤</button>
-            </div>
-        {% else %}
-            <div class="chat-header"><strong>Ramplez</strong></div>
-            <div class="messages-box"><div class="empty-state">Выбери собеседника слева</div></div>
-        {% endif %}
-    </div>
-
-    <div class="modal" id="profile-modal">
-        <div class="modal-card">
-            <h3>Профиль</h3>
-            <label>Имя:</label>
-            <input type="text" class="m-inp" id="prof-name" value="{{ current_user.name }}">
-            <label>О себе:</label>
-            <textarea class="m-inp" id="prof-bio" rows="2">{{ current_user.bio }}</textarea>
-            <label>Аватарка:</label>
-            <input type="file" class="m-inp" id="prof-avatar" accept="image/*">
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
