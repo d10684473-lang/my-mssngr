@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Вход в Мессенджер</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #e5ddd5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 320px; }
+        h2 { color: #075e54; text-align: center; margin-top: 0; }
+        input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #128c7e; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        button:hover { background: #075e54; }
+        .error { color: red; font-size: 13px; text-align: center; }
+        .switch { text-align: center; margin-top: 15px; font-size: 13px; color: #128c7e; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 id="form-title">Вход</h2>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        
+        <form method="POST">
+            <input type="hidden" name="action" id="action-input" value="login">
+            <input type="text" name="name" id="name-input" placeholder="Твое Имя (например, Алихан)" style="display:none;">
+            <input type="text" name="username" placeholder="Никнейм (без @)" required>
+            <input type="password" name="password" placeholder="Пароль" required>
+            <button type="submit" id="submit-btn">Войти</button>
+        </form>
+        <div class="switch" onclick="toggleForm()" id="switch-text">Нет аккаунта? Зарегистрироваться</div>
+    </div>
+
+    <script>
+        let isLogin = true;
+        function toggleForm() {
+            isLogin = !isLogin;
+            document.getElementById('form-title').innerText = isLogin ? 'Вход' : 'Регистрация';
+            document.getElementById('action-input').value = isLogin ? 'login' : 'register';
+            document.getElementById('name-input').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('name-input').required = !isLogin;
+            document.getElementById('submit-btn').innerText = isLogin ? 'Войти' : 'Создать аккаунт';
+            document.getElementById('switch-text').innerText = isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти';
+        }
+    </script>
+</body>
+</html>
