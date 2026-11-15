@@ -1,128 +1,118 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramplez</title>
-    <style>
-        :root { --bg:#dadbd3; --side:#fff; --chat:#efeae2; --head:#008069; --txt:#111b21; --sub:#667781; --brd:#e9edef; --hov:#f0f2f5; --mine:#d9fdd3; --theirs:#fff; --inp:#f0f2f5; --fld:#fff; }
-        body.dark { --bg:#091014; --side:#111b21; --chat:#0b141a; --head:#202c33; --txt:#e9edef; --sub:#8696a0; --brd:#222d34; --hov:#202c33; --mine:#005c4b; --theirs:#202c33; --inp:#202c33; --fld:#2a3942; }
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100dvh; background: var(--bg); color: var(--txt); overflow: hidden; }
-        .sidebar { width: 35%; max-width: 380px; background: var(--side); border-right: 1px solid var(--brd); display: flex; flex-direction: column; height: 100%; }
-        .my-profile { background: var(--head); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
-        .profile-info { display: flex; align-items: center; gap: 10px; }
-        .icon-btn { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 5px; text-decoration: none; }
-        .search-box { padding: 10px; border-bottom: 1px solid var(--brd); }
-        .search-box input { width: 100%; padding: 9px 14px; border: none; border-radius: 20px; outline: none; background: var(--inp); color: var(--txt); }
-        .user-list { flex: 1; overflow-y: auto; }
-        .user-item { padding: 12px 15px; border-bottom: 1px solid var(--brd); text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
-        .user-item:hover, .user-item.active { background: var(--hov); }
-        .avatar { width: 45px; height: 45px; background: #00a884; color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; overflow: hidden; position: relative; }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--chat); height: 100%; }
-        .chat-header { background: var(--head); color: #fff; padding: 10px 15px; display: flex; align-items: center; gap: 12px; min-height: 60px; }
-        .back-btn { display: none; text-decoration: none; color: #fff; font-size: 22px; }
-        .status-text { font-size: 12px; color: #b2dfdb; }
-        .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 9px 13px; border-radius: 12px; max-width: 72%; font-size: 15px; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-        .msg.mine { background: var(--mine); align-self: flex-end; }
-        .msg.theirs { background: var(--theirs); align-self: flex-start; }
-        .msg-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
-        .msg-sender { font-size: 11px; font-weight: bold; color: #00a884; }
-        .act-link { text-decoration: none; font-size: 12px; padding: 0 3px; }
-        .msg img.chat-img { max-width: 100%; max-height: 260px; border-radius: 8px; margin-top: 4px; display: block; }
-        .msg audio { max-width: 230px; height: 36px; margin-top: 4px; }
-        .msg-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 8px; }
-        .reaction-badge { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 10px; font-size: 12px; }
-        .msg-time { font-size: 10px; color: var(--sub); margin-left: auto; }
-        .emoji-bar { display: none; padding: 8px 15px; background: var(--inp); border-top: 1px solid var(--brd); gap: 10px; flex-wrap: wrap; }
-        .emoji-bar span { font-size: 22px; cursor: pointer; }
-        .input-area { padding: 10px; background: var(--inp); display: flex; align-items: center; gap: 8px; }
-        .txt-inp { flex: 1; padding: 11px 15px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: var(--fld); color: var(--txt); }
-        .tool-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--sub); padding: 5px; }
-        .tool-btn.recording { color: red; }
-        .send-btn { background: #00a884; color: #fff; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px; }
-        .empty-state { margin: auto; color: var(--sub); font-size: 16px; text-align: center; padding: 20px; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: center; }
-        .modal-card { background: var(--side); color: var(--txt); padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; }
-        .m-inp { width: 100%; padding: 9px; margin: 6px 0 12px; border: 1px solid var(--brd); border-radius: 8px; background: var(--fld); color: var(--txt); font-family: inherit; }
-        @media (max-width: 768px) {
-            body.no-chat .sidebar { width: 100%; max-width: none; }
-            body.no-chat .chat-area { display: none; }
-            body.has-chat .sidebar { display: none; }
-            body.has-chat .chat-area { display: flex; width: 100%; }
-            .back-btn { display: block; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramplez</title>
+<style>
+:root{--bg:#dadbd3;--side:#fff;--chat:#efeae2;--head:#008069;--txt:#111b21;--sub:#667781;--brd:#e9edef;--hov:#f0f2f5;--mine:#d9fdd3;--theirs:#fff;--inp:#f0f2f5;--fld:#fff}
+body.dark{--bg:#091014;--side:#111b21;--chat:#0b141a;--head:#202c33;--txt:#e9edef;--sub:#8696a0;--brd:#222d34;--hov:#202c33;--mine:#005c4b;--theirs:#202c33;--inp:#202c33;--fld:#2a3942}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);overflow:hidden}
+.sidebar{width:35%;max-width:360px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
+.my-profile{background:var(--head);color:#fff;padding:12px 15px;display:flex;justify-content:space-between;align-items:center}
+.icon-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;text-decoration:none}
+.search-box{padding:8px;border-bottom:1px solid var(--brd)}
+.search-box input{width:100%;padding:8px 12px;border:none;border-radius:18px;background:var(--inp);color:var(--txt);outline:none}
+.user-list{flex:1;overflow-y:auto}
+.user-item{padding:12px 15px;border-bottom:1px solid var(--brd);text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.user-item:hover{background:var(--hov)}
+.avatar{width:42px;height:42px;background:#00a884;color:#fff;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:bold;flex-shrink:0;overflow:hidden;position:relative}
+.avatar img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.chat-area{flex:1;display:flex;flex-direction:column;background:var(--chat)}
+.chat-header{background:var(--head);color:#fff;padding:10px 15px;display:flex;align-items:center;gap:10px;min-height:56px}
+.messages-box{flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 12px;border-radius:10px;max-width:75%;font-size:15px;word-wrap:break-word}
+.msg.mine{background:var(--mine);align-self:flex-end}
+.msg.theirs{background:var(--theirs);align-self:flex-start}
+.msg img{max-width:100%;max-height:250px;border-radius:8px;display:block;margin-top:4px}
+.msg audio{max-width:220px;height:35px;margin-top:4px}
+.input-area{padding:10px;background:var(--inp);display:flex;gap:8px;align-items:center}
+.txt-inp{flex:1;padding:10px 15px;border:none;border-radius:20px;background:var(--fld);color:var(--txt);outline:none}
+.tool-btn{background:none;border:none;font-size:20px;cursor:pointer;color:var(--sub)}
+.send-btn{background:#00a884;color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;justify-content:center;align-items:center}
+.modal-card{background:var(--side);color:var(--txt);padding:20px;border-radius:10px;width:90%;max-width:340px}
+.m-inp{width:100%;padding:8px;margin:5px 0 10px;border:1px solid var(--brd);border-radius:6px;background:var(--fld);color:var(--txt)}
+@media(max-width:768px){body.no-chat .sidebar{width:100%;max-width:none}body.no-chat .chat-area{display:none}body.has-chat .sidebar{display:none}body.has-chat .chat-area{display:flex;width:100%}}
+</style>
 </head>
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
-
 <div class="sidebar">
-    <div class="my-profile">
-        <div class="profile-info">
-            <div class="avatar">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
-            <div>
-                <div style="font-weight:bold;">{{ current_user.name }}</div>
-                <div style="font-size:12px;">@{{ current_user.username }}</div>
-            </div>
-        </div>
-        <div>
-            <button type="button" class="icon-btn" onclick="document.body.classList.toggle('dark');localStorage.setItem('ramplez_theme',document.body.classList.contains('dark')?'dark':'light');">🌓</button>
-            <button type="button" class="icon-btn" onclick="document.getElementById('profile-modal').style.display='flex';">⚙️</button>
-            <a href="/logout" class="icon-btn">🚪</a>
-        </div>
-    </div>
-    <div class="search-box"><input type="text" id="search-input" placeholder="Поиск..." onkeyup="filterUsers()"></div>
-    <div class="user-list">
-        {% if not users %}<div class="empty-state">Пока никого нет. Зарегистрируй второй аккаунт!</div>{% endif %}
-        {% for u in users %}
-        <a href="/chat?u={{ u.id }}" class="user-item {{ 'active' if active_user and active_user.id == u.id else '' }}" data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
-            <div class="avatar">{{ u.name[:1].upper() }}<img src="{{ u.avatar }}" onerror="this.remove()"></div>
-            <div>
-                <div style="font-weight:bold;">{{ u.name }}</div>
-                <div style="font-size:12px; color:var(--sub);">{{ u.bio or '@' + u.username }}</div>
-            </div>
-        </a>
-        {% endfor %}
-    </div>
+<div class="my-profile">
+<div style="display:flex;align-items:center;gap:10px">
+<div class="avatar">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
+<div><b>{{ current_user.name }}</b><br><small>@{{ current_user.username }}</small></div>
 </div>
-
+<div>
+<button type="button" class="icon-btn" onclick="document.body.classList.toggle('dark');localStorage.setItem('t',document.body.classList.contains('dark')?'1':'0')">🌓</button>
+<button type="button" class="icon-btn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
+<a href="/logout" class="icon-btn">🚪</a>
+</div>
+</div>
+<div class="search-box"><input type="text" id="si" placeholder="Поиск..." onkeyup="fu()"></div>
+<div class="user-list">
+{% for u in users %}
+<a href="/chat?u={{ u.id }}" class="user-item" data-s="{{ u.name.lower() }} {{ u.username.lower() }}">
+<div class="avatar">{{ u.name[:1].upper() }}<img src="{{ u.avatar }}" onerror="this.remove()"></div>
+<div><b>{{ u.name }}</b><br><small style="color:var(--sub)">{{ u.bio }}</small></div>
+</a>
+{% endfor %}
+</div>
+</div>
 <div class="chat-area">
-    {% if active_user %}
-        <div class="chat-header">
-            <a href="/chat" class="back-btn">←</a>
-            <div class="avatar">{{ active_user.name[:1].upper() }}<img src="{{ active_user.avatar }}" onerror="this.remove()"></div>
-            <div>
-                <div style="font-weight:bold;">{{ active_user.name }}</div>
-                <div class="status-text">@{{ active_user.username }} • {{ active_user.bio }}</div>
-            </div>
-        </div>
-        <div class="messages-box" id="messages-box">
-            {% for m in messages %}
-            {% set mine = (m.sender_id == current_user.id) %}
-            <div class="msg {{ 'mine' if mine else 'theirs' }}">
-                <div class="msg-header">
-                    <span class="msg-sender">{{ 'Вы' if mine else active_user.name }}</span>
-                    <div>
-                        <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/❤️" class="act-link">❤️</a>
-                        <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/👍" class="act-link">👍</a>
-                        <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/😂" class="act-link">😂</a>
-                        <a href="/delete_msg/{{ m.id }}/{{ active_user.id }}" class="act-link" style="{{ '' if mine else 'display:none;' }}">🗑️</a>
-                    </div>
-                </div>
-                <img src="{{ m.content }}" class="chat-img" style="{{ '' if m.msg_type == 'image' else 'display:none;' }}">
-                <audio controls src="{{ m.content }}" style="{{ '' if m.msg_type == 'audio' else 'display:none;' }}"></audio>
-                <div style="{{ '' if m.msg_type == 'text' else 'display:none;' }}">{{ m.content }}</div>
-                <div class="msg-footer">
-                    <span class="reaction-badge" style="{{ '' if m.reaction else 'display:none;' }}">{{ m.reaction }}</span>
-                    <span class="msg-time">{{ m.timestamp }}</span>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        <div class="emoji-bar" id="emoji-bar">
-            <span onclick="addEm('😀')">😀</span><span onclick="addEm('😂')">😂</span><span onclick="addEm('🔥')">🔥</span><span onclick="addEm('❤️')">❤️</span>
-            <span onclick="addEm('👍')">👍</span><span onclick="addEm('😎')">😎</span><span onclick="addEm('😭')">😭</span><span onclick="addEm('🎉')">🎉</span>
-        </div>
-        <form method="POST" action="/chat?u={{ active_user.id }}" class="input-area">
+<div class="chat-header">
+<a href="/chat" style="color:#fff;text-decoration:none;font-size:20px;margin-right:8px">←</a>
+<b>{{ active_user.name if active_user else 'Выбери чат слева' }}</b>
+</div>
+<div class="messages-box" id="mb">
+{% for m in messages %}
+{% set mine = (m.sender_id == current_user.id) %}
+<div class="msg {{ 'mine' if mine else 'theirs' }}">
+<div style="font-size:11px;display:flex;justify-content:space-between;gap:10px">
+<b style="color:#00a884">{{ 'Вы' if mine else active_user.name }}</b>
+<span>
+<a href="/react_msg/{{ m.id }}/{{ active_user.id }}/❤️" style="text-decoration:none">❤️</a>
+<a href="/react_msg/{{ m.id }}/{{ active_user.id }}/👍" style="text-decoration:none">👍</a>
+<a href="/delete_msg/{{ m.id }}/{{ active_user.id }}" style="text-decoration:none;{{ '' if mine else 'display:none' }}">🗑️</a>
+</span>
+</div>
+<img src="{{ m.content }}" style="{{ '' if m.msg_type == 'image' else 'display:none' }}">
+<audio controls src="{{ m.content }}" style="{{ '' if m.msg_type == 'audio' else 'display:none' }}"></audio>
+<div style="{{ '' if m.msg_type == 'text' else 'display:none' }}">{{ m.content }}</div>
+<div style="font-size:10px;color:var(--sub);text-align:right;margin-top:3px">{{ m.reaction }} {{ m.timestamp }}</div>
+</div>
+{% endfor %}
+</div>
+<form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}">
+<button type="button" class="tool-btn" onclick="document.getElementById('pi').click()">📎</button>
+<input type="file" id="pi" accept="image/*" style="display:none" onchange="sp(this)">
+<input type="text" name="text" class="txt-inp" placeholder="Сообщение..." required autofocus>
+<button type="button" class="tool-btn" id="mb2" onclick="tr()">🎤</button>
+<button type="submit" class="send-btn">➤</button>
+</form>
+</div>
+<div class="modal" id="pm">
+<div class="modal-card">
+<h3>Профиль</h3>
+<textarea class="m-inp" id="pn" rows="1">{{ current_user.name }}</textarea>
+<textarea class="m-inp" id="pb" rows="2">{{ current_user.bio }}</textarea>
+<input type="file" class="m-inp" accept="image/*" onchange="pa(this)">
+<button type="button" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
+<button type="button" onclick="svp()" style="background:#00a884;color:#fff;border:none;padding:8px 15px;border-radius:6px">Сохранить</button>
+</div>
+</div>
+<script>
+if(localStorage.getItem('t')==='1')document.body.classList.add('dark');
+var b=document.getElementById('mb');if(b)b.scrollTop=b.scrollHeight;
+var oid=Number("{{ active_user.id if active_user else 0 }}"),mc=Number("{{ messages|length if messages else 0 }}"),av="";
+function fu(){var q=document.getElementById('si').value.toLowerCase();document.querySelectorAll('.user-item').forEach(e=>e.style.display=e.dataset.s.includes(q)?'flex':'none')}
+function pa(i){var f=i.files.item(0);if(f){var r=new FileReader();r.onload=e=>av=e.target.result;r.readAsDataURL(f)}}
+function svp(){fetch('/update_profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('pn').value,bio:document.getElementById('pb').value,avatar:av})}).then(()=>location.reload())}
+function sp(i){var f=i.files.item(0);if(f){var r=new FileReader();r.onload=e=>fetch('/send_media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:oid,msg_type:'image',content:e.target.result})}).then(()=>location.reload());r.readAsDataURL(f)}}
+var rec=null,ch=[],ir=false;
+function tr(){var btn=document.getElementById('mb2');if(!ir){navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{rec=new MediaRecorder(s);ch=[];rec.ondataavailable=e=>ch.push(e.data);rec.onstop=()=>{var r=new FileReader();r.onload=e=>fetch('/send_media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_id:oid,msg_type:'audio',content:e.target.result})}).then(()=>location.reload());r.readAsDataURL(new Blob(ch,{type:'audio/webm'}));s.getTracks().forEach(t=>t.stop())};rec.start();ir=true;btn.innerText='⏹️'}).catch(()=>alert('Нет доступа к микрофону'))}else{rec.stop();ir=false;btn.innerText='🎤'}}
+if(oid>0)setInterval(()=>fetch('/msg_count/'+oid).then(r=>r.json()).then(d=>{if(d.count>mc)location.reload()}),2500);
+</script>
+</body>
+</html>
