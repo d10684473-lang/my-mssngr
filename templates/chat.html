@@ -5,36 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ramplez</title>
     <style>
+        :root {
+            --bg-main: #dadbd3;
+            --bg-sidebar: #ffffff;
+            --bg-chat: #efeae2;
+            --header-bg: #008069;
+            --text-main: #111b21;
+            --text-sub: #667781;
+            --border-color: #e9edef;
+            --hover-bg: #f5f6f6;
+            --msg-mine: #d9fdd3;
+            --msg-theirs: #ffffff;
+            --input-bg: #f0f2f5;
+            --input-field: #ffffff;
+        }
+        body.dark {
+            --bg-main: #0b141a;
+            --bg-sidebar: #111b21;
+            --bg-chat: #0b141a;
+            --header-bg: #202c33;
+            --text-main: #e9edef;
+            --text-sub: #8696a0;
+            --border-color: #222d34;
+            --hover-bg: #202c33;
+            --msg-mine: #005c4b;
+            --msg-theirs: #202c33;
+            --input-bg: #202c33;
+            --input-field: #2a3942;
+        }
+
         * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100dvh; background: #dadbd3; overflow: hidden; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; display: flex; height: 100dvh; background: var(--bg-main); color: var(--text-main); overflow: hidden; transition: 0.2s; }
         
-        .sidebar { width: 35%; max-width: 380px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; height: 100%; }
-        .my-profile { background: #075e54; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .search-box { padding: 10px; background: #f6f6f6; border-bottom: 1px solid #ddd; }
-        .search-box input { width: 100%; padding: 10px 15px; border: none; border-radius: 20px; outline: none; font-size: 14px; }
+        /* Левая колонка */
+        .sidebar { width: 35%; max-width: 390px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; }
+        .my-profile { background: var(--header-bg); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .profile-info { display: flex; align-items: center; gap: 10px; }
+        .icon-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; padding: 5px; border-radius: 50%; transition: 0.2s; text-decoration: none; }
+        .icon-btn:hover { background: rgba(255,255,255,0.15); }
+        
+        .search-box { padding: 8px 12px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); }
+        .search-box input { width: 100%; padding: 9px 15px; border: none; border-radius: 20px; outline: none; font-size: 14px; background: var(--input-bg); color: var(--text-main); }
+        
         .user-list { flex: 1; overflow-y: auto; }
-        .user-item { padding: 15px; border-bottom: 1px solid #f0f0f0; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
-        .user-item:hover, .user-item.active { background: #ebebeb; }
-        .avatar { width: 45px; height: 45px; background: #128c7e; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; }
+        .user-item { padding: 12px 15px; border-bottom: 1px solid var(--border-color); text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; transition: 0.15s; }
+        .user-item:hover, .user-item.active { background: var(--hover-bg); }
         
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: #efeae2; height: 100%; }
-        .chat-header { background: #075e54; color: white; padding: 12px 15px; font-weight: bold; display: flex; align-items: center; gap: 12px; min-height: 55px; }
-        .back-btn { display: none; text-decoration: none; color: white; font-size: 22px; padding: 0 5px; }
-        .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .avatar { width: 46px; height: 46px; background: linear-gradient(135deg, #00a884, #008069); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; overflow: hidden; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
         
-        /* Стили пузырьков сообщений */
-        .msg { padding: 10px 14px; border-radius: 12px; max-width: 75%; font-size: 15px; word-wrap: break-word; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .msg.mine { background: #d9fdd3; align-self: flex-end; border-bottom-right-radius: 2px; color: #111b21; }
-        .msg.theirs { background: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; color: #111b21; }
-        .msg-sender { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
-        .msg.mine .msg-sender { color: #008069; text-align: right; }
-        .msg.theirs .msg-sender { color: #128c7e; text-align: left; }
-        .msg-time { font-size: 10px; color: #667781; text-align: right; margin-top: 4px; }
+        /* Правая колонка (Чат) */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); height: 100%; position: relative; }
+        .chat-header { background: var(--header-bg); color: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; min-height: 60px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); z-index: 2; }
+        .chat-header-left { display: flex; align-items: center; gap: 12px; }
+        .back-btn { display: none; text-decoration: none; color: white; font-size: 22px; padding-right: 5px; }
+        .status-text { font-size: 12px; color: #b2dfdb; font-weight: normal; }
         
-        .input-area { padding: 10px; background: #f0f2f5; display: flex; gap: 8px; }
-        .input-area input { flex: 1; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 15px; }
-        .input-area button { background: #00a884; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px; }
-        .empty-state { margin: auto; color: #666; font-size: 16px; text-align: center; padding: 20px; }
+        .messages-box { flex: 1; padding: 15px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Сообщения */
+        .msg { padding: 8px 12px; border-radius: 12px; max-width: 72%; font-size: 15px; word-wrap: break-word; line-height: 1.4; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+        .msg.mine { background: var(--msg-mine); align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg.theirs { background: var(--msg-theirs); align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 3px; }
+        .msg-sender { font-size: 11px; font-weight: bold; color: #00a884; }
+        .msg-actions { display: flex; gap: 4px; opacity: 0.6; transition: 0.2s; }
+        .msg:hover .msg-actions { opacity: 1; }
+        .act-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 2px; color: var(--text-sub); }
+        .act-btn:hover { transform: scale(1.2); }
+        .msg img.chat-img { max-width: 100%; max-height: 280px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
+        .msg audio { max-width: 240px; height: 36px; margin-top: 4px; }
+        .msg-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 8px; }
+        .reaction-badge { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 10px; font-size: 12px; }
+        .msg-time { font-size: 10px; color: var(--text-sub); margin-left: auto; }
+        
+        /* Панель ввода */
+        .emoji-bar { display: none; padding: 8px 15px; background: var(--input-bg); border-top: 1px solid var(--border-color); gap: 8px; flex-wrap: wrap; }
+        .emoji-bar span { font-size: 22px; cursor: pointer; transition: 0.1s; }
+        .emoji-bar span:hover { transform: scale(1.2); }
+        
+        .input-area { padding: 10px 12px; background: var(--input-bg); display: flex; align-items: center; gap: 8px; }
+        .input-area input[type="text"] { flex: 1; padding: 11px 16px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: var(--input-field); color: var(--text-main); }
+        .tool-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-sub); padding: 6px; border-radius: 50%; }
+        .tool-btn:hover { background: rgba(0,0,0,0.08); }
+        .tool-btn.recording { color: #e53935; animation: pulse 1s infinite; }
+        .send-btn { background: #00a884; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
+        .empty-state { margin: auto; color: var(--text-sub); font-size: 16px; text-align: center; padding: 20px; }
+
+        /* Модальное окно профиля */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: center; }
+        .modal-card { background: var(--bg-sidebar); color: var(--text-main); padding: 25px; border-radius: 14px; width: 90%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .modal-card h3 { margin-top: 0; color: #00a884; }
+        .modal-card input, .modal-card textarea { width: 100%; padding: 10px; margin: 8px 0 14px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-field); color: var(--text-main); font-family: inherit; }
+        .modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-save { background: #00a884; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: transparent; color: var(--text-sub); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 8px; cursor: pointer; }
 
         @media (max-width: 768px) {
             body.no-chat .sidebar { width: 100%; max-width: none; }
@@ -42,132 +109,43 @@
             body.has-chat .sidebar { display: none; }
             body.has-chat .chat-area { display: flex; width: 100%; }
             .back-btn { display: block; }
+            .msg { max-width: 84%; }
         }
     </style>
 </head>
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 
+    <!-- Левая панель -->
     <div class="sidebar">
         <div class="my-profile">
-            <div>
-                <strong>{{ current_user.name }}</strong><br>
-                <small>@{{ current_user.username }}</small>
+            <div class="profile-info">
+                <div class="avatar" style="width:40px; height:40px; font-size:16px;">
+                    {% if current_user.avatar %}<img src="{{ current_user.avatar }}">{% else %}{{ current_user.name[:1].upper() }}{% endif %}
+                </div>
+                <div>
+                    <div style="font-weight:bold; font-size:15px;">{{ current_user.name }}</div>
+                    <div style="font-size:12px; opacity:0.85;">@{{ current_user.username }}</div>
+                </div>
             </div>
-            <a href="/logout" style="color: #ffcdd2; text-decoration: none; font-size: 13px;">Выйти</a>
+            <div>
+                <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌓</button>
+                <button class="icon-btn" onclick="openProfileModal()" title="Настройки профиля">⚙️</button>
+                <a href="/logout" class="icon-btn" title="Выйти">🚪</a>
+            </div>
         </div>
         
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="Поиск по имени или @username..." onkeyup="filterUsers()">
+            <input type="text" id="search-input" placeholder="Поиск людей или @username..." onkeyup="filterUsers()">
         </div>
 
         <div class="user-list" id="user-list">
             {% if not users %}
-                <div class="empty-state">Пока никого нет.<br>Зарегистрируй второй аккаунт!</div>
+                <div class="empty-state">Пока никого нет.<br>Пригласи друга по ссылке!</div>
             {% endif %}
             {% for u in users %}
             <a href="/chat?u={{ u.id }}" 
                class="user-item {{ 'active' if active_user and active_user.id == u.id else '' }}"
                data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
-                <div class="avatar">{{ u.name[:1].upper() }}</div>
-                <div>
-                    <div style="font-weight: bold;">{{ u.name }}</div>
-                    <div style="font-size: 12px; color: #666;">@{{ u.username }}</div>
+                <div class="avatar">
+                    {% if u.avatar %}<img src="{{ u.avatar }}">{% else %}{{ u.name[:1].upper() }}{% endif %}
                 </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="chat-area">
-        {% if active_user %}
-            <div class="chat-header">
-                <a href="/chat" class="back-btn">←</a>
-                <span>{{ active_user.name }} (@{{ active_user.username }})</span>
-            </div>
-            <div class="messages-box" id="messages-box">
-                {% for m in messages %}
-                {% set is_mine = (m.sender_id == current_user.id) %}
-                <div class="msg {{ 'mine' if is_mine else 'theirs' }}" data-id="{{ m.id }}">
-                    <div class="msg-sender">{{ 'Вы' if is_mine else active_user.name }}</div>
-                    <div>{{ m.text }}</div>
-                    <div class="msg-time">{{ m.timestamp }}</div>
-                </div>
-                {% endfor %}
-            </div>
-            <div class="input-area">
-                <input type="text" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" autofocus>
-                <button type="button" onclick="sendMessage()">➤</button>
-            </div>
-        {% else %}
-            <div class="chat-header">Ramplez</div>
-            <div class="messages-box">
-                <div class="empty-state">Нажмите на собеседника слева, чтобы начать чат</div>
-            </div>
-        {% endif %}
-    </div>
-
-    <script>
-        const myId = Number("{{ current_user.id }}");
-        const activeChatUserId = Number("{{ active_user.id if active_user else 0 }}");
-        const otherUserName = "{{ active_user.name if active_user else '' }}";
-        const box = document.getElementById('messages-box');
-
-        if (box) box.scrollTop = box.scrollHeight;
-
-        function sendMessage() {
-            const input = document.getElementById('msg-input');
-            const text = input.value.trim();
-            if (!text || activeChatUserId === 0) return;
-
-            input.value = '';
-            fetch('/send_msg', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ receiver_id: activeChatUserId, text: text })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    loadNewMessages();
-                }
-            });
-        }
-
-        function loadNewMessages() {
-            if (activeChatUserId === 0 || !box) return;
-            fetch(`/get_msgs/${activeChatUserId}`)
-                .then(res => res.json())
-                .then(data => {
-                    const currentCount = box.querySelectorAll('.msg').length;
-                    if (data.messages.length > currentCount) {
-                        box.innerHTML = '';
-                        data.messages.forEach(m => {
-                            const isMine = Number(m.sender_id) === myId;
-                            const div = document.createElement('div');
-                            div.className = 'msg ' + (isMine ? 'mine' : 'theirs');
-                            div.innerHTML = `
-                                <div class="msg-sender">${isMine ? 'Вы' : otherUserName}</div>
-                                <div>${m.text}</div>
-                                <div class="msg-time">${m.time}</div>
-                            `;
-                            box.appendChild(div);
-                        });
-                        box.scrollTop = box.scrollHeight;
-                    }
-                });
-        }
-
-        if (activeChatUserId > 0) {
-            setInterval(loadNewMessages, 1500);
-        }
-
-        function filterUsers() {
-            const query = document.getElementById('search-input').value.toLowerCase();
-            document.querySelectorAll('.user-item').forEach(item => {
-                const searchData = item.getAttribute('data-search');
-                item.style.display = searchData.includes(query) ? 'flex' : 'none';
-            });
-        }
-    </script>
-</body>
-</html>
