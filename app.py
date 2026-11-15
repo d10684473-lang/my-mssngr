@@ -1,13 +1,15 @@
-import traceback
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+import os, traceback
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ramplez_rock_solid_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_v4.db'
+app.config['SECRET_KEY'] = 'ramplez_v5_2026'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_v5.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+os.makedirs('uploads', exist_ok=True)
 
 db = SQLAlchemy(app)
 
@@ -25,98 +27,94 @@ class Message(db.Model):
     receiver_id = db.Column(db.Integer, nullable=False)
     msg_type = db.Column(db.String(20), default="text")
     content = db.Column(db.Text, nullable=False)
+    file_name = db.Column(db.String(200), default="")
     reaction = db.Column(db.String(20), default="")
+    hidden_for = db.Column(db.Integer, default=0)
     timestamp = db.Column(db.String(20), default="")
 
 with app.app_context():
     db.create_all()
 
 @app.errorhandler(Exception)
-def handle_exception(e):
-    return f"<pre style='padding:20px;font-family:monospace;'>Ошибка сервера:\n{traceback.format_exc()}</pre>", 500
+def handle_err(e):
+    return f"<pre style='padding:20px'>{traceback.format_exc()}</pre>", 500
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory('uploads', filename)
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
     uid = session.get('user_id')
-    if uid:
-        user = User.query.filter_by(id=int(uid)).first()
-        if user:
-            return redirect(url_for('chat'))
-        session.clear()
-
-    error = None
+    if uid and User.query.filter_by(id=int(uid)).first():
+        return redirect(url_for('chat'))
+    session.clear()
+    err = None
     if request.method == 'POST':
-        action = request.form.get('action')
-        username = request.form.get('username', '').strip().lower()
-        password = request.form.get('password', '')
-
-        if action == 'register':
-            name = request.form.get('name', '').strip()
-            if not username or not name or not password:
-                error = "Заполни все поля!"
-            elif User.query.filter_by(username=username).first():
-                error = "Этот @username уже занят!"
-            else:
-                u = User(username=username, name=name, password=password)
+        act = request.form.get('action')
+        un = request.form.get('username', '').strip().lower()
+        pw = request.form.get('password', '')
+        if act == 'register':
+            nm = request.form.get('name', '').strip()
+            if User.query.filter_by(username=un).first():
+                err = "Никнейм занят!"
+            elif un and nm and pw:
+                u = User(username=un, name=nm, password=pw)
                 db.session.add(u)
                 db.session.commit()
                 session['user_id'] = u.id
                 return redirect(url_for('chat'))
         else:
-            u = User.query.filter_by(username=username, password=password).first()
+            u = User.query.filter_by(username=un, password=pw).first()
             if u:
                 session['user_id'] = u.id
                 return redirect(url_for('chat'))
-            error = "Неверный логин или пароль!"
-
-    return render_template('login.html', error=error)
+            err = "Неверный логин или пароль!"
+    return render_template('login.html', error=err)
 
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
     uid = session.get('user_id')
     if not uid:
         return redirect(url_for('login'))
-
-    current_user = User.query.filter_by(id=int(uid)).first()
-    if not current_user:
+    me = User.query.filter_by(id=int(uid)).first()
+    if not me:
         session.clear()
         return redirect(url_for('login'))
 
     u_id = request.args.get('u', type=int)
-
     if request.method == 'POST' and u_id:
-        text = request.form.get('text', '').strip()
-        if text:
-            now_str = datetime.now().strftime("%H:%M")
-            m = Message(sender_id=current_user.id, receiver_id=u_id, msg_type='text', content=text, timestamp=now_str)
+        txt = request.form.get('text', '').strip()
+        if txt:
+            m = Message(sender_id=me.id, receiver_id=u_id, msg_type='text', content=txt, timestamp=datetime.now().strftime("%H:%M"))
             db.session.add(m)
             db.session.commit()
         return redirect(url_for('chat', u=u_id))
 
-    users = User.query.filter(User.id != current_user.id).all()
-    active_user = User.query.filter_by(id=u_id).first() if u_id else None
-    messages = []
-
-    if active_user:
-        messages = Message.query.filter(
-            ((Message.sender_id == current_user.id) & (Message.receiver_id == active_user.id)) |
-            ((Message.sender_id == active_user.id) & (Message.receiver_id == current_user.id))
+    users = User.query.filter(User.id != me.id).all()
+    other = User.query.filter_by(id=u_id).first() if u_id else None
+    msgs = []
+    if other:
+        msgs = Message.query.filter(
+            (((Message.sender_id == me.id) & (Message.receiver_id == other.id)) |
+             ((Message.sender_id == other.id) & (Message.receiver_id == me.id))) &
+            (Message.hidden_for != me.id)
         ).order_by(Message.id.asc()).all()
+    return render_template('chat.html', current_user=me, users=users, active_user=other, messages=msgs)
 
-    return render_template('chat.html', current_user=current_user, users=users, active_user=active_user, messages=messages)
-
-@app.route('/send_media', methods=['POST'])
-def send_media():
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
     uid = session.get('user_id')
     if not uid:
         return jsonify({"ok": False}), 401
-    data = request.get_json(silent=True) or {}
-    r_id = int(data.get('receiver_id', 0))
-    m_type = data.get('msg_type', 'text')
-    content = data.get('content', '')
-    if r_id and content:
-        now_str = datetime.now().strftime("%H:%M")
-        m = Message(sender_id=int(uid), receiver_id=r_id, msg_type=m_type, content=content, timestamp=now_str)
+    r_id = request.form.get('receiver_id', type=int)
+    f = request.files.get('file')
+    if r_id and f and f.filename:
+        safe_name = f"{int(datetime.now().timestamp())}_{secure_filename(f.filename)}"
+        f.save(os.path.join('uploads', safe_name))
+        ext = safe_name.lower().split('.')[-1]
+        m_type = 'image' if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else ('audio' if ext in ['webm', 'mp3', 'ogg', 'wav'] else 'file')
+        m = Message(sender_id=int(uid), receiver_id=r_id, msg_type=m_type, content=f"/uploads/{safe_name}", file_name=f.filename, timestamp=datetime.now().strftime("%H:%M"))
         db.session.add(m)
         db.session.commit()
         return jsonify({"ok": True})
@@ -128,45 +126,54 @@ def update_profile():
     if not uid:
         return jsonify({"ok": False}), 401
     u = User.query.filter_by(id=int(uid)).first()
-    data = request.get_json(silent=True) or {}
+    d = request.get_json(silent=True) or {}
     if u:
-        if data.get('name') and data['name'].strip():
-            u.name = data['name'].strip()
-        if 'bio' in data:
-            u.bio = data['bio'].strip()
-        if data.get('avatar'):
-            u.avatar = data['avatar']
+        if d.get('name', '').strip(): u.name = d['name'].strip()
+        if 'bio' in d: u.bio = d['bio'].strip()
+        if d.get('avatar'): u.avatar = d['avatar']
         db.session.commit()
     return jsonify({"ok": True})
 
-@app.route('/delete_msg/<int:msg_id>/<int:u_id>')
-def delete_msg(msg_id, u_id):
+@app.route('/del_me/<int:mid>/<int:uid_chat>')
+def del_me(mid, uid_chat):
     uid = session.get('user_id')
     if uid:
-        m = Message.query.filter_by(id=msg_id).first()
-        if m and m.sender_id == int(uid):
+        m = Message.query.filter_by(id=mid).first()
+        if m:
+            if m.hidden_for and m.hidden_for != int(uid):
+                db.session.delete(m)
+            else:
+                m.hidden_for = int(uid)
+            db.session.commit()
+    return redirect(url_for('chat', u=uid_chat))
+
+@app.route('/del_all/<int:mid>/<int:uid_chat>')
+def del_all(mid, uid_chat):
+    if session.get('user_id'):
+        m = Message.query.filter_by(id=mid).first()
+        if m:
             db.session.delete(m)
             db.session.commit()
-    return redirect(url_for('chat', u=u_id))
+    return redirect(url_for('chat', u=uid_chat))
 
-@app.route('/react_msg/<int:msg_id>/<int:u_id>/<emoji>')
-def react_msg(msg_id, u_id, emoji):
+@app.route('/react/<int:mid>/<int:uid_chat>/<emj>')
+def react(mid, uid_chat, emj):
     if session.get('user_id'):
-        m = Message.query.filter_by(id=msg_id).first()
+        m = Message.query.filter_by(id=mid).first()
         if m:
-            m.reaction = "" if m.reaction == emoji else emoji
+            m.reaction = "" if m.reaction == emj else emj
             db.session.commit()
-    return redirect(url_for('chat', u=u_id))
+    return redirect(url_for('chat', u=uid_chat))
 
 @app.route('/msg_count/<int:other_id>')
 def msg_count(other_id):
     uid = session.get('user_id')
-    if not uid:
-        return jsonify({"count": 0})
+    if not uid: return jsonify({"count": 0})
     my_id = int(uid)
     cnt = Message.query.filter(
-        ((Message.sender_id == my_id) & (Message.receiver_id == other_id)) |
-        ((Message.sender_id == other_id) & (Message.receiver_id == my_id))
+        (((Message.sender_id == my_id) & (Message.receiver_id == other_id)) |
+         ((Message.sender_id == other_id) & (Message.receiver_id == my_id))) &
+        (Message.hidden_for != my_id)
     ).count()
     return jsonify({"count": cnt})
 
