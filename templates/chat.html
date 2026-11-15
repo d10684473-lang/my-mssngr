@@ -17,17 +17,23 @@
         .user-item:hover, .user-item.active { background: #ebebeb; }
         .avatar { width: 45px; height: 45px; background: #128c7e; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; }
         
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: #e5ddd5; height: 100%; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #efeae2; height: 100%; }
         .chat-header { background: #075e54; color: white; padding: 12px 15px; font-weight: bold; display: flex; align-items: center; gap: 12px; min-height: 55px; }
         .back-btn { display: none; text-decoration: none; color: white; font-size: 22px; padding: 0 5px; }
-        .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .msg { padding: 10px 14px; border-radius: 12px; max-width: 75%; font-size: 15px; word-wrap: break-word; line-height: 1.4; }
-        .msg.mine { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .msg.theirs { background: white; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .msg-time { font-size: 10px; color: #777; text-align: right; margin-top: 4px; }
-        .input-area { padding: 10px; background: #f0f0f0; display: flex; gap: 8px; }
+        .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Стили пузырьков сообщений */
+        .msg { padding: 10px 14px; border-radius: 12px; max-width: 75%; font-size: 15px; word-wrap: break-word; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg.mine { background: #d9fdd3; align-self: flex-end; border-bottom-right-radius: 2px; color: #111b21; }
+        .msg.theirs { background: #ffffff; align-self: flex-start; border-bottom-left-radius: 2px; color: #111b21; }
+        .msg-sender { font-size: 11px; font-weight: bold; margin-bottom: 3px; }
+        .msg.mine .msg-sender { color: #008069; text-align: right; }
+        .msg.theirs .msg-sender { color: #128c7e; text-align: left; }
+        .msg-time { font-size: 10px; color: #667781; text-align: right; margin-top: 4px; }
+        
+        .input-area { padding: 10px; background: #f0f2f5; display: flex; gap: 8px; }
         .input-area input { flex: 1; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 15px; }
-        .input-area button { background: #128c7e; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .input-area button { background: #00a884; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px; }
         .empty-state { margin: auto; color: #666; font-size: 16px; text-align: center; padding: 20px; }
 
         @media (max-width: 768px) {
@@ -80,7 +86,9 @@
             </div>
             <div class="messages-box" id="messages-box">
                 {% for m in messages %}
-                <div class="msg {{ 'mine' if m.sender_id == current_user.id else 'theirs' }}" data-id="{{ m.id }}">
+                {% set is_mine = (m.sender_id == current_user.id) %}
+                <div class="msg {{ 'mine' if is_mine else 'theirs' }}" data-id="{{ m.id }}">
+                    <div class="msg-sender">{{ 'Вы' if is_mine else active_user.name }}</div>
                     <div>{{ m.text }}</div>
                     <div class="msg-time">{{ m.timestamp }}</div>
                 </div>
@@ -101,6 +109,7 @@
     <script>
         const myId = Number("{{ current_user.id }}");
         const activeChatUserId = Number("{{ active_user.id if active_user else 0 }}");
+        const otherUserName = "{{ active_user.name if active_user else '' }}";
         const box = document.getElementById('messages-box');
 
         if (box) box.scrollTop = box.scrollHeight;
@@ -133,9 +142,14 @@
                     if (data.messages.length > currentCount) {
                         box.innerHTML = '';
                         data.messages.forEach(m => {
+                            const isMine = Number(m.sender_id) === myId;
                             const div = document.createElement('div');
-                            div.classList.add('msg', m.sender_id === myId ? 'mine' : 'theirs');
-                            div.innerHTML = `<div>${m.text}</div><div class="msg-time">${m.time}</div>`;
+                            div.className = 'msg ' + (isMine ? 'mine' : 'theirs');
+                            div.innerHTML = `
+                                <div class="msg-sender">${isMine ? 'Вы' : otherUserName}</div>
+                                <div>${m.text}</div>
+                                <div class="msg-time">${m.time}</div>
+                            `;
                             box.appendChild(div);
                         });
                         box.scrollTop = box.scrollHeight;
