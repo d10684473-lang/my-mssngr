@@ -1,6 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO, emit, join_room
 from datetime import datetime
 
 app = Flask(__name__)
@@ -9,7 +8,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///messenger.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -86,34 +84,44 @@ def chat():
 
     return render_template('chat.html', current_user=current_user, users=users, active_user=active_user, messages=messages)
 
+@app.route('/send_msg', methods=['POST'])
+def send_msg():
+    if 'user_id' not in session:
+        return jsonify({"status": "error"}), 401
+    
+    data = request.get_json()
+    receiver_id = int(data.get('receiver_id'))
+    text = data.get('text', '').strip()
+    
+    if text:
+        new_msg = Message(sender_id=session['user_id'], receiver_id=receiver_id, text=text)
+        db.session.add(new_msg)
+        db.session.commit()
+        return jsonify({"status": "ok", "id": new_msg.id, "text": new_msg.text, "time": new_msg.timestamp})
+    return jsonify({"status": "empty"}), 400
+
+@app.route('/get_msgs/<int:other_id>')
+def get_msgs(other_id):
+    if 'user_id' not in session:
+        return jsonify({"messages": []})
+    
+    my_id = session['user_id']
+    msgs = Message.query.filter(
+        ((Message.sender_id == my_id) & (Message.receiver_id == other_id)) |
+        ((Message.sender_id == other_id) & (Message.receiver_id == my_id))
+    ).order_by(Message.id.asc()).all()
+
+    return jsonify({
+        "messages": [
+            {"id": m.id, "sender_id": m.sender_id, "text": m.text, "time": m.timestamp}
+            for m in msgs
+        ]
+    })
+
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
 
-@socketio.on('join')
-def on_join(data):
-    join_room(str(data['user_id']))
-
-@socketio.on('private_message')
-def handle_private_message(data):
-    sender_id = int(data['sender_id'])
-    receiver_id = int(data['receiver_id'])
-    text = data['text']
-
-    new_msg = Message(sender_id=sender_id, receiver_id=receiver_id, text=text)
-    db.session.add(new_msg)
-    db.session.commit()
-
-    msg_data = {
-        'sender_id': sender_id,
-        'receiver_id': receiver_id,
-        'text': text,
-        'time': new_msg.timestamp
-    }
-
-    emit('new_message', msg_data, room=str(receiver_id))
-    emit('new_message', msg_data, room=str(sender_id))
-
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
