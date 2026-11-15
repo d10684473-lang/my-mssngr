@@ -9,20 +9,18 @@
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100dvh; background: #dadbd3; overflow: hidden; }
         
-        /* Левая колонка (Список чатов) */
         .sidebar { width: 35%; max-width: 380px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; height: 100%; }
         .my-profile { background: #075e54; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         .search-box { padding: 10px; background: #f6f6f6; border-bottom: 1px solid #ddd; }
         .search-box input { width: 100%; padding: 10px 15px; border: none; border-radius: 20px; outline: none; font-size: 14px; }
         .user-list { flex: 1; overflow-y: auto; }
-        .user-item { padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .user-item { padding: 15px; border-bottom: 1px solid #f0f0f0; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
         .user-item:hover, .user-item.active { background: #ebebeb; }
         .avatar { width: 45px; height: 45px; background: #128c7e; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; }
         
-        /* Правая колонка (Окно чата) */
         .chat-area { flex: 1; display: flex; flex-direction: column; background: #e5ddd5; height: 100%; }
         .chat-header { background: #075e54; color: white; padding: 12px 15px; font-weight: bold; display: flex; align-items: center; gap: 12px; min-height: 55px; }
-        .back-btn { display: none; background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0 5px; }
+        .back-btn { display: none; text-decoration: none; color: white; font-size: 22px; padding: 0 5px; }
         .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .msg { padding: 10px 14px; border-radius: 12px; max-width: 75%; font-size: 15px; word-wrap: break-word; line-height: 1.4; }
         .msg.mine { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 2px; }
@@ -30,20 +28,19 @@
         .msg-time { font-size: 10px; color: #777; text-align: right; margin-top: 4px; }
         .input-area { padding: 10px; background: #f0f0f0; display: flex; gap: 8px; }
         .input-area input { flex: 1; padding: 12px 15px; border: none; border-radius: 25px; outline: none; font-size: 15px; }
-        .input-area button { background: #128c7e; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 15px; }
+        .input-area button { background: #128c7e; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px; }
         .empty-state { margin: auto; color: #666; font-size: 16px; text-align: center; padding: 20px; }
 
-        /* Адаптация под телефоны */
         @media (max-width: 768px) {
-            .sidebar { width: 100%; max-width: none; }
-            .chat-area { display: none; width: 100%; }
-            body.chat-open .sidebar { display: none; }
-            body.chat-open .chat-area { display: flex; }
+            body.no-chat .sidebar { width: 100%; max-width: none; }
+            body.no-chat .chat-area { display: none; }
+            body.has-chat .sidebar { display: none; }
+            body.has-chat .chat-area { display: flex; width: 100%; }
             .back-btn { display: block; }
         }
     </style>
 </head>
-<body>
+<body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 
     <div class="sidebar">
         <div class="my-profile">
@@ -63,93 +60,58 @@
                 <div class="empty-state">Пока никого нет.<br>Зарегистрируй второй аккаунт!</div>
             {% endif %}
             {% for u in users %}
-            <div class="user-item" 
-                 data-id="{{ u.id }}" 
-                 data-realname="{{ u.name }}" 
-                 data-username="{{ u.username }}" 
-                 data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
+            <a href="/chat?u={{ u.id }}" 
+               class="user-item {{ 'active' if active_user and active_user.id == u.id else '' }}"
+               data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
                 <div class="avatar">{{ u.name[:1].upper() }}</div>
                 <div>
                     <div style="font-weight: bold;">{{ u.name }}</div>
                     <div style="font-size: 12px; color: #666;">@{{ u.username }}</div>
                 </div>
-            </div>
+            </a>
             {% endfor %}
         </div>
     </div>
 
     <div class="chat-area">
-        <div class="chat-header">
-            <button class="back-btn" onclick="closeChat()">←</button>
-            <span id="chat-title">Выберите чат</span>
-        </div>
-        <div class="messages-box" id="messages-box">
-            <div class="empty-state">Нажмите на собеседника слева</div>
-        </div>
-        <div class="input-area" id="input-area" style="display: none;">
-            <input type="text" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button onclick="sendMessage()">➤</button>
-        </div>
+        {% if active_user %}
+            <div class="chat-header">
+                <a href="/chat" class="back-btn">←</a>
+                <span>{{ active_user.name }} (@{{ active_user.username }})</span>
+            </div>
+            <div class="messages-box" id="messages-box">
+                {% for m in messages %}
+                <div class="msg {{ 'mine' if m.sender_id == current_user.id else 'theirs' }}">
+                    <div>{{ m.text }}</div>
+                    <div class="msg-time">{{ m.timestamp }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="input-area">
+                <input type="text" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" autofocus>
+                <button onclick="sendMessage()">➤</button>
+            </div>
+        {% else %}
+            <div class="chat-header">Ramplez</div>
+            <div class="messages-box">
+                <div class="empty-state">Нажмите на собеседника слева, чтобы начать чат</div>
+            </div>
+        {% endif %}
     </div>
 
     <script>
         const socket = io();
         const myId = Number("{{ current_user.id }}");
-        let activeChatUserId = null;
+        const activeChatUserId = Number("{{ active_user.id if active_user else 0 }}");
+        const box = document.getElementById('messages-box');
 
+        if (box) box.scrollTop = box.scrollHeight;
         socket.emit('join', { user_id: myId });
-
-        // Надежное открытие чата при клике на любого пользователя
-        document.querySelectorAll('.user-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-                this.classList.add('active');
-
-                activeChatUserId = Number(this.getAttribute('data-id'));
-                const name = this.getAttribute('data-realname');
-                const username = this.getAttribute('data-username');
-
-                document.getElementById('chat-title').innerText = `${name} (@${username})`;
-                document.getElementById('input-area').style.display = 'flex';
-                document.body.classList.add('chat-open'); // Переключает экран на телефоне
-
-                const box = document.getElementById('messages-box');
-                box.innerHTML = '<div class="empty-state">Загрузка...</div>';
-
-                fetch(`/get_messages/${activeChatUserId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        box.innerHTML = '';
-                        if (data.messages.length === 0) {
-                            box.innerHTML = '<div class="empty-state">Сообщений пока нет. Напишите первым!</div>';
-                        } else {
-                            data.messages.forEach(m => appendMessage(m.sender_id, m.text, m.time));
-                        }
-                    });
-            });
-        });
-
-        function closeChat() {
-            document.body.classList.remove('chat-open');
-            activeChatUserId = null;
-        }
-
-        function appendMessage(senderId, text, time) {
-            const box = document.getElementById('messages-box');
-            const empty = box.querySelector('.empty-state');
-            if (empty) empty.remove();
-
-            const div = document.createElement('div');
-            div.classList.add('msg', Number(senderId) === myId ? 'mine' : 'theirs');
-            div.innerHTML = `<div>${text}</div><div class="msg-time">${time}</div>`;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
-        }
 
         function sendMessage() {
             const input = document.getElementById('msg-input');
             const text = input.value.trim();
-            if (text && activeChatUserId) {
+            if (text && activeChatUserId > 0) {
                 socket.emit('private_message', {
                     sender_id: myId,
                     receiver_id: activeChatUserId,
@@ -164,7 +126,11 @@
             const rId = Number(data.receiver_id);
             if ((sId === myId && rId === activeChatUserId) ||
                 (sId === activeChatUserId && rId === myId)) {
-                appendMessage(sId, data.text, data.time);
+                const div = document.createElement('div');
+                div.classList.add('msg', sId === myId ? 'mine' : 'theirs');
+                div.innerHTML = `<div>${data.text}</div><div class="msg-time">${data.time}</div>`;
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
             }
         });
 
