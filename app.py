@@ -4,22 +4,20 @@ from flask_socketio import SocketIO, emit, join_room
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'super_secret_key_999'
+app.config['SECRET_KEY'] = 'ramplez_secret_key_2026'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///messenger.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Таблица пользователей
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
-    bio = db.Column(db.String(200), default="Привет! Я использую новый мессенджер.")
+    bio = db.Column(db.String(200), default="Привет! Я в Ramplez.")
 
-# Таблица сообщений
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -33,16 +31,19 @@ with app.app_context():
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if 'user_id' in session:
-        return redirect(url_for('chat'))
+        user = db.session.get(User, session['user_id'])
+        if user:
+            return redirect(url_for('chat'))
+        session.pop('user_id', None)
     
     error = None
     if request.method == 'POST':
         action = request.form.get('action')
-        username = request.form.get('username').strip().lower()
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
 
         if action == 'register':
-            name = request.form.get('name').strip()
+            name = request.form.get('name', '').strip()
             if User.query.filter_by(username=username).first():
                 error = "Этот @username уже занят!"
             else:
@@ -67,31 +68,23 @@ def chat():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    current_user = User.query.get(session['user_id'])
-    # Получаем всех остальных пользователей для списка контактов
+    current_user = db.session.get(User, session['user_id'])
+    if not current_user:
+        session.pop('user_id', None)
+        return redirect(url_for('login'))
+
     users = User.query.filter(User.id != current_user.id).all()
-    return render_template('chat.html', current_user=current_user, users=users)
-
-@app.route('/get_messages/<int:other_user_id>')
-def get_messages(other_user_id):
-    if 'user_id' not in session:
-        return {"messages": []}
+    active_user_id = request.args.get('u', type=int)
+    active_user = db.session.get(User, active_user_id) if active_user_id else None
     
-    my_id = session['user_id']
-    msgs = Message.query.filter(
-        ((Message.sender_id == my_id) & (Message.receiver_id == other_user_id)) |
-        ((Message.sender_id == other_user_id) & (Message.receiver_id == my_id))
-    ).order_by(Message.id.asc()).all()
+    messages = []
+    if active_user:
+        messages = Message.query.filter(
+            ((Message.sender_id == current_user.id) & (Message.receiver_id == active_user.id)) |
+            ((Message.sender_id == active_user.id) & (Message.receiver_id == current_user.id))
+        ).order_by(Message.id.asc()).all()
 
-    return {
-        "messages": [
-            {
-                "sender_id": m.sender_id,
-                "text": m.text,
-                "time": m.timestamp
-            } for m in msgs
-        ]
-    }
+    return render_template('chat.html', current_user=current_user, users=users, active_user=active_user, messages=messages)
 
 @app.route('/logout')
 def logout():
@@ -104,8 +97,8 @@ def on_join(data):
 
 @socketio.on('private_message')
 def handle_private_message(data):
-    sender_id = data['sender_id']
-    receiver_id = data['receiver_id']
+    sender_id = int(data['sender_id'])
+    receiver_id = int(data['receiver_id'])
     text = data['text']
 
     new_msg = Message(sender_id=sender_id, receiver_id=receiver_id, text=text)
@@ -119,7 +112,6 @@ def handle_private_message(data):
         'time': new_msg.timestamp
     }
 
-    # Отправляем сообщение и получателю, и отправителю
     emit('new_message', msg_data, room=str(receiver_id))
     emit('new_message', msg_data, room=str(sender_id))
 
