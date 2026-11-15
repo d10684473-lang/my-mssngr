@@ -82,13 +82,13 @@
                 </div>
             </div>
             <div>
-                <button type="button" class="icon-btn" onclick="toggleTheme()">🌓</button>
-                <button type="button" class="icon-btn" onclick="openProfile()">⚙️</button>
+                <button type="button" class="icon-btn" id="btn-theme">🌓</button>
+                <button type="button" class="icon-btn" id="btn-settings">⚙️</button>
                 <a href="/logout" class="icon-btn">🚪</a>
             </div>
         </div>
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="Поиск..." onkeyup="filterUsers()">
+            <input type="text" id="search-input" placeholder="Поиск...">
         </div>
         <div class="user-list" id="user-list">
             {% if not users %}
@@ -124,19 +124,17 @@
             <div class="messages-box" id="messages-box"></div>
 
             <div class="emoji-bar" id="emoji-bar">
-                <span onclick="addEmoji('😀')">😀</span><span onclick="addEmoji('😂')">😂</span>
-                <span onclick="addEmoji('🔥')">🔥</span><span onclick="addEmoji('❤️')">❤️</span>
-                <span onclick="addEmoji('👍')">👍</span><span onclick="addEmoji('😎')">😎</span>
-                <span onclick="addEmoji('😭')">😭</span><span onclick="addEmoji('🎉')">🎉</span>
+                <span>😀</span><span>😂</span><span>🔥</span><span>❤️</span>
+                <span>👍</span><span>😎</span><span>😭</span><span>🎉</span>
             </div>
 
             <div class="input-area">
-                <button type="button" class="tool-btn" onclick="toggleEmoji()">😊</button>
-                <button type="button" class="tool-btn" onclick="document.getElementById('photo-input').click()">📎</button>
-                <input type="file" id="photo-input" accept="image/*" style="display:none;" onchange="sendPhoto(this)">
-                <input type="text" class="txt-inp" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendText()">
-                <button type="button" class="tool-btn" id="mic-btn" onclick="toggleRecord()">🎤</button>
-                <button type="button" class="send-btn" onclick="sendText()">➤</button>
+                <button type="button" class="tool-btn" id="btn-emoji">😊</button>
+                <button type="button" class="tool-btn" id="btn-photo">📎</button>
+                <input type="file" id="photo-input" accept="image/*" style="display:none;">
+                <input type="text" class="txt-inp" id="msg-input" placeholder="Сообщение...">
+                <button type="button" class="tool-btn" id="btn-mic">🎤</button>
+                <button type="button" class="send-btn" id="btn-send">➤</button>
             </div>
         {% else %}
             <div class="chat-header"><strong>Ramplez</strong></div>
@@ -148,3 +146,9 @@
         <div class="modal-card">
             <h3>Профиль</h3>
             <label>Имя:</label>
+            <input type="text" class="m-inp" id="prof-name" value="{{ current_user.name }}">
+            <label>О себе:</label>
+            <textarea class="m-inp" id="prof-bio" rows="2">{{ current_user.bio }}</textarea>
+            <label>Аватарка:</label>
+            <input type="file" class="m-inp" id="prof-avatar" accept="image/*">
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
