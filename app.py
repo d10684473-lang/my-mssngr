@@ -1,10 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ramplez_pro_secret_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_v2.db'
+app.config['SECRET_KEY'] = 'ramplez_v3_secret_2026'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_v3.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
@@ -30,6 +30,11 @@ class Message(db.Model):
 
 with app.app_context():
     db.create_all()
+
+@app.after_request
+def add_no_cache(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -65,7 +70,7 @@ def login():
 
     return render_template('login.html', error=error)
 
-@app.route('/chat')
+@app.route('/chat', methods=['GET', 'POST'])
 def chat():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -77,10 +82,28 @@ def chat():
     current_user.last_seen = datetime.utcnow()
     db.session.commit()
 
-    users = User.query.filter(User.id != current_user.id).all()
     active_user_id = request.args.get('u', type=int)
+
+    # Прямая отправка текста через форму (работает даже если JS отключён)
+    if request.method == 'POST' and active_user_id:
+        text = request.form.get('text', '').strip()
+        if text:
+            new_msg = Message(sender_id=current_user.id, receiver_id=active_user_id, msg_type='text', content=text)
+            db.session.add(new_msg)
+            db.session.commit()
+        return redirect(url_for('chat', u=active_user_id))
+
+    users = User.query.filter(User.id != current_user.id).all()
     active_user = db.session.get(User, active_user_id) if active_user_id else None
-    return render_template('chat.html', current_user=current_user, users=users, active_user=active_user)
+    
+    messages = []
+    if active_user:
+        messages = Message.query.filter(
+            ((Message.sender_id == current_user.id) & (Message.receiver_id == active_user.id)) |
+            ((Message.sender_id == active_user.id) & (Message.receiver_id == current_user.id))
+        ).order_by(Message.id.asc()).all()
+
+    return render_template('chat.html', current_user=current_user, users=users, active_user=active_user, messages=messages)
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
@@ -97,8 +120,8 @@ def update_profile():
     db.session.commit()
     return jsonify({"status": "ok"})
 
-@app.route('/send_msg', methods=['POST'])
-def send_msg():
+@app.route('/send_media', methods=['POST'])
+def send_media():
     if 'user_id' not in session:
         return jsonify({"status": "error"}), 401
     data = request.get_json()
@@ -109,32 +132,26 @@ def send_msg():
         new_msg = Message(sender_id=session['user_id'], receiver_id=receiver_id, msg_type=msg_type, content=content)
         db.session.add(new_msg)
         db.session.commit()
-        return jsonify({"status": "ok", "id": new_msg.id})
+        return jsonify({"status": "ok"})
     return jsonify({"status": "empty"}), 400
 
-@app.route('/delete_msg/<int:msg_id>', methods=['POST'])
-def delete_msg(msg_id):
-    if 'user_id' not in session:
-        return jsonify({"status": "error"}), 401
-    msg = db.session.get(Message, msg_id)
-    if msg and msg.sender_id == session['user_id']:
-        db.session.delete(msg)
-        db.session.commit()
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "forbidden"}), 403
+@app.route('/delete_msg/<int:msg_id>/<int:u_id>')
+def delete_msg(msg_id, u_id):
+    if 'user_id' in session:
+        msg = db.session.get(Message, msg_id)
+        if msg and msg.sender_id == session['user_id']:
+            db.session.delete(msg)
+            db.session.commit()
+    return redirect(url_for('chat', u=u_id))
 
-@app.route('/react_msg/<int:msg_id>', methods=['POST'])
-def react_msg(msg_id):
-    if 'user_id' not in session:
-        return jsonify({"status": "error"}), 401
-    msg = db.session.get(Message, msg_id)
-    data = request.get_json()
-    if msg:
-        emoji = data.get('emoji', '')
-        msg.reaction = "" if msg.reaction == emoji else emoji
-        db.session.commit()
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "error"}), 404
+@app.route('/react_msg/<int:msg_id>/<int:u_id>/<emoji>')
+def react_msg(msg_id, u_id, emoji):
+    if 'user_id' in session:
+        msg = db.session.get(Message, msg_id)
+        if msg:
+            msg.reaction = "" if msg.reaction == emoji else emoji
+            db.session.commit()
+    return redirect(url_for('chat', u=u_id))
 
 @app.route('/get_msgs/<int:other_id>')
 def get_msgs(other_id):
@@ -158,16 +175,7 @@ def get_msgs(other_id):
 
     return jsonify({
         "is_online": is_online,
-        "messages": [
-            {
-                "id": m.id,
-                "sender_id": m.sender_id,
-                "msg_type": m.msg_type,
-                "content": m.content,
-                "reaction": m.reaction,
-                "time": m.timestamp
-            } for m in msgs
-        ]
+        "count": len(msgs)
     })
 
 @app.route('/logout')
