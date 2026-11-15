@@ -5,8 +5,8 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ramplez_clean_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_final.db'
+app.config['SECRET_KEY'] = 'ramplez_fast_2026'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_fast.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 os.makedirs('uploads', exist_ok=True)
@@ -19,7 +19,6 @@ class User(db.Model):
     password = db.Column(db.String(100), nullable=False)
     bio = db.Column(db.String(200), default="В Ramplez")
     avatar = db.Column(db.Text, default="")
-    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -32,16 +31,10 @@ class Message(db.Model):
     file_name = db.Column(db.String(200), default="")
     reaction = db.Column(db.String(20), default="")
     hidden_for = db.Column(db.Integer, default=0)
-    is_read = db.Column(db.Boolean, default=False)
-    is_pinned = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.String(20), default="")
 
 with app.app_context():
     db.create_all()
-
-@app.errorhandler(Exception)
-def herr(e):
-    return f"<pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/uploads/<path:fn>')
 def ufile(fn):
@@ -75,7 +68,6 @@ def chat():
     if not uid: return redirect(url_for('login'))
     me = User.query.filter_by(id=int(uid)).first()
     if not me: session.clear(); return redirect(url_for('login'))
-    me.last_seen = datetime.utcnow()
     u_id = request.args.get('u', type=int)
 
     if request.method == 'POST' and u_id:
@@ -85,36 +77,28 @@ def chat():
             me.typing_to = 0; db.session.commit()
         return redirect(url_for('chat', u=u_id))
 
-    users_data = [{"u": u, "unread": Message.query.filter_by(sender_id=u.id, receiver_id=me.id, is_read=False).filter(Message.hidden_for != me.id).count()} for u in User.query.filter(User.id != me.id).all()]
+    users = User.query.filter(User.id != me.id).all()
     other = User.query.filter_by(id=u_id).first() if u_id else None
-    msgs, pinned = [], None
+    msgs = []
     if other:
-        Message.query.filter_by(sender_id=other.id, receiver_id=me.id, is_read=False).update({"is_read": True})
-        db.session.commit()
         msgs = Message.query.filter((((Message.sender_id == me.id) & (Message.receiver_id == other.id)) | ((Message.sender_id == other.id) & (Message.receiver_id == me.id))) & (Message.hidden_for != me.id)).order_by(Message.id.asc()).all()
-        pinned = next((m for m in reversed(msgs) if m.is_pinned), None)
-    else:
-        db.session.commit()
-    return render_template('chat.html', current_user=me, users_data=users_data, active_user=other, messages=msgs, pinned=pinned)
+    return render_template('chat.html', current_user=me, users=users, active_user=other, messages=msgs)
 
-@app.route('/save_profile', methods=['POST'])
-def save_profile():
+@app.route('/update_profile', methods=['POST'])
+def upd_prof():
     uid = session.get('user_id')
-    if not uid: return redirect(url_for('login'))
-    u = User.query.filter_by(id=int(uid)).first()
-    if u:
-        if request.form.get('name', '').strip(): u.name = request.form.get('name').strip()
-        u.bio = request.form.get('bio', '').strip()
-        f = request.files.get('avatar_file')
-        if f and f.filename:
-            fn = f"av_{u.id}_{int(datetime.now().timestamp())}_{secure_filename(f.filename)}"
-            f.save(os.path.join('uploads', fn))
-            u.avatar = f"/uploads/{fn}"
-        db.session.commit()
-    return redirect(request.referrer or url_for('chat'))
+    if uid:
+        u = User.query.filter_by(id=int(uid)).first()
+        d = request.get_json(silent=True) or {}
+        if u:
+            if d.get('name', '').strip(): u.name = d['name'].strip()
+            if 'bio' in d: u.bio = d['bio'].strip()
+            if d.get('avatar'): u.avatar = d['avatar']
+            db.session.commit()
+    return jsonify({"ok": True})
 
 @app.route('/upload_file', methods=['POST'])
-def upload_file():
+def up_file():
     uid = session.get('user_id')
     r_id, f = request.form.get('receiver_id', type=int), request.files.get('file')
     if uid and r_id and f and f.filename:
@@ -132,33 +116,18 @@ def styp(oid):
     uid = session.get('user_id')
     if uid:
         me = User.query.filter_by(id=int(uid)).first()
-        if me: me.typing_to, me.typing_at, me.last_seen = oid, datetime.utcnow(), datetime.utcnow(); db.session.commit()
+        if me: me.typing_to, me.typing_at = oid, datetime.utcnow(); db.session.commit()
     return jsonify({"ok": True})
 
-@app.route('/poll/<int:oid>')
-def poll(oid):
+@app.route('/msg_count/<int:oid>')
+def mcnt(oid):
     uid = session.get('user_id')
-    if not uid: return jsonify({"msgs": []})
+    if not uid: return jsonify({"count": 0})
     mid = int(uid)
-    me = User.query.filter_by(id=mid).first()
-    if me: me.last_seen = datetime.utcnow()
-    Message.query.filter_by(sender_id=oid, receiver_id=mid, is_read=False).update({"is_read": True})
-    db.session.commit()
     oth = User.query.filter_by(id=oid).first()
-    now = datetime.utcnow()
-    msgs = Message.query.filter((((Message.sender_id == mid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == mid))) & (Message.hidden_for != mid)).order_by(Message.id.asc()).all()
-    return jsonify({
-        "online": bool(oth and oth.last_seen and (now - oth.last_seen).total_seconds() < 15),
-        "typing": bool(oth and oth.typing_to == mid and oth.typing_at and (now - oth.typing_at).total_seconds() < 4),
-        "msgs": [{"id": m.id, "mine": m.sender_id == mid, "type": m.msg_type, "content": m.content, "fname": m.file_name, "react": m.reaction, "read": m.is_read, "time": m.timestamp} for m in msgs]
-    })
-
-@app.route('/pin/<int:mid>/<int:u>')
-def pin(mid, u):
-    if session.get('user_id'):
-        m = Message.query.filter_by(id=mid).first()
-        if m: m.is_pinned = not m.is_pinned; db.session.commit()
-    return redirect(url_for('chat', u=u))
+    typ = bool(oth and oth.typing_to == mid and oth.typing_at and (datetime.utcnow() - oth.typing_at).total_seconds() < 4)
+    cnt = Message.query.filter((((Message.sender_id == mid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == mid))) & (Message.hidden_for != mid)).count()
+    return jsonify({"count": cnt, "typing": typ})
 
 @app.route('/del_me/<int:mid>/<int:u>')
 def del_me(mid, u):
@@ -178,7 +147,7 @@ def del_all(mid, u):
         if m: db.session.delete(m); db.session.commit()
     return redirect(url_for('chat', u=u))
 
-@app.route('/react/<int:mid>/<int:u>/<emj>')
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>')
 def react(mid, u, emj):
     if session.get('user_id'):
         m = Message.query.filter_by(id=mid).first()
