@@ -18,8 +18,8 @@
         .user-list { flex: 1; overflow-y: auto; }
         .user-item { padding: 12px 15px; border-bottom: 1px solid var(--brd); text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
         .user-item:hover, .user-item.active { background: var(--hov); }
-        .avatar { width: 45px; height: 45px; background: #00a884; color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; overflow: hidden; }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar { width: 45px; height: 45px; background: #00a884; color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; overflow: hidden; position: relative; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
         .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--chat); height: 100%; }
         .chat-header { background: var(--head); color: #fff; padding: 10px 15px; display: flex; align-items: center; gap: 12px; min-height: 60px; }
         .back-btn { display: none; text-decoration: none; color: #fff; font-size: 22px; }
@@ -61,7 +61,7 @@
 <div class="sidebar">
     <div class="my-profile">
         <div class="profile-info">
-            <div class="avatar">{% if current_user.avatar %}<img src="{{ current_user.avatar }}">{% else %}{{ current_user.name[:1].upper() }}{% endif %}</div>
+            <div class="avatar">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
             <div>
                 <div style="font-weight:bold;">{{ current_user.name }}</div>
                 <div style="font-size:12px;">@{{ current_user.username }}</div>
@@ -78,7 +78,7 @@
         {% if not users %}<div class="empty-state">Пока никого нет. Зарегистрируй второй аккаунт!</div>{% endif %}
         {% for u in users %}
         <a href="/chat?u={{ u.id }}" class="user-item {{ 'active' if active_user and active_user.id == u.id else '' }}" data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
-            <div class="avatar">{% if u.avatar %}<img src="{{ u.avatar }}">{% else %}{{ u.name[:1].upper() }}{% endif %}</div>
+            <div class="avatar">{{ u.name[:1].upper() }}<img src="{{ u.avatar }}" onerror="this.remove()"></div>
             <div>
                 <div style="font-weight:bold;">{{ u.name }}</div>
                 <div style="font-size:12px; color:var(--sub);">{{ u.bio or '@' + u.username }}</div>
@@ -92,7 +92,7 @@
     {% if active_user %}
         <div class="chat-header">
             <a href="/chat" class="back-btn">←</a>
-            <div class="avatar">{% if active_user.avatar %}<img src="{{ active_user.avatar }}">{% else %}{{ active_user.name[:1].upper() }}{% endif %}</div>
+            <div class="avatar">{{ active_user.name[:1].upper() }}<img src="{{ active_user.avatar }}" onerror="this.remove()"></div>
             <div>
                 <div style="font-weight:bold;">{{ active_user.name }}</div>
                 <div class="status-text">@{{ active_user.username }} • {{ active_user.bio }}</div>
@@ -108,18 +108,14 @@
                         <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/❤️" class="act-link">❤️</a>
                         <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/👍" class="act-link">👍</a>
                         <a href="/react_msg/{{ m.id }}/{{ active_user.id }}/😂" class="act-link">😂</a>
-                        {% if mine %}<a href="/delete_msg/{{ m.id }}/{{ active_user.id }}" class="act-link">🗑️</a>{% endif %}
+                        <a href="/delete_msg/{{ m.id }}/{{ active_user.id }}" class="act-link" style="{{ '' if mine else 'display:none;' }}">🗑️</a>
                     </div>
                 </div>
-                {% if m.msg_type == 'image' %}
-                    <img src="{{ m.content }}" class="chat-img">
-                {% elif m.msg_type == 'audio' %}
-                    <audio controls src="{{ m.content }}"></audio>
-                {% else %}
-                    <div>{{ m.content }}</div>
-                {% endif %}
+                <img src="{{ m.content }}" class="chat-img" style="{{ '' if m.msg_type == 'image' else 'display:none;' }}">
+                <audio controls src="{{ m.content }}" style="{{ '' if m.msg_type == 'audio' else 'display:none;' }}"></audio>
+                <div style="{{ '' if m.msg_type == 'text' else 'display:none;' }}">{{ m.content }}</div>
                 <div class="msg-footer">
-                    {% if m.reaction %}<span class="reaction-badge">{{ m.reaction }}</span>{% endif %}
+                    <span class="reaction-badge" style="{{ '' if m.reaction else 'display:none;' }}">{{ m.reaction }}</span>
                     <span class="msg-time">{{ m.timestamp }}</span>
                 </div>
             </div>
@@ -130,4 +126,3 @@
             <span onclick="addEm('👍')">👍</span><span onclick="addEm('😎')">😎</span><span onclick="addEm('😭')">😭</span><span onclick="addEm('🎉')">🎉</span>
         </div>
         <form method="POST" action="/chat?u={{ active_user.id }}" class="input-area">
-            <button type="button" class="tool-btn" onclick="var b=document.getElementById('emoji-bar');b.style.display=(b.style.display==='flex'?'none':'flex');">😊</button>
