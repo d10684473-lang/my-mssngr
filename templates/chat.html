@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ramplez</title>
-    <script src="https://cloudflare.com"></script>
     <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100dvh; background: #dadbd3; overflow: hidden; }
@@ -81,7 +80,7 @@
             </div>
             <div class="messages-box" id="messages-box">
                 {% for m in messages %}
-                <div class="msg {{ 'mine' if m.sender_id == current_user.id else 'theirs' }}">
+                <div class="msg {{ 'mine' if m.sender_id == current_user.id else 'theirs' }}" data-id="{{ m.id }}">
                     <div>{{ m.text }}</div>
                     <div class="msg-time">{{ m.timestamp }}</div>
                 </div>
@@ -89,7 +88,7 @@
             </div>
             <div class="input-area">
                 <input type="text" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()" autofocus>
-                <button onclick="sendMessage()">➤</button>
+                <button type="button" onclick="sendMessage()">➤</button>
             </div>
         {% else %}
             <div class="chat-header">Ramplez</div>
@@ -100,39 +99,53 @@
     </div>
 
     <script>
-        const socket = io();
         const myId = Number("{{ current_user.id }}");
         const activeChatUserId = Number("{{ active_user.id if active_user else 0 }}");
         const box = document.getElementById('messages-box');
 
         if (box) box.scrollTop = box.scrollHeight;
-        socket.emit('join', { user_id: myId });
 
         function sendMessage() {
             const input = document.getElementById('msg-input');
             const text = input.value.trim();
-            if (text && activeChatUserId > 0) {
-                socket.emit('private_message', {
-                    sender_id: myId,
-                    receiver_id: activeChatUserId,
-                    text: text
-                });
-                input.value = '';
-            }
+            if (!text || activeChatUserId === 0) return;
+
+            input.value = '';
+            fetch('/send_msg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ receiver_id: activeChatUserId, text: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    loadNewMessages();
+                }
+            });
         }
 
-        socket.on('new_message', function(data) {
-            const sId = Number(data.sender_id);
-            const rId = Number(data.receiver_id);
-            if ((sId === myId && rId === activeChatUserId) ||
-                (sId === activeChatUserId && rId === myId)) {
-                const div = document.createElement('div');
-                div.classList.add('msg', sId === myId ? 'mine' : 'theirs');
-                div.innerHTML = `<div>${data.text}</div><div class="msg-time">${data.time}</div>`;
-                box.appendChild(div);
-                box.scrollTop = box.scrollHeight;
-            }
-        });
+        function loadNewMessages() {
+            if (activeChatUserId === 0 || !box) return;
+            fetch(`/get_msgs/${activeChatUserId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const currentCount = box.querySelectorAll('.msg').length;
+                    if (data.messages.length > currentCount) {
+                        box.innerHTML = '';
+                        data.messages.forEach(m => {
+                            const div = document.createElement('div');
+                            div.classList.add('msg', m.sender_id === myId ? 'mine' : 'theirs');
+                            div.innerHTML = `<div>${m.text}</div><div class="msg-time">${m.time}</div>`;
+                            box.appendChild(div);
+                        });
+                        box.scrollTop = box.scrollHeight;
+                    }
+                });
+        }
+
+        if (activeChatUserId > 0) {
+            setInterval(loadNewMessages, 1500);
+        }
 
         function filterUsers() {
             const query = document.getElementById('search-input').value.toLowerCase();
