@@ -2,117 +2,65 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ramplez</title>
     <style>
         :root {
-            --bg-main: #d1d7db;
-            --bg-sidebar: #ffffff;
-            --bg-chat: #efeae2;
-            --header-bg: #008069;
-            --text-main: #111b21;
-            --text-sub: #667781;
-            --border-color: #e9edef;
-            --hover-bg: #f0f2f5;
-            --msg-mine: #d9fdd3;
-            --msg-theirs: #ffffff;
-            --input-bg: #f0f2f5;
-            --input-field: #ffffff;
-            --accent: #00a884;
+            --bg: #dadbd3; --side: #ffffff; --chat: #efeae2; --head: #008069;
+            --txt: #111b21; --sub: #667781; --brd: #e9edef; --hov: #f0f2f5;
+            --mine: #d9fdd3; --theirs: #ffffff; --inp: #f0f2f5; --fld: #ffffff;
         }
         body.dark {
-            --bg-main: #091014;
-            --bg-sidebar: #111b21;
-            --bg-chat: #0b141a;
-            --header-bg: #202c33;
-            --text-main: #e9edef;
-            --text-sub: #8696a0;
-            --border-color: #222d34;
-            --hover-bg: #202c33;
-            --msg-mine: #005c4b;
-            --msg-theirs: #202c33;
-            --input-bg: #202c33;
-            --input-field: #2a3942;
-            --accent: #00a884;
+            --bg: #091014; --side: #111b21; --chat: #0b141a; --head: #202c33;
+            --txt: #e9edef; --sub: #8696a0; --brd: #222d34; --hov: #202c33;
+            --mine: #005c4b; --theirs: #202c33; --inp: #202c33; --fld: #2a3942;
         }
-
         * { box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; display: flex; height: 100dvh; background: var(--bg-main); color: var(--text-main); overflow: hidden; }
-        
-        /* Левая колонка */
-        .sidebar { width: 35%; max-width: 390px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; }
-        .my-profile { background: var(--header-bg); color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-        .profile-info { display: flex; align-items: center; gap: 12px; }
-        .icon-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; padding: 6px; border-radius: 50%; text-decoration: none; transition: 0.2s; }
-        .icon-btn:hover { background: rgba(255,255,255,0.15); }
-        
-        .search-box { padding: 10px 14px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); }
-        .search-box input { width: 100%; padding: 10px 16px; border: none; border-radius: 22px; outline: none; font-size: 14px; background: var(--input-bg); color: var(--text-main); }
-        
+        body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100dvh; background: var(--bg); color: var(--txt); overflow: hidden; }
+        .sidebar { width: 35%; max-width: 380px; background: var(--side); border-right: 1px solid var(--brd); display: flex; flex-direction: column; height: 100%; }
+        .my-profile { background: var(--head); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .profile-info { display: flex; align-items: center; gap: 10px; }
+        .icon-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; padding: 5px; text-decoration: none; }
+        .search-box { padding: 10px; border-bottom: 1px solid var(--brd); }
+        .search-box input { width: 100%; padding: 9px 14px; border: none; border-radius: 20px; outline: none; background: var(--inp); color: var(--txt); }
         .user-list { flex: 1; overflow-y: auto; }
-        .user-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; transition: 0.15s; }
-        .user-item:hover, .user-item.active { background: var(--hover-bg); }
-        
-        .avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #00a884, #00796b); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 19px; flex-shrink: 0; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.12); }
+        .user-item { padding: 12px 15px; border-bottom: 1px solid var(--brd); text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; }
+        .user-item:hover, .user-item.active { background: var(--hov); }
+        .avatar { width: 45px; height: 45px; background: #00a884; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; flex-shrink: 0; overflow: hidden; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* Правая колонка */
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); height: 100%; position: relative; }
-        .chat-header { background: var(--header-bg); color: white; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; min-height: 62px; box-shadow: 0 1px 4px rgba(0,0,0,0.15); z-index: 2; }
-        .chat-header-left { display: flex; align-items: center; gap: 12px; }
-        .back-btn { display: none; text-decoration: none; color: white; font-size: 24px; padding-right: 6px; }
-        .status-text { font-size: 12px; color: #b2dfdb; font-weight: normal; }
-        
-        .messages-box { flex: 1; padding: 16px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        
-        /* Сообщения */
-        .msg { padding: 9px 13px; border-radius: 14px; max-width: 72%; font-size: 15px; word-wrap: break-word; line-height: 1.45; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-        .msg.mine { background: var(--msg-mine); align-self: flex-end; border-bottom-right-radius: 3px; }
-        .msg.theirs { background: var(--msg-theirs); align-self: flex-start; border-bottom-left-radius: 3px; }
-        .msg-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 4px; }
-        .msg-sender { font-size: 11px; font-weight: bold; color: var(--accent); }
-        .msg-actions { display: flex; gap: 5px; opacity: 0.75; }
-        .msg:hover .msg-actions { opacity: 1; }
-        .act-btn { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 3px; color: var(--text-sub); transition: 0.1s; }
-        .act-btn:hover { transform: scale(1.25); }
-        .msg img.chat-img { max-width: 100%; max-height: 280px; border-radius: 10px; margin-top: 4px; display: block; cursor: pointer; }
-        .msg audio { max-width: 240px; height: 36px; margin-top: 4px; }
-        .msg-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; gap: 8px; }
-        .reaction-badge { background: rgba(0,0,0,0.08); padding: 2px 7px; border-radius: 12px; font-size: 12px; }
-        .msg-time { font-size: 10px; color: var(--text-sub); margin-left: auto; }
-        
-        /* Панель ответа и смайлов */
-        .reply-preview { display: none; padding: 8px 16px; background: var(--input-bg); border-top: 1px solid var(--border-color); border-left: 4px solid var(--accent); justify-content: space-between; align-items: center; font-size: 13px; }
-        .emoji-bar { display: none; padding: 8px 16px; background: var(--input-bg); border-top: 1px solid var(--border-color); gap: 12px; flex-wrap: wrap; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--chat); height: 100%; }
+        .chat-header { background: var(--head); color: white; padding: 10px 15px; display: flex; align-items: center; gap: 12px; min-height: 60px; }
+        .back-btn { display: none; text-decoration: none; color: white; font-size: 22px; }
+        .status-text { font-size: 12px; color: #b2dfdb; }
+        .messages-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 9px 13px; border-radius: 12px; max-width: 72%; font-size: 15px; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+        .msg.mine { background: var(--mine); align-self: flex-end; }
+        .msg.theirs { background: var(--theirs); align-self: flex-start; }
+        .msg-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .msg-sender { font-size: 11px; font-weight: bold; color: #00a884; }
+        .act-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 3px; color: var(--sub); }
+        .msg img.chat-img { max-width: 100%; max-height: 260px; border-radius: 8px; margin-top: 4px; display: block; }
+        .msg audio { max-width: 230px; height: 36px; margin-top: 4px; }
+        .msg-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 8px; }
+        .reaction-badge { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 10px; font-size: 12px; }
+        .msg-time { font-size: 10px; color: var(--sub); margin-left: auto; }
+        .emoji-bar { display: none; padding: 8px 15px; background: var(--inp); border-top: 1px solid var(--brd); gap: 10px; flex-wrap: wrap; }
         .emoji-bar span { font-size: 22px; cursor: pointer; }
-        
-        /* Ввод сообщения */
-        .input-area { padding: 10px 14px; background: var(--input-bg); display: flex; align-items: center; gap: 8px; }
-        .input-field { flex: 1; padding: 11px 16px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: var(--input-field); color: var(--text-main); }
-        .tool-btn { background: none; border: none; font-size: 21px; cursor: pointer; color: var(--text-sub); padding: 6px; border-radius: 50%; }
-        .tool-btn:hover { background: rgba(0,0,0,0.06); }
-        .tool-btn.recording { color: #e53935; animation: pulse 1s infinite; }
-        .send-btn { background: var(--accent); color: white; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,168,132,0.3); }
-        
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
-        .empty-state { margin: auto; color: var(--text-sub); font-size: 16px; text-align: center; padding: 20px; }
-
-        /* Модальное окно профиля */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 100; justify-content: center; align-items: center; }
-        .modal-card { background: var(--bg-sidebar); color: var(--text-main); padding: 25px; border-radius: 16px; width: 90%; max-width: 370px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
-        .modal-card h3 { margin-top: 0; color: var(--accent); }
-        .modal-input { width: 100%; padding: 10px 12px; margin: 6px 0 14px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-field); color: var(--text-main); font-family: inherit; font-size: 14px; }
-        .modal-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
-        .btn-save { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        .btn-cancel { background: transparent; color: var(--text-sub); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 10px; cursor: pointer; }
-
+        .input-area { padding: 10px; background: var(--inp); display: flex; align-items: center; gap: 8px; }
+        .txt-inp { flex: 1; padding: 11px 15px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: var(--fld); color: var(--txt); }
+        .tool-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--sub); padding: 5px; }
+        .tool-btn.recording { color: red; }
+        .send-btn { background: #00a884; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px; }
+        .empty-state { margin: auto; color: var(--sub); font-size: 16px; text-align: center; padding: 20px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: center; }
+        .modal-card { background: var(--side); color: var(--txt); padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; }
+        .m-inp { width: 100%; padding: 9px; margin: 6px 0 12px; border: 1px solid var(--brd); border-radius: 8px; background: var(--fld); color: var(--txt); }
         @media (max-width: 768px) {
             body.no-chat .sidebar { width: 100%; max-width: none; }
             body.no-chat .chat-area { display: none; }
             body.has-chat .sidebar { display: none; }
             body.has-chat .chat-area { display: flex; width: 100%; }
             .back-btn { display: block; }
-            .msg { max-width: 85%; }
         }
     </style>
 </head>
@@ -122,24 +70,81 @@
       data-other-name="{{ active_user.name if active_user else '' }}"
       data-other-bio="{{ active_user.bio if active_user else '' }}">
 
-    <!-- Левая колонка -->
     <div class="sidebar">
         <div class="my-profile">
             <div class="profile-info">
-                <div class="avatar" style="width:42px; height:42px; font-size:16px;">
+                <div class="avatar">
                     {% if current_user.avatar %}<img src="{{ current_user.avatar }}">{% else %}{{ current_user.name[:1].upper() }}{% endif %}
                 </div>
                 <div>
-                    <div style="font-weight:bold; font-size:15px;">{{ current_user.name }}</div>
-                    <div style="font-size:12px; opacity:0.85;">@{{ current_user.username }}</div>
+                    <div style="font-weight:bold;">{{ current_user.name }}</div>
+                    <div style="font-size:12px;">@{{ current_user.username }}</div>
                 </div>
             </div>
             <div>
-                <button type="button" class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌓</button>
-                <button type="button" class="icon-btn" onclick="openProfileModal()" title="Настройки профиля">⚙️</button>
-                <a href="/logout" class="icon-btn" title="Выйти">🚪</a>
+                <button type="button" class="icon-btn" onclick="toggleTheme()">🌓</button>
+                <button type="button" class="icon-btn" onclick="openProfile()">⚙️</button>
+                <a href="/logout" class="icon-btn">🚪</a>
             </div>
         </div>
-        
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="Поиск людей или @username..." onkeyup="filterUsers()">
+            <input type="text" id="search-input" placeholder="Поиск..." onkeyup="filterUsers()">
+        </div>
+        <div class="user-list" id="user-list">
+            {% if not users %}
+                <div class="empty-state">Пока никого нет. Зарегистрируй второй аккаунт!</div>
+            {% endif %}
+            {% for u in users %}
+            <a href="/chat?u={{ u.id }}" class="user-item {{ 'active' if active_user and active_user.id == u.id else '' }}" data-search="{{ u.name.lower() }} {{ u.username.lower() }}">
+                <div class="avatar">
+                    {% if u.avatar %}<img src="{{ u.avatar }}">{% else %}{{ u.name[:1].upper() }}{% endif %}
+                </div>
+                <div>
+                    <div style="font-weight:bold;">{{ u.name }}</div>
+                    <div style="font-size:12px; color:var(--sub);">{{ u.bio or '@' + u.username }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="chat-area">
+        {% if active_user %}
+            <div class="chat-header">
+                <a href="/chat" class="back-btn">←</a>
+                <div class="avatar">
+                    {% if active_user.avatar %}<img src="{{ active_user.avatar }}">{% else %}{{ active_user.name[:1].upper() }}{% endif %}
+                </div>
+                <div>
+                    <div style="font-weight:bold;">{{ active_user.name }}</div>
+                    <div class="status-text" id="online-status">@{{ active_user.username }} • {{ active_user.bio }}</div>
+                </div>
+            </div>
+
+            <div class="messages-box" id="messages-box"></div>
+
+            <div class="emoji-bar" id="emoji-bar">
+                <span onclick="addEmoji('😀')">😀</span><span onclick="addEmoji('😂')">😂</span>
+                <span onclick="addEmoji('🔥')">🔥</span><span onclick="addEmoji('❤️')">❤️</span>
+                <span onclick="addEmoji('👍')">👍</span><span onclick="addEmoji('😎')">😎</span>
+                <span onclick="addEmoji('😭')">😭</span><span onclick="addEmoji('🎉')">🎉</span>
+            </div>
+
+            <div class="input-area">
+                <button type="button" class="tool-btn" onclick="toggleEmoji()">😊</button>
+                <button type="button" class="tool-btn" onclick="document.getElementById('photo-input').click()">📎</button>
+                <input type="file" id="photo-input" accept="image/*" style="display:none;" onchange="sendPhoto(this)">
+                <input type="text" class="txt-inp" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendText()">
+                <button type="button" class="tool-btn" id="mic-btn" onclick="toggleRecord()">🎤</button>
+                <button type="button" class="send-btn" onclick="sendText()">➤</button>
+            </div>
+        {% else %}
+            <div class="chat-header"><strong>Ramplez</strong></div>
+            <div class="messages-box"><div class="empty-state">Выбери собеседника слева</div></div>
+        {% endif %}
+    </div>
+
+    <div class="modal" id="profile-modal">
+        <div class="modal-card">
+            <h3>Профиль</h3>
+            <label>Имя:</label>
