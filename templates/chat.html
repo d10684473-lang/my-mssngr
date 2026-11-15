@@ -6,7 +6,7 @@
 <title>Ramplez</title>
 <style>
 :root{--bg:#e5e9f0;--side:#fff;--chat:#f0f4f8;--txt:#0f172a;--sub:#64748b;--brd:#e2e8f0;--hov:#f1f5f9;--mine:#2563eb;--mtxt:#fff;--theirs:#fff;--acc:#2563eb}
-body.dark{--bg:#090d16;--side:#0f172a;--chat:#0b1120;--txt:#f8fafc;--sub:#94a3b8;--brd:#1e293b;--hov:#1e293b;--theirs:#1e293b;--acc:#3b82f6}
+html.dark{--bg:#090d16;--side:#0f172a;--chat:#0b1120;--txt:#f8fafc;--sub:#94a3b8;--brd:#1e293b;--hov:#1e293b;--theirs:#1e293b;--acc:#3b82f6}
 *{box-sizing:border-box;-webkit-touch-callout:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);overflow:hidden}
 .sidebar{width:34%;max-width:350px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
@@ -45,6 +45,7 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 #iv img{max-width:94vw;max-height:88vh;border-radius:12px}
 @media(max-width:768px){body.no-chat .sidebar{width:100%;max-width:none}body.no-chat .chat{display:none}body.has-chat .sidebar{display:none}body.has-chat .chat{display:flex;width:100%}.back{display:block}}
 </style>
+<script>if(localStorage.getItem('t')==='1')document.documentElement.classList.add('dark')</script>
 </head>
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 <div class="sidebar">
@@ -54,7 +55,7 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 <div><b>{{ current_user.name }}</b><br><small style="color:var(--sub)">@{{ current_user.username }}</small></div>
 </div>
 <div style="display:flex;gap:5px">
-<button type="button" class="ibtn" onclick="document.body.classList.toggle('dark');localStorage.setItem('t',document.body.classList.contains('dark')?'1':'0')">🌓</button>
+<button type="button" class="ibtn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('t',document.documentElement.classList.contains('dark')?'1':'0')">🌓</button>
 <button type="button" class="ibtn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
 <a href="/logout" class="ibtn">🚪</a>
 </div>
@@ -115,15 +116,13 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 <div class="modal" id="pm" onclick="this.style.display='none'">
 <div class="mcard" onclick="event.stopPropagation()">
 <h3 style="margin-top:0">Профиль</h3>
-<textarea class="minp" name="name" form="pf" rows="1">{{ current_user.name }}</textarea>
-<textarea class="minp" name="bio" form="pf" rows="2">{{ current_user.bio }}</textarea>
-<input type="file" name="avatar_file" form="pf" class="minp" accept="image/*">
-<form id="pf" method="POST" action="/save_profile" enctype="multipart/form-data" style="display:flex;justify-content:flex-end;gap:8px">
+<form method="POST" action="/save_profile" enctype="multipart/form-data">
+<textarea class="minp" name="name" rows="1">{{ current_user.name }}</textarea>
+<textarea class="minp" name="bio" rows="2">{{ current_user.bio }}</textarea>
+<input type="file" name="avatar_file" class="minp" accept="image/*">
+<div style="display:flex;justify-content:flex-end;gap:8px">
 <button type="button" class="cbtn" style="width:auto;margin:0" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
 <button type="submit" class="sbtn" style="width:auto;border-radius:10px;padding:0 16px">Сохранить</button>
+</div>
 </form>
 </div>
-</div>
-
-<script>
-if(localStorage.getItem('t')==='1')document.body.classList.add('dark');
