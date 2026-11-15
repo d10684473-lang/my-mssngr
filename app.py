@@ -5,8 +5,8 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ramplez_v5_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_v5.db'
+app.config['SECRET_KEY'] = 'ramplez_ultra_2026'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_ultra.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 os.makedirs('uploads', exist_ok=True)
@@ -18,8 +18,11 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100), nullable=False)
-    bio = db.Column(db.String(200), default="Привет! Я в Ramplez.")
+    bio = db.Column(db.String(200), default="В Ramplez")
     avatar = db.Column(db.Text, default="")
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    typing_to = db.Column(db.Integer, default=0)
+    typing_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,6 +33,8 @@ class Message(db.Model):
     file_name = db.Column(db.String(200), default="")
     reaction = db.Column(db.String(20), default="")
     hidden_for = db.Column(db.Integer, default=0)
+    is_read = db.Column(db.Boolean, default=False)
+    is_pinned = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.String(20), default="")
 
 with app.app_context():
@@ -57,7 +62,7 @@ def login():
         if act == 'register':
             nm = request.form.get('name', '').strip()
             if User.query.filter_by(username=un).first():
-                err = "Никнейм занят!"
+                err = "Никнейм уже занят!"
             elif un and nm and pw:
                 u = User(username=un, name=nm, password=pw)
                 db.session.add(u)
@@ -82,25 +87,40 @@ def chat():
         session.clear()
         return redirect(url_for('login'))
 
+    me.last_seen = datetime.utcnow()
     u_id = request.args.get('u', type=int)
+
     if request.method == 'POST' and u_id:
         txt = request.form.get('text', '').strip()
         if txt:
             m = Message(sender_id=me.id, receiver_id=u_id, msg_type='text', content=txt, timestamp=datetime.now().strftime("%H:%M"))
             db.session.add(m)
+            me.typing_to = 0
             db.session.commit()
         return redirect(url_for('chat', u=u_id))
 
-    users = User.query.filter(User.id != me.id).all()
+    all_users = User.query.filter(User.id != me.id).all()
+    users_data = []
+    for u in all_users:
+        unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, is_read=False).filter(Message.hidden_for != me.id).count()
+        users_data.append({"u": u, "unread": unread})
+
     other = User.query.filter_by(id=u_id).first() if u_id else None
     msgs = []
+    pinned = None
     if other:
+        Message.query.filter_by(sender_id=other.id, receiver_id=me.id, is_read=False).update({"is_read": True})
+        db.session.commit()
         msgs = Message.query.filter(
             (((Message.sender_id == me.id) & (Message.receiver_id == other.id)) |
              ((Message.sender_id == other.id) & (Message.receiver_id == me.id))) &
             (Message.hidden_for != me.id)
         ).order_by(Message.id.asc()).all()
-    return render_template('chat.html', current_user=me, users=users, active_user=other, messages=msgs)
+        pinned = next((m for m in reversed(msgs) if m.is_pinned), None)
+    else:
+        db.session.commit()
+
+    return render_template('chat.html', current_user=me, users_data=users_data, active_user=other, messages=msgs, pinned=pinned)
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
@@ -120,6 +140,42 @@ def upload_file():
         return jsonify({"ok": True})
     return jsonify({"ok": False}), 400
 
+@app.route('/typing/<int:other_id>', methods=['POST'])
+def set_typing(other_id):
+    uid = session.get('user_id')
+    if uid:
+        me = User.query.filter_by(id=int(uid)).first()
+        if me:
+            me.typing_to = other_id
+            me.typing_at = datetime.utcnow()
+            me.last_seen = datetime.utcnow()
+            db.session.commit()
+    return jsonify({"ok": True})
+
+@app.route('/status/<int:other_id>')
+def get_status(other_id):
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({"count": 0})
+    my_id = int(uid)
+    me = User.query.filter_by(id=my_id).first()
+    if me:
+        me.last_seen = datetime.utcnow()
+        db.session.commit()
+
+    other = User.query.filter_by(id=other_id).first()
+    now = datetime.utcnow()
+    is_online = bool(other and other.last_seen and (now - other.last_seen).total_seconds() < 15)
+    is_typing = bool(other and other.typing_to == my_id and other.typing_at and (now - other.typing_at).total_seconds() < 4)
+
+    msgs = Message.query.filter(
+        (((Message.sender_id == my_id) & (Message.receiver_id == other_id)) |
+         ((Message.sender_id == other_id) & (Message.receiver_id == my_id))) &
+        (Message.hidden_for != my_id)
+    ).all()
+    read_cnt = sum(1 for m in msgs if m.sender_id == my_id and m.is_read)
+    return jsonify({"count": len(msgs), "read_cnt": read_cnt, "online": is_online, "typing": is_typing})
+
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     uid = session.get('user_id')
@@ -133,6 +189,15 @@ def update_profile():
         if d.get('avatar'): u.avatar = d['avatar']
         db.session.commit()
     return jsonify({"ok": True})
+
+@app.route('/pin/<int:mid>/<int:uid_chat>')
+def pin_msg(mid, uid_chat):
+    if session.get('user_id'):
+        m = Message.query.filter_by(id=mid).first()
+        if m:
+            m.is_pinned = not m.is_pinned
+            db.session.commit()
+    return redirect(url_for('chat', u=uid_chat))
 
 @app.route('/del_me/<int:mid>/<int:uid_chat>')
 def del_me(mid, uid_chat):
@@ -164,18 +229,6 @@ def react(mid, uid_chat, emj):
             m.reaction = "" if m.reaction == emj else emj
             db.session.commit()
     return redirect(url_for('chat', u=uid_chat))
-
-@app.route('/msg_count/<int:other_id>')
-def msg_count(other_id):
-    uid = session.get('user_id')
-    if not uid: return jsonify({"count": 0})
-    my_id = int(uid)
-    cnt = Message.query.filter(
-        (((Message.sender_id == my_id) & (Message.receiver_id == other_id)) |
-         ((Message.sender_id == other_id) & (Message.receiver_id == my_id))) &
-        (Message.hidden_for != my_id)
-    ).count()
-    return jsonify({"count": cnt})
 
 @app.route('/logout')
 def logout():
