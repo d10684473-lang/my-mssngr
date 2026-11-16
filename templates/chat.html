@@ -348,7 +348,9 @@ if (OTHER_ID) {
       if (atBottom || data.messages.length <= 15) {
         messagesBox.scrollTop = messagesBox.scrollHeight;
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('Poll error:', err);
+    }
   }
 
   async function sendMessage() {
@@ -359,13 +361,17 @@ if (OTHER_ID) {
     replyText = '';
     replyBar.style.display = 'none';
 
-    await fetch('/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oid: OTHER_ID, content })
-    });
-    await pollMessages();
-    messagesBox.scrollTop = messagesBox.scrollHeight;
+    try {
+      await fetch('/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oid: OTHER_ID, content })
+      });
+      await pollMessages();
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+    } catch (err) {
+      console.error('Send error:', err);
+    }
   }
 
   sendBtn.addEventListener('click', sendMessage);
@@ -380,7 +386,7 @@ if (OTHER_ID) {
     const now = Date.now();
     if (now - lastTypingSent > 2000) {
       lastTypingSent = now;
-      fetch(`/typing/${OTHER_ID}`, { method: 'POST' });
+      fetch(`/typing/${OTHER_ID}`, { method: 'POST' }).catch(() => {});
     }
   });
 
@@ -437,9 +443,13 @@ if (OTHER_ID) {
     fd.append('oid', OTHER_ID);
     fd.append('file', file);
     fileInput.value = '';
-    await fetch('/upload_file', { method: 'POST', body: fd });
-    await pollMessages();
-    messagesBox.scrollTop = messagesBox.scrollHeight;
+    try {
+      await fetch('/upload_file', { method: 'POST', body: fd });
+      await pollMessages();
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+    } catch (err) {
+      console.error('File upload error:', err);
+    }
   });
 
   // Запись голосовых сообщений
