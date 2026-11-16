@@ -1,156 +1,258 @@
+# app.py
 import os
+import time
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'rmp26'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rmp.db'
+app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
-os.makedirs('uploads', exist_ok=True)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db = SQLAlchemy(app)
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    password = db.Column(db.String(100), nullable=False)
-    bio = db.Column(db.String(200), default="В Ramplez")
-    avatar = db.Column(db.Text, default="")
+    name = db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    bio = db.Column(db.String(200), default='')
+    avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
-    typing_at = db.Column(db.DateTime, default=datetime.utcnow)
+    typing_at = db.Column(db.Float, default=0.0)
+
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, nullable=False)
     receiver_id = db.Column(db.Integer, nullable=False)
-    msg_type = db.Column(db.String(20), default="text")
+    msg_type = db.Column(db.String(20), default='text')
     content = db.Column(db.Text, nullable=False)
-    file_name = db.Column(db.String(200), default="")
-    reaction = db.Column(db.String(20), default="")
-    hidden_for = db.Column(db.Integer, default=0)
-    timestamp = db.Column(db.String(20), default="")
+    file_name = db.Column(db.String(200), default='')
+    reaction = db.Column(db.String(20), default='')
+    hidden_for = db.Column(db.String(50), default='')
+    timestamp = db.Column(db.String(10), default='')
+
 
 with app.app_context():
     db.create_all()
 
-@app.route('/uploads/<path:fn>')
-def ufile(fn): return send_from_directory('uploads', fn)
 
 @app.route('/', methods=['GET', 'POST'])
-def login():
-    uid = session.get('user_id')
-    if uid and User.query.filter_by(id=int(uid)).first(): return redirect(url_for('chat'))
-    session.clear(); err = None
+def index():
+    if 'uid' in session:
+        return redirect(url_for('chat'))
+    error = None
     if request.method == 'POST':
-        act, un, pw = request.form.get('action'), request.form.get('username', '').strip().lower(), request.form.get('password', '')
-        if act == 'register':
-            nm = request.form.get('name', '').strip()
-            if User.query.filter_by(username=un).first(): err = "Ник занят!"
-            elif un and nm and pw:
-                u = User(username=un, name=nm, password=pw); db.session.add(u); db.session.commit(); session['user_id'] = u.id
+        action = request.form.get('action', 'login')
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        name = request.form.get('name', '').strip() or username
+
+        if not username or not password:
+            error = 'Заполните все обязательные поля'
+        elif action == 'register':
+            if User.query.filter_by(username=username).first():
+                error = 'Этот логин уже занят'
+            else:
+                u = User(username=username, name=name, password=generate_password_hash(password))
+                db.session.add(u)
+                db.session.commit()
+                session['uid'] = u.id
                 return redirect(url_for('chat'))
         else:
-            u = User.query.filter_by(username=un, password=pw).first()
-            if u: session['user_id'] = u.id; return redirect(url_for('chat'))
-            err = "Неверные данные!"
-    return render_template('login.html', error=err)
+            u = User.query.filter_by(username=username).first()
+            if u and check_password_hash(u.password, password):
+                session['uid'] = u.id
+                return redirect(url_for('chat'))
+            error = 'Неверный логин или пароль'
+    return render_template('login.html', error=error)
+
 
 @app.route('/chat')
 def chat():
-    uid = session.get('user_id')
-    if not uid: return redirect(url_for('login'))
-    me = User.query.filter_by(id=int(uid)).first()
-    if not me: session.clear(); return redirect(url_for('login'))
-    u_id = request.args.get('u', type=int)
+    if 'uid' not in session:
+        return redirect(url_for('index'))
+    me = db.session.get(User, session['uid'])
+    if not me:
+        session.clear()
+        return redirect(url_for('index'))
     users = User.query.filter(User.id != me.id).all()
-    other = User.query.filter_by(id=u_id).first() if u_id else None
-    return render_template('chat.html', current_user=me, users=users, active_user=other)
+    oid = request.args.get('u', type=int) or (users[0].id if users else 0)
+    other = db.session.get(User, oid) if oid else None
+    return render_template('chat.html', me=me, users=users, other=other)
+
 
 @app.route('/send', methods=['POST'])
-def send_msg():
-    uid = session.get('user_id')
-    d = request.get_json(silent=True) or {}
-    oid, txt = d.get('to'), (d.get('text') or '').strip()
-    if uid and oid and txt:
-        me = User.query.filter_by(id=int(uid)).first()
-        db.session.add(Message(sender_id=int(uid), receiver_id=int(oid), msg_type='text', content=txt, timestamp=datetime.now().strftime("%H:%M")))
-        if me: me.typing_to = 0
-        db.session.commit()
-    return jsonify({"ok": True})
+def send():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    oid = int(data.get('oid', 0))
+    content = str(data.get('content', '')).strip()
+    if not oid or not content:
+        return jsonify({'ok': False}), 400
+    msg = Message(
+        sender_id=session['uid'],
+        receiver_id=oid,
+        msg_type='text',
+        content=content,
+        timestamp=datetime.now().strftime('%H:%M')
+    )
+    db.session.add(msg)
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = 0
+    db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id})
 
-@app.route('/update_profile', methods=['POST'])
-def upd_prof():
-    uid = session.get('user_id')
-    if uid:
-        u = User.query.filter_by(id=int(uid)).first()
-        d = request.get_json(silent=True) or {}
-        if u:
-            if d.get('name', '').strip(): u.name = d['name'].strip()
-            if 'bio' in d: u.bio = d['bio'].strip()
-            if d.get('avatar'): u.avatar = d['avatar']
-            db.session.commit()
-    return jsonify({"ok": True})
-
-@app.route('/upload_file', methods=['POST'])
-def up_file():
-    uid = session.get('user_id')
-    r_id, f = request.form.get('receiver_id', type=int), request.files.get('file')
-    if uid and r_id and f and f.filename:
-        fn = f"{int(datetime.now().timestamp())}_{secure_filename(f.filename)}"
-        f.save(os.path.join('uploads', fn))
-        ext = fn.lower().split('.')[-1]
-        mt = 'image' if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else ('audio' if ext in ['webm', 'mp3', 'ogg', 'wav'] else 'file')
-        db.session.add(Message(sender_id=int(uid), receiver_id=r_id, msg_type=mt, content=f"/uploads/{fn}", file_name=f.filename, timestamp=datetime.now().strftime("%H:%M")))
-        db.session.commit(); return jsonify({"ok": True})
-    return jsonify({"ok": False}), 400
-
-@app.route('/typing/<int:oid>', methods=['POST'])
-def styp(oid):
-    uid = session.get('user_id')
-    if uid:
-        me = User.query.filter_by(id=int(uid)).first()
-        if me: me.typing_to, me.typing_at = oid, datetime.utcnow(); db.session.commit()
-    return jsonify({"ok": True})
 
 @app.route('/poll/<int:oid>')
 def poll(oid):
-    uid = session.get('user_id')
-    if not uid: return jsonify({"msgs": []})
-    mid = int(uid)
-    oth = User.query.filter_by(id=oid).first()
-    typ = bool(oth and oth.typing_to == mid and oth.typing_at and (datetime.utcnow() - oth.typing_at).total_seconds() < 4)
-    msgs = Message.query.filter((((Message.sender_id == mid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == mid))) & (Message.hidden_for != mid)).order_by(Message.id.asc()).all()
-    return jsonify({"typing": typ, "msgs": [{"id": m.id, "mine": m.sender_id == mid, "type": m.msg_type, "content": m.content, "fname": m.file_name, "react": m.reaction, "time": m.timestamp} for m in msgs]})
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    uid = session['uid']
+    msgs = Message.query.filter(
+        ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
+        ((Message.sender_id == oid) & (Message.receiver_id == uid))
+    ).order_by(Message.id.asc()).all()
 
-@app.route('/del_me/<int:mid>/<int:u>')
+    out = []
+    for m in msgs:
+        hidden = m.hidden_for.split(',') if m.hidden_for else []
+        if str(uid) in hidden:
+            continue
+        out.append({
+            'id': m.id,
+            'sender_id': m.sender_id,
+            'msg_type': m.msg_type,
+            'content': m.content,
+            'file_name': m.file_name,
+            'reaction': m.reaction,
+            'timestamp': m.timestamp
+        })
+
+    other = db.session.get(User, oid)
+    is_typing = bool(other and other.typing_to == uid and (time.time() - (other.typing_at or 0)) < 3.5)
+    return jsonify({'ok': True, 'messages': out, 'typing': is_typing})
+
+
+@app.route('/typing/<int:oid>', methods=['POST'])
+def typing(oid):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = oid
+        me.typing_at = time.time()
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    oid = request.form.get('oid', type=int)
+    f = request.files.get('file')
+    if not oid or not f or not f.filename:
+        return jsonify({'ok': False}), 400
+    orig_name = secure_filename(f.filename) or 'file'
+    saved_name = f"{int(time.time() * 1000)}_{orig_name}"
+    f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
+
+    ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
+    if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+        mtype = 'image'
+    elif ext in ('webm', 'ogg', 'mp3', 'wav', 'm4a'):
+        mtype = 'audio'
+    else:
+        mtype = 'file'
+
+    msg = Message(
+        sender_id=session['uid'],
+        receiver_id=oid,
+        msg_type=mtype,
+        content=url_for('uploaded_file', fn=saved_name),
+        file_name=f.filename,
+        timestamp=datetime.now().strftime('%H:%M')
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/uploads/<path:fn>')
+def uploaded_file(fn):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], fn)
+
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    me = db.session.get(User, session['uid'])
+    if me:
+        name = str(data.get('name', '')).strip()
+        if name:
+            me.name = name[:80]
+        me.bio = str(data.get('bio', '')).strip()[:200]
+        avatar = data.get('avatar')
+        if avatar and str(avatar).startswith('data:image/'):
+            me.avatar = avatar
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_me(mid, u):
-    uid = session.get('user_id')
-    if uid:
-        m = Message.query.filter_by(id=mid).first()
-        if m:
-            if m.hidden_for and m.hidden_for != int(uid): db.session.delete(m)
-            else: m.hidden_for = int(uid)
-            db.session.commit()
-    return redirect(url_for('chat', u=u))
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
+        hidden.discard('')
+        hidden.add(str(session['uid']))
+        msg.hidden_for = ','.join(hidden)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
-@app.route('/del_all/<int:mid>/<int:u>')
+
+@app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_all(mid, u):
-    if session.get('user_id'):
-        m = Message.query.filter_by(id=mid).first()
-        if m: db.session.delete(m); db.session.commit()
-    return redirect(url_for('chat', u=u))
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg and msg.sender_id == session['uid']:
+        db.session.delete(msg)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
-@app.route('/react_msg/<int:mid>/<int:u>/<emj>')
-def react(mid, u, emj):
-    if session.get('user_id'):
-        m = Message.query.filter_by(id=mid).first()
-        if m: m.reaction = "" if m.reaction == emj else emj; db.session.commit()
-    return redirect(url_for('chat', u=u))
+
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
+def react_msg(mid, u, emj):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        msg.reaction = '' if msg.reaction == emj else emj
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
 
 @app.route('/logout')
-def logout(): session.clear(); return redirect(url_for('login'))
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
-if __name__ == '__main__': app.run(debug=True, host='0.0.0.0', port=5000)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
