@@ -9,7 +9,8 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db'
+# Добавлен таймаут для SQLite, чтобы избежать блокировок при частых запросах
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
