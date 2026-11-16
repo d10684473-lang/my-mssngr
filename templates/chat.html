@@ -30,12 +30,12 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 .fbox{display:inline-block;padding:6px 10px;background:rgba(128,128,128,.15);border-radius:8px;color:inherit;text-decoration:none;font-size:13px;margin-top:4px}
 .rbar{display:none;padding:6px 14px;background:var(--side);border-left:3px solid var(--acc);justify-content:space-between;font-size:13px}
 .input-area{padding:10px 14px;background:var(--side);border-top:1px solid var(--brd);display:flex;gap:8px;align-items:center}
-.txt-inp{flex:1;padding:10px 16px;border:1px solid var(--brd);border-radius:22px;background:var(--chat);color:var(--txt);outline:none;font-size:15px}
-.tool-btn{background:var(--hov);border:none;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;color:var(--txt);flex-shrink:0}
-.send-btn{background:var(--acc);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.tinp{flex:1;padding:10px 16px;border:1px solid var(--brd);border-radius:22px;background:var(--chat);color:var(--txt);outline:none;font-size:15px}
+.tbtn{background:var(--hov);border:none;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;color:var(--txt);flex-shrink:0}
+.sbtn{background:var(--acc);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;flex-shrink:0}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;justify-content:center;align-items:center}
-.modal-card{background:var(--side);color:var(--txt);padding:20px;border-radius:18px;width:90%;max-width:330px;border:1px solid var(--brd)}
-.m-inp{width:100%;padding:9px;margin:5px 0 12px;border:1px solid var(--brd);border-radius:10px;background:var(--chat);color:var(--txt);outline:none}
+.mcard{background:var(--side);color:var(--txt);padding:20px;border-radius:18px;width:90%;max-width:330px;border:1px solid var(--brd)}
+.minp{width:100%;padding:9px;margin:5px 0 12px;border:1px solid var(--brd);border-radius:10px;background:var(--chat);color:var(--txt);outline:none;font-family:inherit}
 .cbtn{display:block;width:100%;padding:11px;margin:5px 0;border:none;border-radius:10px;background:var(--hov);color:var(--txt);font-size:14px;text-align:left;cursor:pointer;text-decoration:none}
 .cemj{display:flex;justify-content:space-around;padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:6px;font-size:22px}
 .cemj a{text-decoration:none}
@@ -45,82 +45,95 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 <script>if(localStorage.getItem('t')==='1')document.documentElement.classList.add('dark')</script>
 </head>
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
+
 <div class="sidebar">
-<div class="my-profile">
-<div style="display:flex;align-items:center;gap:10px">
-<div class="avatar">{{ current_user.name[:1].upper() }}<img src="{{ current_user.avatar }}" onerror="this.remove()"></div>
-<div><b>{{ current_user.name }}</b><br><small style="color:var(--sub)">@{{ current_user.username }}</small></div>
-</div>
-<div style="display:flex;gap:5px">
-<button type="button" class="icon-btn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('t',document.documentElement.classList.contains('dark')?'1':'0')">🌓</button>
-<button type="button" class="icon-btn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
-<a href="/logout" class="icon-btn">🚪</a>
-</div>
-</div>
-<div class="search-box"><input type="text" id="si" placeholder="Поиск..." onkeyup="fu()"></div>
-<div class="user-list">
-{% for u in users %}
-<a href="/chat?u={{ u.id }}" class="user-item" data-s="{{ u.name.lower() }} {{ u.username.lower() }}">
-<div class="avatar">{{ u.name[:1].upper() }}<img src="{{ u.avatar }}" onerror="this.remove()"></div>
-<div><b>{{ u.name }}</b><br><small style="color:var(--sub)">{{ u.bio }}</small></div>
-</a>
-{% endfor %}
-</div>
+  <div class="my-profile">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="avatar">{{ current_user.name[:1].upper() }}{% if current_user.avatar %}<img src="{{ current_user.avatar }}" onerror="this.remove()">{% endif %}</div>
+      <div><b>{{ current_user.name }}</b><br><small style="color:var(--sub)">@{{ current_user.username }}</small></div>
+    </div>
+    <div style="display:flex;gap:5px">
+      <button type="button" class="icon-btn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('t',document.documentElement.classList.contains('dark')?'1':'0')">🌓</button>
+      <button type="button" class="icon-btn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
+      <a href="/logout" class="icon-btn">🚪</a>
+    </div>
+  </div>
+  <div class="search-box"><input type="text" id="si" placeholder="Поиск..." onkeyup="fu()"></div>
+  <div class="user-list">
+    {% for u in users %}
+    <a href="/chat?u={{ u.id }}" class="user-item" data-s="{{ u.name.lower() }} {{ u.username.lower() }}">
+      <div class="avatar">{{ u.name[:1].upper() }}{% if u.avatar %}<img src="{{ u.avatar }}" onerror="this.remove()">{% endif %}</div>
+      <div><b>{{ u.name }}</b><br><small style="color:var(--sub)">{{ u.bio }}</small></div>
+    </a>
+    {% endfor %}
+  </div>
 </div>
 
 <div class="chat-area">
-<div class="chat-header">
-<a href="/chat" style="color:var(--txt);text-decoration:none;font-size:20px;margin-right:6px">←</a>
-<div><b>{{ active_user.name if active_user else 'Выбери чат слева' }}</b><br><small id="st" style="color:var(--sub)">{{ active_user.bio if active_user else '' }}</small></div>
-<small id="up" style="margin-left:auto;color:var(--acc);font-weight:700"></small>
-</div>
-<div class="messages-box" id="mb">
-{% for m in messages %}
-{% set mine = (m.sender_id == current_user.id) %}
-<div class="msg {{ 'mine' if mine else 'theirs' }}" data-id="{{ m.id }}" data-txt="{{ m.content if m.msg_type == 'text' else m.file_name }}">
-<img src="{{ m.content }}" onclick="event.stopPropagation();oimg(this.src)" style="{{ '' if m.msg_type == 'image' else 'display:none' }}">
-<audio controls src="{{ m.content }}" onclick="event.stopPropagation()" style="{{ '' if m.msg_type == 'audio' else 'display:none' }}"></audio>
-<a href="{{ m.content }}" download="{{ m.file_name }}" class="fbox" onclick="event.stopPropagation()" style="{{ '' if m.msg_type == 'file' else 'display:none' }}">📄 {{ m.file_name }}</a>
-<div style="white-space:pre-line;{{ '' if m.msg_type == 'text' else 'display:none' }}">{{ m.content }}</div>
-<div style="font-size:10px;opacity:.75;text-align:right;margin-top:3px">{{ m.reaction }} {{ m.timestamp }}</div>
-</div>
-{% endfor %}
-</div>
-<div class="rbar" id="rb"><span id="rt"></span><span onclick="crep()" style="cursor:pointer">✕</span></div>
-<form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="psend()">
-<button type="button" class="tbtn" onclick="document.getElementById('pi').click()">📎</button>
-<input type="file" id="pi" style="display:none" onchange="upf(this.files.item(0))">
-<input type="text" name="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus>
-<button type="button" class="tbtn" id="mb2" onclick="tr()">🎤</button>
-<button type="submit" class="sbtn">➤</button>
-</form>
+  <div class="chat-header">
+    <a href="/chat" style="color:var(--txt);text-decoration:none;font-size:20px;margin-right:6px">←</a>
+    <div>
+      <b>{{ active_user.name if active_user else 'Выбери чат слева' }}</b><br>
+      <small id="st" style="color:var(--sub)">{{ active_user.bio if active_user else '' }}</small>
+    </div>
+    <small id="up" style="margin-left:auto;color:var(--acc);font-weight:700"></small>
+  </div>
+
+  <div class="messages-box" id="mb">
+    {% for m in messages %}
+    {% set mine = (m.sender_id == current_user.id) %}
+    <div class="msg {{ 'mine' if mine else 'theirs' }}" onclick="openCtx({{ m.id }}, '{{ (m.content if m.msg_type == 'text' else m.file_name)|replace("'", "\\'")|replace('\n', ' ') }}')">
+      {% if m.msg_type == 'image' %}<img src="{{ m.content }}" onclick="event.stopPropagation();oimg(this.src)">{% endif %}
+      {% if m.msg_type == 'audio' %}<audio controls src="{{ m.content }}" onclick="event.stopPropagation()"></audio>{% endif %}
+      {% if m.msg_type == 'file' %}<a href="{{ m.content }}" download="{{ m.file_name }}" class="fbox" onclick="event.stopPropagation()">📄 {{ m.file_name }}</a>{% endif %}
+      {% if m.msg_type == 'text' %}<div style="white-space:pre-line">{{ m.content }}</div>{% endif %}
+      <div style="font-size:10px;opacity:.75;text-align:right;margin-top:3px">{{ m.reaction }} {{ m.timestamp }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="rbar" id="rb"><span id="rt"></span><span onclick="crep()" style="cursor:pointer">✕</span></div>
+
+  <form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="psend()">
+    <button type="button" class="tbtn" onclick="document.getElementById('pi').click()">📎</button>
+    <input type="file" id="pi" style="display:none" onchange="upf(this.files[0])">
+    <input type="text" name="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus autocomplete="off">
+    <button type="button" class="tbtn" id="mb2" onclick="tr()">🎤</button>
+    <button type="submit" class="sbtn">➤</button>
+  </form>
 </div>
 
 <div class="modal" id="ctx" onclick="this.style.display='none'">
-<div class="mcard" onclick="event.stopPropagation()">
-<div class="cemj" id="cem"></div>
-<button type="button" class="cbtn" onclick="drep()">↩️ Ответить</button>
-<a href="#" class="cbtn" id="bdm">🗑️ Удалить у себя</a>
-<a href="#" class="cbtn" id="bda" style="color:#ef4444">❌ Удалить у всех</a>
-</div>
+  <div class="mcard" onclick="event.stopPropagation()">
+    <div class="cemj" id="cem"></div>
+    <button type="button" class="cbtn" onclick="drep()">↩️ Ответить</button>
+    <a href="#" class="cbtn" id="bdm">🗑️ Удалить у себя</a>
+    <a href="#" class="cbtn" id="bda" style="color:#ef4444">❌ Удалить у всех</a>
+  </div>
 </div>
 
 <div class="modal" id="iv" onclick="this.style.display='none'"><img id="fi" src=""></div>
 
 <div class="modal" id="pm" onclick="this.style.display='none'">
-<div class="mcard" onclick="event.stopPropagation()">
-<h3 style="margin-top:0">Профиль</h3>
-<textarea class="minp" id="pn" rows="1">{{ current_user.name }}</textarea>
-<textarea class="minp" id="pb" rows="2">{{ current_user.bio }}</textarea>
-<input type="file" class="minp" accept="image/*" onchange="pa(this)">
-<button type="button" class="cbtn" style="width:auto;display:inline-block" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
-<button type="button" class="sbtn" style="width:auto;border-radius:10px;padding:0 16px" onclick="svp()">Сохранить</button>
-</div>
+  <div class="mcard" onclick="event.stopPropagation()">
+    <h3 style="margin-top:0">Профиль</h3>
+    <input type="text" class="minp" id="pn" value="{{ current_user.name }}" placeholder="Имя">
+    <textarea class="minp" id="pb" rows="2" placeholder="О себе">{{ current_user.bio }}</textarea>
+    <input type="file" class="minp" accept="image/*" onchange="pa(this)">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="cbtn" style="width:auto;margin:0" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
+      <button type="button" class="sbtn" style="width:auto;border-radius:10px;padding:0 16px" onclick="svp()">Сохранить</button>
+    </div>
+  </div>
 </div>
 
 <script>
-var b=document.getElementById('mb');if(b)b.scrollTop=b.scrollHeight;
-var oid=Number("{{ active_user.id if active_user else 0 }}"),mc=Number("{{ messages|length if messages else 0 }}"),bio="{{ active_user.bio if active_user else '' }}",av="",stxt="",rtxt="",lt=0;
-function fu(){var q=document.getElementById('si').value.toLowerCase();document.querySelectorAll('.user-item').forEach(e=>e.style.display=e.dataset.s.includes(q)?'flex':'none')}
-function oimg(s){document.getElementById('fi').src=s;document.getElementById('iv').style.display='flex'}
-function pa(i){var f=i.files.item(0);if(f){var r=new FileReader();r.onload=e=>av=e.target.result;r.readAsDataURL(f)}}
+var b = document.getElementById('mb');
+if(b) b.scrollTop = b.scrollHeight;
+
+var oid = Number("{{ active_user.id if active_user else 0 }}"),
+    bio = "{{ active_user.bio if active_user else '' }}",
+    av = "", stxt = "", rtxt = "", lt = 0, lastHtml = "";
+
+function fu() {
+  var q = document.getElementById('si').value.toLowerCase();
