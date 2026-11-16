@@ -8,8 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-enterprise-secret-2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_pro.db?timeout=20'
+app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
@@ -56,7 +56,7 @@ def index():
         name = request.form.get('name', '').strip() or username
 
         if not username or not password:
-            error = 'Заполните обязательные поля'
+            error = 'Заполните все обязательные поля'
         elif action == 'register':
             if User.query.filter_by(username=username).first():
                 error = 'Этот логин уже занят'
@@ -83,7 +83,6 @@ def chat():
     if not me:
         session.clear()
         return redirect(url_for('index'))
-    
     users = User.query.filter(User.id != me.id).all()
     oid = request.args.get('u', type=int) or (users[0].id if users else 0)
     other = db.session.get(User, oid) if oid else None
@@ -97,14 +96,12 @@ def send():
     data = request.get_json(silent=True) or {}
     oid = int(data.get('oid', 0))
     content = str(data.get('content', '')).strip()
-    msg_type = str(data.get('msg_type', 'text'))
     if not oid or not content:
         return jsonify({'ok': False}), 400
-
     msg = Message(
         sender_id=session['uid'],
         receiver_id=oid,
-        msg_type=msg_type,
+        msg_type='text',
         content=content,
         timestamp=datetime.now().strftime('%H:%M')
     )
@@ -214,7 +211,7 @@ def update_profile():
     return jsonify({'ok': True})
 
 
-@app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
+@app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_me(mid, u):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -225,10 +222,10 @@ def del_me(mid, u):
         hidden.add(str(session['uid']))
         msg.hidden_for = ','.join(hidden)
         db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
 
-@app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
+@app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_all(mid, u):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -236,10 +233,10 @@ def del_all(mid, u):
     if msg and msg.sender_id == session['uid']:
         db.session.delete(msg)
         db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
 
-@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['POST'])
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
 def react_msg(mid, u, emj):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -247,7 +244,7 @@ def react_msg(mid, u, emj):
     if msg:
         msg.reaction = '' if msg.reaction == emj else emj
         db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
 
 @app.route('/logout')
