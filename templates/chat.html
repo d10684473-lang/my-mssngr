@@ -73,10 +73,10 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
   </div>
   <div class="messages-box" id="mb"></div>
   <div class="rbar" id="rb"><span id="rt"></span><span onclick="rtxt='';rb.style.display='none'" style="cursor:pointer">✕</span></div>
-  <form class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="snd(event)">
+  <form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="if(rtxt)ti.value='↩️ '+rtxt.slice(0,25)+'...\n'+ti.value">
     <button type="button" class="tbtn" onclick="pi.click()">📎</button>
-    <input type="file" id="pi" style="display:none" onchange="upf(this.files[0])">
-    <input type="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus autocomplete="off">
+    <input type="file" id="pi" style="display:none" onchange="upf(this.files.item(0))">
+    <input type="text" name="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus autocomplete="off">
     <button type="button" class="tbtn" id="mb2" onclick="tr()">🎤</button>
     <button type="submit" class="sbtn">➤</button>
   </form>
@@ -110,9 +110,8 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 var oid={{ active_user.id if active_user else 0 }}, bio="{{ active_user.bio if active_user else '' }}", av="", stxt="", rtxt="", lt=0, lh="", rec, ch=[];
 function fu(){var q=si.value.toLowerCase();document.querySelectorAll('.user-item').forEach(e=>e.style.display=e.dataset.s.includes(q)?'flex':'none')}
 function oimg(s){fi.src=s;iv.style.display='flex'}
-function pa(i){var f=i.files[0];if(!f)return;var r=new FileReader();r.onload=e=>{var m=new Image();m.onload=()=>{var c=document.createElement('canvas'),k=Math.min(1,200/Math.max(m.width,m.height));c.width=m.width*k;c.height=m.height*k;c.getContext('2d').drawImage(m,0,0,c.width,c.height);av=c.toDataURL('image/jpeg',.8)};m.src=e.target.result};r.readAsDataURL(f)}
+function pa(i){var f=i.files.item(0);if(!f)return;var r=new FileReader();r.onload=e=>{var m=new Image();m.onload=()=>{var c=document.createElement('canvas'),k=Math.min(1,200/Math.max(m.width,m.height));c.width=m.width*k;c.height=m.height*k;c.getContext('2d').drawImage(m,0,0,c.width,c.height);av=c.toDataURL('image/jpeg',.8)};m.src=e.target.result};r.readAsDataURL(f)}
 function svp(){fetch('/update_profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:pn.value,bio:pb.value,avatar:av})}).then(()=>location.reload())}
-function snd(e){e.preventDefault();var t=ti.value.trim();if(!t||!oid)return;if(rtxt){t='↩️ '+rtxt.slice(0,25)+'...\n'+t;rtxt='';rb.style.display='none'}ti.value='';var d=new FormData();d.append('text',t);fetch('/chat?u='+oid,{method:'POST',body:d}).then(()=>load())}
 function openCtx(id,t){stxt=t;cem.innerHTML=['👍','❤️','😂','😮','😢','🔥'].map(e=>`<a href="/react_msg/${id}/${oid}/${e}">${e}</a>`).join('');bdm.href=`/del_me/${id}/${oid}`;bda.href=`/del_all/${id}/${oid}`;ctx.style.display='flex'}
 function upf(f){if(!f||!oid)return;up.innerText='...';var d=new FormData();d.append('receiver_id',oid);d.append('file',f);fetch('/upload_file',{method:'POST',body:d}).then(()=>{up.innerText='';load()})}
 function tr(){if(rec&&rec.state==='recording'){rec.stop();mb2.style.background='';mb2.innerText='🎤'}else navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{rec=new MediaRecorder(s);ch=[];rec.ondataavailable=e=>ch.push(e.data);rec.onstop=()=>{upf(new File([new Blob(ch,{type:'audio/webm'})],'v.webm',{type:'audio/webm'}));s.getTracks().forEach(t=>t.stop())};rec.start();mb2.style.background='#ef4444';mb2.innerText='⏹️'})}
