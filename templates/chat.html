@@ -5,41 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Ramplez</title>
 <style>
-:root{--bg:#e5e9f0;--side:#fff;--chat:#f0f4f8;--txt:#0f172a;--sub:#64748b;--brd:#e2e8f0;--hov:#f1f5f9;--mine:#2563eb;--mtxt:#fff;--theirs:#fff;--acc:#2563eb}
+:root{--bg:#e5e9f0;--side:#fff;--chat:#f8fafc;--txt:#0f172a;--sub:#64748b;--brd:#cbd5e1;--hov:#f1f5f9;--mine:#2563eb;--theirs:#e2e8f0;--acc:#2563eb}
 html.dark{--bg:#090d16;--side:#0f172a;--chat:#0b1120;--txt:#f8fafc;--sub:#94a3b8;--brd:#1e293b;--hov:#1e293b;--theirs:#1e293b;--acc:#3b82f6}
-*{box-sizing:border-box;-webkit-touch-callout:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box;font-family:sans-serif}
 body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);overflow:hidden}
-.sidebar{width:34%;max-width:350px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
-.my-profile{padding:12px 15px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--brd)}
-.icon-btn{background:var(--hov);border:none;color:var(--txt);width:34px;height:34px;border-radius:50%;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-.search-box{padding:8px 12px}
-.search-box input{width:100%;padding:9px 14px;border:1px solid var(--brd);border-radius:20px;background:var(--chat);color:var(--txt);outline:none}
-.user-list{flex:1;overflow-y:auto;padding:0 8px}
-.user-item{padding:10px;border-radius:12px;margin-bottom:4px;text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.sidebar{width:34%;max-width:340px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column}
+.my-profile,.chat-header,.input-area{padding:10px 14px;background:var(--side);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd)}
+.input-area{border-top:1px solid var(--brd);border-bottom:none}
+.icon-btn,.tbtn,.sbtn{background:var(--hov);border:none;color:var(--txt);width:36px;height:36px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0}
+.sbtn{background:var(--acc);color:#fff}
+.search-box{padding:8px}
+.search-box input,.tinp,.minp{width:100%;padding:9px 14px;border:1px solid var(--brd);border-radius:18px;background:var(--chat);color:var(--txt);outline:none}
+.minp{border-radius:10px;margin:5px 0 10px}
+.user-list,.messages-box{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.user-item{padding:8px;border-radius:12px;text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
 .user-item:hover{background:var(--hov)}
-.avatar{width:42px;height:42px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:700;flex-shrink:0;overflow:hidden;position:relative}
+.avatar{width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:700;flex-shrink:0;overflow:hidden;position:relative}
 .avatar img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
 .chat-area{flex:1;display:flex;flex-direction:column;background:var(--chat)}
-.chat-header{background:var(--side);padding:10px 16px;display:flex;align-items:center;gap:10px;min-height:60px;border-bottom:1px solid var(--brd)}
-.messages-box{flex:1;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
-.msg{padding:9px 13px;border-radius:16px;max-width:75%;font-size:15px;word-wrap:break-word;cursor:pointer;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.msg.mine{background:var(--mine);color:var(--mtxt);align-self:flex-end;border-bottom-right-radius:4px}
-.msg.theirs{background:var(--theirs);color:var(--txt);align-self:flex-start;border-bottom-left-radius:4px}
-.msg img{max-width:100%;max-height:240px;border-radius:10px;display:block;margin-top:4px}
-.msg audio{max-width:220px;height:34px;margin-top:4px}
-.fbox{display:inline-block;padding:6px 10px;background:rgba(128,128,128,.15);border-radius:8px;color:inherit;text-decoration:none;font-size:13px;margin-top:4px}
-.rbar{display:none;padding:6px 14px;background:var(--side);border-left:3px solid var(--acc);justify-content:space-between;font-size:13px}
-.input-area{padding:10px 14px;background:var(--side);border-top:1px solid var(--brd);display:flex;gap:8px;align-items:center}
-.tinp{flex:1;padding:10px 16px;border:1px solid var(--brd);border-radius:22px;background:var(--chat);color:var(--txt);outline:none;font-size:15px}
-.tbtn{background:var(--hov);border:none;width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;color:var(--txt);flex-shrink:0}
-.sbtn{background:var(--acc);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.msg{padding:9px 13px;border-radius:16px;max-width:75%;font-size:15px;word-wrap:break-word;cursor:pointer}
+.msg.mine{background:var(--mine);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.msg.theirs{background:var(--theirs);color:var(--txt);align-self:flex-start;border-bottom-left-radius:3px}
+.msg img{max-width:100%;max-height:220px;border-radius:8px;display:block}
+.msg audio{max-width:210px;height:32px}
+.fbox{display:inline-block;padding:5px 9px;background:rgba(128,128,128,.2);border-radius:8px;color:inherit;text-decoration:none;font-size:13px}
+.rbar{display:none;padding:5px 12px;background:var(--side);border-left:3px solid var(--acc);justify-content:space-between;font-size:13px}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;justify-content:center;align-items:center}
-.mcard{background:var(--side);color:var(--txt);padding:20px;border-radius:18px;width:90%;max-width:330px;border:1px solid var(--brd)}
-.minp{width:100%;padding:9px;margin:5px 0 12px;border:1px solid var(--brd);border-radius:10px;background:var(--chat);color:var(--txt);outline:none;font-family:inherit}
-.cbtn{display:block;width:100%;padding:11px;margin:5px 0;border:none;border-radius:10px;background:var(--hov);color:var(--txt);font-size:14px;text-align:left;cursor:pointer;text-decoration:none}
-.cemj{display:flex;justify-content:space-around;padding-bottom:10px;border-bottom:1px solid var(--brd);margin-bottom:6px;font-size:22px}
+.mcard{background:var(--side);color:var(--txt);padding:18px;border-radius:16px;width:90%;max-width:320px;border:1px solid var(--brd)}
+.cbtn{display:block;width:100%;padding:10px;margin:4px 0;border:none;border-radius:8px;background:var(--hov);color:var(--txt);text-align:left;cursor:pointer;text-decoration:none}
+.cemj{display:flex;justify-content:space-around;padding-bottom:8px;border-bottom:1px solid var(--brd);font-size:20px}
 .cemj a{text-decoration:none}
-#iv img{max-width:94vw;max-height:88vh;border-radius:12px}
+#iv img{max-width:94vw;max-height:88vh;border-radius:10px}
 @media(max-width:768px){body.no-chat .sidebar{width:100%;max-width:none}body.no-chat .chat-area{display:none}body.has-chat .sidebar{display:none}body.has-chat .chat-area{display:flex;width:100%}}
 </style>
 <script>if(localStorage.getItem('t')==='1')document.documentElement.classList.add('dark')</script>
@@ -47,12 +43,12 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 <body class="{{ 'has-chat' if active_user else 'no-chat' }}">
 
 <div class="sidebar">
-  <div class="my-profile">
-    <div style="display:flex;align-items:center;gap:10px">
+  <div class="my-profile" style="justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
       <div class="avatar">{{ current_user.name[:1].upper() }}{% if current_user.avatar %}<img src="{{ current_user.avatar }}" onerror="this.remove()">{% endif %}</div>
       <div><b>{{ current_user.name }}</b><br><small style="color:var(--sub)">@{{ current_user.username }}</small></div>
     </div>
-    <div style="display:flex;gap:5px">
+    <div style="display:flex;gap:4px">
       <button type="button" class="icon-btn" onclick="document.documentElement.classList.toggle('dark');localStorage.setItem('t',document.documentElement.classList.contains('dark')?'1':'0')">🌓</button>
       <button type="button" class="icon-btn" onclick="document.getElementById('pm').style.display='flex'">⚙️</button>
       <a href="/logout" class="icon-btn">🚪</a>
@@ -71,31 +67,14 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 
 <div class="chat-area">
   <div class="chat-header">
-    <a href="/chat" style="color:var(--txt);text-decoration:none;font-size:20px;margin-right:6px">←</a>
-    <div>
-      <b>{{ active_user.name if active_user else 'Выбери чат слева' }}</b><br>
-      <small id="st" style="color:var(--sub)">{{ active_user.bio if active_user else '' }}</small>
-    </div>
+    <a href="/chat" style="color:var(--txt);text-decoration:none;font-size:20px">←</a>
+    <div><b>{{ active_user.name if active_user else 'Выбери чат' }}</b><br><small id="st" style="color:var(--sub)">{{ active_user.bio if active_user else '' }}</small></div>
     <small id="up" style="margin-left:auto;color:var(--acc);font-weight:700"></small>
   </div>
-
-  <div class="messages-box" id="mb">
-    {% for m in messages %}
-    {% set mine = (m.sender_id == current_user.id) %}
-    <div class="msg {{ 'mine' if mine else 'theirs' }}" onclick="openCtx({{ m.id }}, '{{ (m.content if m.msg_type == 'text' else m.file_name)|replace("'", "\\'")|replace('\n', ' ') }}')">
-      {% if m.msg_type == 'image' %}<img src="{{ m.content }}" onclick="event.stopPropagation();oimg(this.src)">{% endif %}
-      {% if m.msg_type == 'audio' %}<audio controls src="{{ m.content }}" onclick="event.stopPropagation()"></audio>{% endif %}
-      {% if m.msg_type == 'file' %}<a href="{{ m.content }}" download="{{ m.file_name }}" class="fbox" onclick="event.stopPropagation()">📄 {{ m.file_name }}</a>{% endif %}
-      {% if m.msg_type == 'text' %}<div style="white-space:pre-line">{{ m.content }}</div>{% endif %}
-      <div style="font-size:10px;opacity:.75;text-align:right;margin-top:3px">{{ m.reaction }} {{ m.timestamp }}</div>
-    </div>
-    {% endfor %}
-  </div>
-
-  <div class="rbar" id="rb"><span id="rt"></span><span onclick="crep()" style="cursor:pointer">✕</span></div>
-
-  <form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="psend()">
-    <button type="button" class="tbtn" onclick="document.getElementById('pi').click()">📎</button>
+  <div class="messages-box" id="mb"></div>
+  <div class="rbar" id="rb"><span id="rt"></span><span onclick="rtxt='';rb.style.display='none'" style="cursor:pointer">✕</span></div>
+  <form method="POST" action="/chat?u={{ active_user.id if active_user else 0 }}" class="input-area" style="{{ '' if active_user else 'display:none' }}" onsubmit="if(rtxt)ti.value='↩️ '+rtxt.slice(0,25)+'...\n'+ti.value">
+    <button type="button" class="tbtn" onclick="pi.click()">📎</button>
     <input type="file" id="pi" style="display:none" onchange="upf(this.files[0])">
     <input type="text" name="text" id="ti" class="tinp" placeholder="Сообщение..." oninput="styp()" required autofocus autocomplete="off">
     <button type="button" class="tbtn" id="mb2" onclick="tr()">🎤</button>
@@ -106,7 +85,7 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 <div class="modal" id="ctx" onclick="this.style.display='none'">
   <div class="mcard" onclick="event.stopPropagation()">
     <div class="cemj" id="cem"></div>
-    <button type="button" class="cbtn" onclick="drep()">↩️ Ответить</button>
+    <button type="button" class="cbtn" onclick="rtxt=stxt;rt.innerText='Ответ: '+rtxt.slice(0,30);rb.style.display='flex';ctx.style.display='none';ti.focus()">↩️ Ответить</button>
     <a href="#" class="cbtn" id="bdm">🗑️ Удалить у себя</a>
     <a href="#" class="cbtn" id="bda" style="color:#ef4444">❌ Удалить у всех</a>
   </div>
@@ -116,24 +95,25 @@ body{margin:0;display:flex;height:100dvh;background:var(--bg);color:var(--txt);o
 
 <div class="modal" id="pm" onclick="this.style.display='none'">
   <div class="mcard" onclick="event.stopPropagation()">
-    <h3 style="margin-top:0">Профиль</h3>
-    <input type="text" class="minp" id="pn" value="{{ current_user.name }}" placeholder="Имя">
-    <textarea class="minp" id="pb" rows="2" placeholder="О себе">{{ current_user.bio }}</textarea>
+    <h3 style="margin:0 0 8px">Профиль</h3>
+    <input type="text" class="minp" id="pn" value="{{ current_user.name }}">
+    <textarea class="minp" id="pb" rows="2">{{ current_user.bio }}</textarea>
     <input type="file" class="minp" accept="image/*" onchange="pa(this)">
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button type="button" class="cbtn" style="width:auto;margin:0" onclick="document.getElementById('pm').style.display='none'">Отмена</button>
-      <button type="button" class="sbtn" style="width:auto;border-radius:10px;padding:0 16px" onclick="svp()">Сохранить</button>
+      <button type="button" class="cbtn" style="width:auto;margin:0" onclick="pm.style.display='none'">Отмена</button>
+      <button type="button" class="sbtn" style="width:auto;border-radius:8px;padding:0 14px" onclick="svp()">Сохранить</button>
     </div>
   </div>
 </div>
 
 <script>
-var b = document.getElementById('mb');
-if(b) b.scrollTop = b.scrollHeight;
-
-var oid = Number("{{ active_user.id if active_user else 0 }}"),
-    bio = "{{ active_user.bio if active_user else '' }}",
-    av = "", stxt = "", rtxt = "", lt = 0, lastHtml = "";
-
-function fu() {
-  var q = document.getElementById('si').value.toLowerCase();
+var oid={{ active_user.id if active_user else 0 }}, bio="{{ active_user.bio if active_user else '' }}", av="", stxt="", rtxt="", lt=0, lh="", rec, ch=[];
+function fu(){var q=si.value.toLowerCase();document.querySelectorAll('.user-item').forEach(e=>e.style.display=e.dataset.s.includes(q)?'flex':'none')}
+function oimg(s){fi.src=s;iv.style.display='flex'}
+function pa(i){var f=i.files[0];if(!f)return;var r=new FileReader();r.onload=e=>{var m=new Image();m.onload=()=>{var c=document.createElement('canvas'),k=Math.min(1,200/Math.max(m.width,m.height));c.width=m.width*k;c.height=m.height*k;c.getContext('2d').drawImage(m,0,0,c.width,c.height);av=c.toDataURL('image/jpeg',.8)};m.src=e.target.result};r.readAsDataURL(f)}
+function svp(){fetch('/update_profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:pn.value,bio:pb.value,avatar:av})}).then(()=>location.reload())}
+function openCtx(id,t){stxt=t;cem.innerHTML=['👍','❤️','😂','😮','😢','🔥'].map(e=>`<a href="/react_msg/${id}/${oid}/${e}">${e}</a>`).join('');bdm.href=`/del_me/${id}/${oid}`;bda.href=`/del_all/${id}/${oid}`;ctx.style.display='flex'}
+function upf(f){if(!f||!oid)return;up.innerText='...';var d=new FormData();d.append('receiver_id',oid);d.append('file',f);fetch('/upload_file',{method:'POST',body:d}).then(()=>{up.innerText='';load()})}
+function tr(){if(rec&&rec.state==='recording'){rec.stop();mb2.style.background='';mb2.innerText='🎤'}else navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{rec=new MediaRecorder(s);ch=[];rec.ondataavailable=e=>ch.push(e.data);rec.onstop=()=>{upf(new File([new Blob(ch,{type:'audio/webm'})],'v.webm',{type:'audio/webm'}));s.getTracks().forEach(t=>t.stop())};rec.start();mb2.style.background='#ef4444';mb2.innerText='⏹️'})}
+function styp(){if(oid&&Date.now()-lt>2000){lt=Date.now();fetch('/typing/'+oid,{method:'POST'})}}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
