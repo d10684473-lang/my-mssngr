@@ -4,51 +4,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ramplez Copilot Enterprise X — Microsoft Edition</title>
+<title>Ramplez Copilot Enterprise</title>
 <style>
   :root {
-    --bg: #f8f9fa;
-    --sidebar: #ffffff;
-    --chat-bg: #f0f2f5;
-    --border: #e1dfdd;
-    --text: #242424;
-    --muted: #605e5c;
-    --hover: #f3f2f1;
+    --bg: #ffffff;
+    --sidebar: #f7f9fc;
+    --chat-bg: #efeae2;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --hover: #f1f5f9;
     --active: #0078d4;
     --active-text: #ffffff;
-    --my-msg: #0078d4;
-    --my-text: #ffffff;
+    --my-msg: #d9fdd3;
+    --my-text: #1e293b;
     --other-msg: #ffffff;
-    --other-text: #242424;
+    --other-text: #1e293b;
     --card: #ffffff;
-    --shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.08), 0 1.2px 3.6px rgba(0, 0, 0, 0.05);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   }
   body.dark {
-    --bg: #11100f;
-    --sidebar: #1f1f1f;
-    --chat-bg: #141414;
-    --border: #292827;
-    --text: #f3f2f1;
-    --muted: #a19f9d;
-    --hover: #2d2d2c;
-    --active: #2f80ed;
+    --bg: #0f172a;
+    --sidebar: #1e293b;
+    --chat-bg: #0b0f19;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --hover: #273548;
+    --active: #3b82f6;
     --active-text: #ffffff;
-    --my-msg: #2f80ed;
-    --my-text: #ffffff;
-    --other-msg: #252423;
-    --other-text: #f3f2f1;
-    --card: #1f1f1f;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --my-msg: #1e3a8a;
+    --my-text: #f8fafc;
+    --other-msg: #1e293b;
+    --other-text: #f8fafc;
+    --card: #1e293b;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; transition: background-color 0.2s, color 0.2s; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
   body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
 
-  .sidebar { width: 360px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 5; }
-  .side-head { padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sidebar { width: 350px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .side-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .me-info { display: flex; align-items: center; gap: 12px; cursor: pointer; min-width: 0; }
-  .avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #0078d4, #107c41); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,120,212,0.3); }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #0078d4, #10b981); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,120,212,0.3); }
   .me-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .icon-btn { background: none; border: none; color: var(--text); cursor: pointer; font-size: 18px; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .icon-btn { background: none; border: none; color: var(--text); cursor: pointer; font-size: 18px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: background 0.2s; }
   .icon-btn:hover { background: var(--hover); }
 
   .search-box { padding: 12px 16px; border-bottom: 1px solid var(--border); position: relative; }
@@ -57,7 +57,7 @@
   .search-icon { position: absolute; left: 26px; top: 22px; color: var(--muted); font-size: 14px; pointer-events: none; }
 
   .chat-list { flex: 1; overflow-y: auto; padding: 8px; }
-  .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-decoration: none; color: var(--text); border-radius: 12px; margin-bottom: 4px; }
+  .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-decoration: none; color: var(--text); border-radius: 12px; margin-bottom: 4px; transition: background 0.15s; }
   .chat-item:hover { background: var(--hover); }
   .chat-item.active { background: var(--active); color: var(--active-text); }
   .chat-item.active .chat-sub { color: rgba(255,255,255,0.85); }
@@ -68,49 +68,48 @@
   .main { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; }
   .chat-head { padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow); z-index: 2; }
   .back-btn { display: none; }
-  .status-line { font-size: 12px; color: #107c41; font-weight: 600; height: 16px; margin-top: 2px; }
+  .status-line { font-size: 12px; color: var(--active); font-weight: 600; height: 16px; margin-top: 2px; }
 
-  .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
-  .msg-row { display: flex; flex-direction: column; max-width: 72%; cursor: pointer; animation: fadeIn 0.2s ease; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .msg-row { display: flex; flex-direction: column; max-width: 72%; cursor: pointer; }
   .msg-row.mine { align-self: flex-end; align-items: flex-end; }
   .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
   
-  .bubble { padding: 12px 16px; border-radius: 16px; word-break: break-word; line-height: 1.5; position: relative; box-shadow: var(--shadow); font-size: 15px; }
+  .bubble { padding: 10px 14px; border-radius: 16px; word-break: break-word; line-height: 1.45; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-size: 15px; }
   .mine .bubble { background: var(--my-msg); color: var(--my-text); border-bottom-right-radius: 4px; }
   .theirs .bubble { background: var(--other-msg); color: var(--other-text); border-bottom-left-radius: 4px; }
   
-  .reply-quote { border-left: 3px solid currentColor; padding-left: 8px; margin-bottom: 6px; font-size: 13px; opacity: 0.85; white-space: pre-line; }
-  .bubble img { max-width: 300px; max-height: 300px; border-radius: 10px; display: block; margin-bottom: 6px; object-fit: cover; }
-  .bubble audio { max-width: 260px; height: 40px; display: block; }
+  .reply-quote { border-left: 3px solid currentColor; padding-left: 8px; margin-bottom: 5px; font-size: 13px; opacity: 0.85; white-space: pre-line; }
+  .bubble img { max-width: 280px; max-height: 280px; border-radius: 12px; display: block; margin-bottom: 4px; object-fit: cover; }
+  .bubble audio { max-width: 240px; height: 38px; display: block; }
   .file-link { color: inherit; font-weight: 600; text-decoration: underline; display: flex; align-items: center; gap: 6px; }
   .msg-foot { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-top: 4px; opacity: 0.75; justify-content: flex-end; }
-  .reaction-badge { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 2px 8px; font-size: 13px; margin-top: 3px; box-shadow: var(--shadow); }
+  .reaction-badge { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 2px 8px; font-size: 13px; margin-top: 3px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
-  .reply-bar { display: none; padding: 10px 18px; background: var(--card); border-top: 1px solid var(--border); align-items: center; justify-content: space-between; font-size: 13px; }
-  .composer { padding: 14px 20px; background: var(--card); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; box-shadow: 0 -4px 16px rgba(0,0,0,0.03); }
-  .composer input[type="text"] { flex: 1; padding: 12px 18px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
+  .reply-bar { display: none; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--border); align-items: center; justify-content: space-between; font-size: 13px; }
+  .composer { padding: 12px 16px; background: var(--card); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.02); }
+  .composer input[type="text"] { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
   .composer input[type="text"]:focus { border-color: var(--active); }
   
-  .send-btn { background: var(--active); color: #fff; border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,120,212,0.4); }
+  .send-btn { background: var(--active); color: #fff; border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,120,212,0.3); }
   .send-btn:active { transform: scale(0.92); }
-  .rec-active { color: #d83b01 !important; animation: pulse 1s infinite; }
+  .rec-active { color: #ef4444 !important; animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: 0.4; } }
 
-  .sticker-panel { display: none; position: absolute; bottom: 80px; left: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); grid-template-columns: repeat(4, 1fr); gap: 10px; z-index: 10; width: 300px; }
-  .sticker-item { font-size: 34px; text-align: center; cursor: pointer; padding: 8px; border-radius: 10px; }
+  .sticker-panel { display: none; position: absolute; bottom: 75px; left: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); grid-template-columns: repeat(4, 1fr); gap: 10px; z-index: 10; width: 280px; }
+  .sticker-item { font-size: 32px; text-align: center; cursor: pointer; padding: 8px; border-radius: 10px; }
   .sticker-item:hover { background: var(--hover); transform: scale(1.15); }
 
-  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); align-items: center; justify-content: center; z-index: 100; padding: 16px; }
-  .modal-card { background: var(--card); color: var(--text); width: 100%; max-width: 420px; border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal-card { background: var(--card); color: var(--text); width: 100%; max-width: 400px; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); }
   .modal-card input, .modal-card textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
-  .btn-primary { background: var(--active); color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 15px; box-shadow: 0 4px 12px rgba(0,120,212,0.3); }
+  .btn-primary { background: var(--active); color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 15px; }
   .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 500; text-align: center; }
   .emoji-row { display: flex; justify-content: space-around; font-size: 26px; padding: 6px 0; }
   .emoji-row span { cursor: pointer; }
   .emoji-row span:hover { transform: scale(1.3); }
-  
-  .empty-state { margin: auto; color: var(--muted); text-align: center; padding: 40px; font-size: 16px; max-width: 340px; line-height: 1.6; }
+
+  .empty-state { margin: auto; color: var(--muted); text-align: center; padding: 30px; font-size: 15px; max-width: 300px; line-height: 1.5; }
 
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if other else 'flex' }}; }
@@ -124,7 +123,7 @@
 
 <div class="sidebar" id="sidebarPanel">
   <div class="side-head">
-    <div class="me-info" id="openProfileBtn" title="Редактировать профиль и аватар">
+    <div class="me-info" id="openProfileBtn" title="Настройки профиля и аватара">
       {% if me.avatar %}
         <img src="{{ me.avatar }}" class="avatar" alt="avatar">
       {% else %}
@@ -133,7 +132,7 @@
       <div class="me-name">{{ me.name }}</div>
     </div>
     <div style="display:flex;gap:4px;">
-      <button class="icon-btn" id="themeBtn" title="Переключить тему (Светлая / Темная)">🌓</button>
+      <button class="icon-btn" id="themeBtn" title="Сменить тему">🌓</button>
       <a class="icon-btn" href="/logout" title="Выйти">🚪</a>
     </div>
   </div>
@@ -153,7 +152,7 @@
       {% endif %}
       <div class="chat-meta">
         <div class="chat-title">{{ u.name }}</div>
-        <div class="chat-sub">@{{ u.username }} • В сети</div>
+        <div class="chat-sub">@{{ u.username }}</div>
       </div>
     </a>
     {% endfor %}
@@ -184,8 +183,8 @@
 
   <div class="composer" style="position: relative;">
     <input type="file" id="fileInput" hidden>
-    <button class="icon-btn" id="attachBtn" title="Прикрепить файл или фото">📎</button>
-    <button class="icon-btn" id="stickerBtn" title="Стикеры Microsoft AI">🎨</button>
+    <button class="icon-btn" id="attachBtn" title="Прикрепить файл">📎</button>
+    <button class="icon-btn" id="stickerBtn" title="Стикеры">🎨</button>
     <button class="icon-btn" id="micBtn" title="Голосовое сообщение">🎤</button>
     
     <div class="sticker-panel" id="stickerPanel">
@@ -199,36 +198,33 @@
       <div class="sticker-item" data-sticker="⭐">⭐</div>
     </div>
 
-    <input type="text" id="msgInput" placeholder="Введите сообщение (Enter для отправки)..." autocomplete="off">
+    <input type="text" id="msgInput" placeholder="Введите сообщение..." autocomplete="off">
     <button class="send-btn" id="sendBtn" title="Отправить">➤</button>
   </div>
   {% else %}
   <div class="empty-state">
-    <b>Ramplez Copilot Enterprise</b><br><br>
-    Все зарегистрированные пользователи уже здесь, в списке слева. Выберите собеседника и начните защищенную корпоративную переписку!
+    <b>Добро пожаловать в Ramplez!</b><br><br>
+    Все зарегистрированные пользователи уже отображаются в списке слева. Выберите собеседника и начните общение!
   </div>
   {% endif %}
 </div>
 
-<!-- Модальное окно профиля и смены аватара -->
+<!-- Модальное окно профиля -->
 <div class="modal" id="profileModal">
   <div class="modal-card">
-    <h3 style="font-weight: 600;">Настройки профиля & Аватар</h3>
-    <div style="display:flex;align-items:center;gap:16px;">
-      <img id="avatarPreview" src="{{ me.avatar or '' }}" class="avatar" style="width:72px;height:72px;{{ '' if me.avatar else 'display:none;' }}">
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <label style="font-size:13px;color:var(--muted);">Загрузить фото (сжатие до 200px):</label>
-        <input type="file" id="avatarInput" accept="image/*" style="padding:6px;font-size:13px;">
-      </div>
+    <h3 style="font-weight: 600;">Настройки профиля</h3>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img id="avatarPreview" src="{{ me.avatar or '' }}" class="avatar" style="width:64px;height:64px;{{ '' if me.avatar else 'display:none;' }}">
+      <input type="file" id="avatarInput" accept="image/*">
     </div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Ваше имя">
-    <textarea id="profBio" rows="2" placeholder="О себе / Статус">{{ me.bio }}</textarea>
-    <button class="btn-primary" id="saveProfileBtn">Сохранить изменения</button>
+    <textarea id="profBio" rows="2" placeholder="О себе (био)">{{ me.bio }}</textarea>
+    <button class="btn-primary" id="saveProfileBtn">Сохранить</button>
     <button class="btn-secondary" id="closeProfileBtn">Отмена</button>
   </div>
 </div>
 
-<!-- Модальное окно реакций и управления сообщениями -->
+<!-- Модальное окно действий с сообщением -->
 <div class="modal" id="msgModal">
   <div class="modal-card">
     <div class="emoji-row" id="emojiPicker">
@@ -240,7 +236,7 @@
     </div>
     <button class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
     <button class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
-    <button class="btn-secondary" id="actDelAllBtn" style="color:#d83b01;">🗑️ Удалить у всех</button>
+    <button class="btn-secondary" id="actDelAllBtn" style="color:#ef4444;">🗑️ Удалить у всех</button>
     <button class="btn-secondary" id="closeMsgModalBtn">Закрыть</button>
   </div>
 </div>
@@ -250,12 +246,11 @@ const ME_ID = {{ me.id }};
 const OTHER_ID = {{ other.id if other else 0 }};
 const OTHER_NAME = {{ other.name|tojson if other else '""' }};
 
-// Инициализация темной/светлой темы (100% рабочая с сохранением)
+// Тема
 const savedTheme = localStorage.getItem('ramplez_theme') || 'light';
 if (savedTheme === 'dark') {
   document.body.classList.add('dark');
 }
-
 document.getElementById('themeBtn').addEventListener('click', () => {
   document.body.classList.toggle('dark');
   const isDark = document.body.classList.contains('dark');
@@ -266,14 +261,13 @@ document.getElementById('themeBtn').addEventListener('click', () => {
 if (window.Notification && Notification.permission !== "granted") {
   Notification.requestPermission();
 }
-
 function showNotification(title, body) {
   if (window.Notification && Notification.permission === "granted" && document.hidden) {
     new Notification(title, { body: body });
   }
 }
 
-// Поиск по существующим чатам в реальном времени
+// Поиск по существующим чатам
 document.getElementById('userSearch').addEventListener('input', (e) => {
   const q = e.target.value.toLowerCase().trim();
   document.querySelectorAll('.chat-item').forEach((item) => {
@@ -281,7 +275,7 @@ document.getElementById('userSearch').addEventListener('input', (e) => {
   });
 });
 
-// 100% Рабочее сжатие аватарки через Canvas до 200px без багов
+// Аватар через Canvas до 200px
 let compressedAvatarBase64 = "{{ me.avatar or '' }}";
 const profileModal = document.getElementById('profileModal');
 
@@ -306,8 +300,7 @@ document.getElementById('avatarInput').addEventListener('change', (e) => {
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       compressedAvatarBase64 = canvas.toDataURL('image/jpeg', 0.85);
       const prev = document.getElementById('avatarPreview');
       prev.src = compressedAvatarBase64;
@@ -329,7 +322,7 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
   location.reload();
 });
 
-// Логика активного чата
+// Логика чата
 if (OTHER_ID) {
   const messagesBox = document.getElementById('messagesBox');
   const msgInput = document.getElementById('msgInput');
@@ -353,7 +346,7 @@ if (OTHER_ID) {
 
   function formatBody(m) {
     if (m.msg_type === 'sticker') {
-      return `<div style="font-size: 76px; line-height: 1; text-align: center;">${m.content}</div>`;
+      return `<div style="font-size: 72px; line-height: 1; text-align: center;">${m.content}</div>`;
     }
     if (m.msg_type === 'image') {
       return `<img src="${escapeHtml(m.content)}" alt="photo">`;
@@ -528,7 +521,7 @@ if (OTHER_ID) {
   });
 
   let mediaRecorder = null;
-  let audioChunks =[] ;
+  let audioChunks = [];
   const micBtn = document.getElementById('micBtn');
 
   micBtn.addEventListener('click', async () => {
