@@ -8,8 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
+app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-enterprise-secret-2026')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez_pro.db?timeout=20'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
@@ -26,12 +26,6 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
-
-
-class Contact(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    contact_id = db.Column(db.Integer, nullable=False)
 
 
 class Message(db.Model):
@@ -62,7 +56,7 @@ def index():
         name = request.form.get('name', '').strip() or username
 
         if not username or not password:
-            error = 'Заполните все обязательные поля'
+            error = 'Заполните обязательные поля'
         elif action == 'register':
             if User.query.filter_by(username=username).first():
                 error = 'Этот логин уже занят'
@@ -89,44 +83,11 @@ def chat():
     if not me:
         session.clear()
         return redirect(url_for('index'))
-
-    contact_rows = Contact.query.filter_by(user_id=me.id).all()
-    c_ids = [c.contact_id for c in contact_rows]
     
-    msg_partners = db.session.query(Message.sender_id).filter(Message.receiver_id == me.id).union(
-        db.session.query(Message.receiver_id).filter(Message.sender_id == me.id)
-    ).all()
-    for p in msg_partners:
-        if p[0] not in c_ids and p[0] != me.id:
-            c_ids.append(p[0])
-            db.session.add(Contact(user_id=me.id, contact_id=p[0]))
-    db.session.commit()
-
-    users = User.query.filter(User.id.in_(c_ids)).all() if c_ids else []
+    users = User.query.filter(User.id != me.id).all()
     oid = request.args.get('u', type=int) or (users[0].id if users else 0)
     other = db.session.get(User, oid) if oid else None
     return render_template('chat.html', me=me, users=users, other=other)
-
-
-@app.route('/search_user', methods=['POST'])
-def search_user():
-    if 'uid' not in session:
-        return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    uname = str(data.get('username', '')).strip().lower().lstrip('@')
-    if not uname:
-        return jsonify({'ok': False, 'error': 'Введите имя пользователя'})
-    
-    target = User.query.filter_by(username=uname).first()
-    if not target or target.id == session['uid']:
-        return jsonify({'ok': False, 'error': 'Пользователь не найден'})
-
-    for u_id, c_id in [(session['uid'], target.id), (target.id, session['uid'])]:
-        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
-            db.session.add(Contact(user_id=u_id, contact_id=c_id))
-    db.session.commit()
-
-    return jsonify({'ok': True, 'id': target.id})
 
 
 @app.route('/send', methods=['POST'])
@@ -139,10 +100,6 @@ def send():
     msg_type = str(data.get('msg_type', 'text'))
     if not oid or not content:
         return jsonify({'ok': False}), 400
-
-    for u_id, c_id in [(session['uid'], oid), (oid, session['uid'])]:
-        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
-            db.session.add(Contact(user_id=u_id, contact_id=c_id))
 
     msg = Message(
         sender_id=session['uid'],
@@ -221,10 +178,6 @@ def upload_file():
     else:
         mtype = 'file'
 
-    for u_id, c_id in [(session['uid'], oid), (oid, session['uid'])]:
-        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
-            db.session.add(Contact(user_id=u_id, contact_id=c_id))
-
     msg = Message(
         sender_id=session['uid'],
         receiver_id=oid,
@@ -261,7 +214,7 @@ def update_profile():
     return jsonify({'ok': True})
 
 
-@app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
+@app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
 def del_me(mid, u):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -272,10 +225,10 @@ def del_me(mid, u):
         hidden.add(str(session['uid']))
         msg.hidden_for = ','.join(hidden)
         db.session.commit()
-    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+    return jsonify({'ok': True})
 
 
-@app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
+@app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
 def del_all(mid, u):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -283,10 +236,10 @@ def del_all(mid, u):
     if msg and msg.sender_id == session['uid']:
         db.session.delete(msg)
         db.session.commit()
-    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+    return jsonify({'ok': True})
 
 
-@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['POST'])
 def react_msg(mid, u, emj):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
@@ -294,7 +247,7 @@ def react_msg(mid, u, emj):
     if msg:
         msg.reaction = '' if msg.reaction == emj else emj
         db.session.commit()
-    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+    return jsonify({'ok': True})
 
 
 @app.route('/logout')
