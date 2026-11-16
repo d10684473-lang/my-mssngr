@@ -58,23 +58,28 @@ def login():
             err = "Неверные данные!"
     return render_template('login.html', error=err)
 
-@app.route('/chat', methods=['GET', 'POST'])
+@app.route('/chat')
 def chat():
     uid = session.get('user_id')
     if not uid: return redirect(url_for('login'))
     me = User.query.filter_by(id=int(uid)).first()
     if not me: session.clear(); return redirect(url_for('login'))
     u_id = request.args.get('u', type=int)
-    if request.method == 'POST' and u_id:
-        txt = request.form.get('text', '').strip()
-        if txt:
-            db.session.add(Message(sender_id=me.id, receiver_id=u_id, msg_type='text', content=txt, timestamp=datetime.now().strftime("%H:%M")))
-            me.typing_to = 0; db.session.commit()
-        return redirect(url_for('chat', u=u_id))
     users = User.query.filter(User.id != me.id).all()
     other = User.query.filter_by(id=u_id).first() if u_id else None
-    msgs = Message.query.filter((((Message.sender_id == me.id) & (Message.receiver_id == other.id)) | ((Message.sender_id == other.id) & (Message.receiver_id == me.id))) & (Message.hidden_for != me.id)).order_by(Message.id.asc()).all() if other else []
-    return render_template('chat.html', current_user=me, users=users, active_user=other, messages=msgs)
+    return render_template('chat.html', current_user=me, users=users, active_user=other)
+
+@app.route('/send', methods=['POST'])
+def send_msg():
+    uid = session.get('user_id')
+    d = request.get_json(silent=True) or {}
+    oid, txt = d.get('to'), (d.get('text') or '').strip()
+    if uid and oid and txt:
+        me = User.query.filter_by(id=int(uid)).first()
+        db.session.add(Message(sender_id=int(uid), receiver_id=int(oid), msg_type='text', content=txt, timestamp=datetime.now().strftime("%H:%M")))
+        if me: me.typing_to = 0
+        db.session.commit()
+    return jsonify({"ok": True})
 
 @app.route('/update_profile', methods=['POST'])
 def upd_prof():
