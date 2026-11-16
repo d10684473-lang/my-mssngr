@@ -9,7 +9,6 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
-# Добавлен таймаут для SQLite, чтобы избежать блокировок при частых запросах
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -27,6 +26,12 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
+
+
+class Contact(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    contact_id = db.Column(db.Integer, nullable=False)
 
 
 class Message(db.Model):
@@ -84,10 +89,44 @@ def chat():
     if not me:
         session.clear()
         return redirect(url_for('index'))
-    users = User.query.filter(User.id != me.id).all()
+
+    contact_rows = Contact.query.filter_by(user_id=me.id).all()
+    c_ids = [c.contact_id for c in contact_rows]
+    
+    msg_partners = db.session.query(Message.sender_id).filter(Message.receiver_id == me.id).union(
+        db.session.query(Message.receiver_id).filter(Message.sender_id == me.id)
+    ).all()
+    for p in msg_partners:
+        if p[0] not in c_ids and p[0] != me.id:
+            c_ids.append(p[0])
+            db.session.add(Contact(user_id=me.id, contact_id=p[0]))
+    db.session.commit()
+
+    users = User.query.filter(User.id.in_(c_ids)).all() if c_ids else []
     oid = request.args.get('u', type=int) or (users[0].id if users else 0)
     other = db.session.get(User, oid) if oid else None
     return render_template('chat.html', me=me, users=users, other=other)
+
+
+@app.route('/search_user', methods=['POST'])
+def search_user():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    uname = str(data.get('username', '')).strip().lower().lstrip('@')
+    if not uname:
+        return jsonify({'ok': False, 'error': 'Введите имя пользователя'})
+    
+    target = User.query.filter_by(username=uname).first()
+    if not target or target.id == session['uid']:
+        return jsonify({'ok': False, 'error': 'Пользователь не найден'})
+
+    for u_id, c_id in [(session['uid'], target.id), (target.id, session['uid'])]:
+        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
+            db.session.add(Contact(user_id=u_id, contact_id=c_id))
+    db.session.commit()
+
+    return jsonify({'ok': True, 'id': target.id})
 
 
 @app.route('/send', methods=['POST'])
@@ -97,12 +136,18 @@ def send():
     data = request.get_json(silent=True) or {}
     oid = int(data.get('oid', 0))
     content = str(data.get('content', '')).strip()
+    msg_type = str(data.get('msg_type', 'text'))
     if not oid or not content:
         return jsonify({'ok': False}), 400
+
+    for u_id, c_id in [(session['uid'], oid), (oid, session['uid'])]:
+        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
+            db.session.add(Contact(user_id=u_id, contact_id=c_id))
+
     msg = Message(
         sender_id=session['uid'],
         receiver_id=oid,
-        msg_type='text',
+        msg_type=msg_type,
         content=content,
         timestamp=datetime.now().strftime('%H:%M')
     )
@@ -175,6 +220,10 @@ def upload_file():
         mtype = 'audio'
     else:
         mtype = 'file'
+
+    for u_id, c_id in [(session['uid'], oid), (oid, session['uid'])]:
+        if not Contact.query.filter_by(user_id=u_id, contact_id=c_id).first():
+            db.session.add(Contact(user_id=u_id, contact_id=c_id))
 
     msg = Message(
         sender_id=session['uid'],
