@@ -1,339 +1,260 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp</title>
-<style>
-  :root {
-    --bg: #ffffff; --sidebar: #ffffff; --header: #f0f2f5; --chat-bg: #efeae2; --border: #e9edef;
-    --text: #111b21; --muted: #667781; --hover: #f5f6f6; --active: #f0f2f5; --accent: #00a884;
-    --my-msg: #d9fdd3; --other-msg: #ffffff; --card: #ffffff; --tick: #53bdeb;
-  }
-  body.dark {
-    --bg: #111b21; --sidebar: #111b21; --header: #202c33; --chat-bg: #0b141a; --border: #222d34;
-    --text: #e9edef; --muted: #8696a0; --hover: #202c33; --active: #2a3942; --accent: #00a884;
-    --my-msg: #005c4b; --other-msg: #202c33; --card: #233138; --tick: #53bdeb;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
-  .sidebar { width: 350px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-  .side-head { height: 60px; padding: 10px 16px; background: var(--header); display: flex; align-items: center; justify-content: space-between; }
-  .me-info { display: flex; align-items: center; gap: 12px; cursor: pointer; min-width: 0; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; object-fit: cover; flex-shrink: 0; }
-  .me-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 19px; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: 0.15s; }
-  .icon-btn:hover { background: rgba(134,150,160,0.15); color: var(--text); }
-  .icon-btn.on { color: var(--accent); background: rgba(0,168,132,0.15); }
-  .search-box { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  .search-box input { width: 100%; padding: 8px 14px; border-radius: 8px; border: none; background: var(--header); color: var(--text); outline: none; font-size: 14px; }
-  .chat-list { flex: 1; overflow-y: auto; }
-  .chat-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); border-bottom: 1px solid var(--border); }
-  .chat-item:hover { background: var(--hover); }
-  .chat-item.active { background: var(--active); }
-  .chat-meta { min-width: 0; flex: 1; }
-  .chat-title { font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chat-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+# app.py
+import os
+import time
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
-  .main { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; }
-  .chat-head { height: 60px; padding: 10px 16px; background: var(--header); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; z-index: 2; }
-  .back-btn { display: none; }
-  .status-line { font-size: 12px; color: var(--accent); height: 16px; }
-  .e2e-banner { align-self: center; background: var(--card); color: var(--muted); font-size: 12px; padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; text-align: center; box-shadow: 0 1px 1px rgba(0,0,0,0.06); }
-  .messages { flex: 1; overflow-y: auto; padding: 16px 5%; display: flex; flex-direction: column; gap: 4px; }
-  .msg-row { display: flex; flex-direction: column; max-width: 68%; cursor: pointer; margin-bottom: 4px; }
-  .msg-row.mine { align-self: flex-end; align-items: flex-end; }
-  .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
-  .bubble { padding: 7px 11px 6px; border-radius: 8px; word-break: break-word; line-height: 1.4; box-shadow: 0 1px 0.5px rgba(11,20,26,0.13); font-size: 14.5px; }
-  .mine .bubble { background: var(--my-msg); border-top-right-radius: 0; }
-  .theirs .bubble { background: var(--other-msg); border-top-left-radius: 0; }
-  .reply-quote { border-left: 4px solid var(--accent); background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 12.5px; opacity: 0.9; }
-  .bubble img { max-width: 260px; max-height: 260px; border-radius: 6px; display: block; margin-bottom: 4px; }
-  .bubble audio { max-width: 240px; height: 36px; display: block; }
-  .file-link { color: inherit; font-weight: 600; text-decoration: underline; }
-  .msg-foot { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 2px; color: var(--muted); justify-content: flex-end; }
-  .ticks.read { color: var(--tick); font-weight: 700; }
-  .reaction-badge { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1px 6px; font-size: 13px; margin-top: -6px; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
+# Добавлен таймаут для SQLite, чтобы избежать блокировок при частых запросах
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
-  .reply-bar { display: none; padding: 8px 16px; background: var(--header); border-top: 1px solid var(--border); align-items: center; justify-content: space-between; font-size: 13px; border-left: 4px solid var(--accent); }
-  .composer { padding: 8px 14px; background: var(--header); display: flex; align-items: center; gap: 6px; position: relative; }
-  .composer input[type="text"] { flex: 1; padding: 10px 14px; border-radius: 8px; border: none; background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
-  .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; cursor: pointer; font-size: 17px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .rec-active { color: #ea0038 !important; animation: pulse 0.8s infinite; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+db = SQLAlchemy(app)
 
-  .sticker-panel { display: none; position: absolute; bottom: 64px; left: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); grid-template-columns: repeat(4, 1fr); gap: 8px; z-index: 20; width: 250px; }
-  .sticker-item { font-size: 28px; text-align: center; cursor: pointer; padding: 6px; border-radius: 8px; }
-  .sticker-item:hover { background: var(--hover); }
 
-  .modal { display: none; position: fixed; inset: 0; background: rgba(11,20,26,0.65); align-items: center; justify-content: center; z-index: 100; padding: 16px; }
-  .modal-card { background: var(--card); color: var(--text); width: 100%; max-width: 380px; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
-  .modal-card input, .modal-card textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; }
-  .btn-primary { background: var(--accent); color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-  .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 10px; border-radius: 8px; cursor: pointer; text-align: left; }
-  .emoji-row { display: flex; justify-content: space-around; font-size: 24px; }
-  .emoji-row span { cursor: pointer; }
-  .empty-state { margin: auto; color: var(--muted); text-align: center; padding: 24px; max-width: 340px; line-height: 1.5; }
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    bio = db.Column(db.String(200), default='')
+    avatar = db.Column(db.Text, default='')
+    typing_to = db.Column(db.Integer, default=0)
+    typing_at = db.Column(db.Float, default=0.0)
 
-  @media (max-width: 768px) {
-    .sidebar { width: 100%; display: {{ 'none' if other else 'flex' }}; }
-    .main { width: 100%; display: {{ 'flex' if other else 'none' }}; }
-    .back-btn { display: flex; }
-    .messages { padding: 12px; }
-    .msg-row { max-width: 85%; }
-  }
-</style>
-</head>
-<body>
-<div class="sidebar">
-  <div class="side-head">
-    <div class="me-info" id="openProfileBtn" title="Настройки профиля">
-      {% if me.avatar %}<img src="{{ me.avatar }}" class="avatar">{% else %}<div class="avatar">{{ me.name[0]|upper }}</div>{% endif %}
-      <div class="me-name">{{ me.name }}</div>
-    </div>
-    <div style="display:flex;gap:2px;">
-      <button class="icon-btn" id="themeBtn" title="Сменить тему">🌓</button>
-      <a class="icon-btn" href="/logout" title="Выйти">🚪</a>
-    </div>
-  </div>
-  <div class="search-box"><input type="text" id="userSearch" placeholder="Поиск или новый чат"></div>
-  <div class="chat-list">
-    {% for u in users %}
-    <a href="/chat?u={{ u.id }}" class="chat-item {{ 'active' if other and other.id == u.id else '' }}" data-name="{{ u.name|lower }} {{ u.username|lower }}">
-      {% if u.avatar %}<img src="{{ u.avatar }}" class="avatar">{% else %}<div class="avatar">{{ u.name[0]|upper }}</div>{% endif %}
-      <div class="chat-meta">
-        <div class="chat-title">{{ u.name }}</div>
-        <div class="chat-sub">{{ u.bio }}</div>
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-</div>
 
-<div class="main">
-  {% if other %}
-  <div class="chat-head">
-    <a href="/chat" class="icon-btn back-btn">←</a>
-    {% if other.avatar %}<img src="{{ other.avatar }}" class="avatar">{% else %}<div class="avatar">{{ other.name[0]|upper }}</div>{% endif %}
-    <div>
-      <div class="chat-title">{{ other.name }}</div>
-      <div class="status-line" id="typingStatus">в сети</div>
-    </div>
-  </div>
-  <div class="messages" id="messagesBox">
-    <div class="e2e-banner">🔒 Сообщения защищены сквозным шифрованием. Введите <b>/ai вопрос</b> для вызова Meta AI.</div>
-  </div>
-  <div class="reply-bar" id="replyBar"><span id="replyPreview"></span><button class="icon-btn" id="cancelReplyBtn">✕</button></div>
-  <div class="composer">
-    <input type="file" id="fileInput" hidden>
-    <button class="icon-btn" id="stickerBtn" title="Стикеры">😊</button>
-    <button class="icon-btn" id="attachBtn" title="Прикрепить">📎</button>
-    <button class="icon-btn" id="ttlBtn" title="Исчезающее сообщение (10 сек)">⏱️</button>
-    <div class="sticker-panel" id="stickerPanel">
-      <div class="sticker-item" data-s="👍">👍</div><div class="sticker-item" data-s="❤️">❤️</div>
-      <div class="sticker-item" data-s="😂">😂</div><div class="sticker-item" data-s="🔥">🔥</div>
-      <div class="sticker-item" data-s="🚀">🚀</div><div class="sticker-item" data-s="🎉">🎉</div>
-      <div class="sticker-item" data-s="😎">😎</div><div class="sticker-item" data-s="💯">💯</div>
-    </div>
-    <input type="text" id="msgInput" placeholder="Введите сообщение" autocomplete="off">
-    <button class="icon-btn" id="micBtn" title="Голосовое сообщение">🎤</button>
-    <button class="send-btn" id="sendBtn" title="Отправить">➤</button>
-  </div>
-  {% else %}
-  <div class="empty-state"><h3>WhatsApp Web</h3><br>Выберите контакт слева, чтобы начать мгновенную переписку.</div>
-  {% endif %}
-</div>
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, nullable=False)
+    receiver_id = db.Column(db.Integer, nullable=False)
+    msg_type = db.Column(db.String(20), default='text')
+    content = db.Column(db.Text, nullable=False)
+    file_name = db.Column(db.String(200), default='')
+    reaction = db.Column(db.String(20), default='')
+    hidden_for = db.Column(db.String(50), default='')
+    timestamp = db.Column(db.String(10), default='')
 
-<div class="modal" id="profileModal">
-  <div class="modal-card">
-    <h3>Профиль</h3>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <img id="avatarPreview" src="{{ me.avatar or '' }}" class="avatar" style="width:64px;height:64px;{{ '' if me.avatar else 'display:none;' }}">
-      <input type="file" id="avatarInput" accept="image/*">
-    </div>
-    <input type="text" id="profName" value="{{ me.name }}" placeholder="Ваше имя">
-    <textarea id="profBio" rows="2" placeholder="Сведения">{{ me.bio }}</textarea>
-    <button class="btn-primary" id="saveProfileBtn">Сохранить</button>
-    <button class="btn-secondary" id="closeProfileBtn" style="text-align:center;">Отмена</button>
-  </div>
-</div>
 
-<div class="modal" id="msgModal">
-  <div class="modal-card">
-    <div class="emoji-row" id="emojiPicker">
-      <span data-emj="👍">👍</span><span data-emj="❤️">❤️</span><span data-emj="😂">😂</span><span data-emj="😮">😮</span><span data-emj="🙏">🙏</span>
-    </div>
-    <button class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
-    <button class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у меня</button>
-    <button class="btn-secondary" id="actDelAllBtn" style="color:#ea0038;">🗑️ Удалить у всех</button>
-    <button class="btn-secondary" id="closeMsgModalBtn" style="text-align:center;">Закрыть</button>
-  </div>
-</div>
+with app.app_context():
+    db.create_all()
 
-<script>
-const ME_ID = {{ me.id }}, OTHER_ID = {{ other.id if other else 0 }};
 
-if (localStorage.getItem('wa_theme') === 'dark') document.body.classList.add('dark');
-document.getElementById('themeBtn').addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('wa_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
-});
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if 'uid' in session:
+        return redirect(url_for('chat'))
+    error = None
+    if request.method == 'POST':
+        action = request.form.get('action', 'login')
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        name = request.form.get('name', '').strip() or username
 
-document.getElementById('userSearch').addEventListener('input', e => {
-  const q = e.target.value.toLowerCase().trim();
-  document.querySelectorAll('.chat-item').forEach(el => el.style.display = el.dataset.name.includes(q) ? 'flex' : 'none');
-});
+        if not username or not password:
+            error = 'Заполните все обязательные поля'
+        elif action == 'register':
+            if User.query.filter_by(username=username).first():
+                error = 'Этот логин уже занят'
+            else:
+                u = User(username=username, name=name, password=generate_password_hash(password))
+                db.session.add(u)
+                db.session.commit()
+                session['uid'] = u.id
+                return redirect(url_for('chat'))
+        else:
+            u = User.query.filter_by(username=username).first()
+            if u and check_password_hash(u.password, password):
+                session['uid'] = u.id
+                return redirect(url_for('chat'))
+            error = 'Неверный логин или пароль'
+    return render_template('login.html', error=error)
 
-let avatarB64 = '';
-const profileModal = document.getElementById('profileModal');
-document.getElementById('openProfileBtn').addEventListener('click', () => profileModal.style.display = 'flex');
-document.getElementById('closeProfileBtn').addEventListener('click', () => profileModal.style.display = 'none');
 
-document.getElementById('avatarInput').addEventListener('change', e => {
-  const file = e.target.files[0]; if (!file) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      const max = 200; let w = img.width, h = img.height;
-      if (w > h && w > max) { h = Math.round(h * max / w); w = max; } else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; }
-      const c = document.createElement('canvas'); c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      avatarB64 = c.toDataURL('image/jpeg', 0.85);
-      const p = document.getElementById('avatarPreview'); p.src = avatarB64; p.style.display = 'block';
-    };
-    img.src = ev.target.result;
-  };
-  r.readAsDataURL(file);
-});
+@app.route('/chat')
+def chat():
+    if 'uid' not in session:
+        return redirect(url_for('index'))
+    me = db.session.get(User, session['uid'])
+    if not me:
+        session.clear()
+        return redirect(url_for('index'))
+    users = User.query.filter(User.id != me.id).all()
+    oid = request.args.get('u', type=int) or (users[0].id if users else 0)
+    other = db.session.get(User, oid) if oid else None
+    return render_template('chat.html', me=me, users=users, other=other)
 
-document.getElementById('saveProfileBtn').addEventListener('click', async () => {
-  await fetch('/update_profile', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: document.getElementById('profName').value.trim(), bio: document.getElementById('profBio').value.trim(), avatar: avatarB64 })
-  });
-  location.reload();
-});
 
-if (OTHER_ID) {
-  const box = document.getElementById('messagesBox'), input = document.getElementById('msgInput');
-  const replyBar = document.getElementById('replyBar'), replyPrev = document.getElementById('replyPreview');
-  const msgModal = document.getElementById('msgModal'), stickerPanel = document.getElementById('stickerPanel');
-  const bannerHtml = box.innerHTML;
-  let replyText = '', selectedMsg = null, lastHash = '', lastTyping = 0, ttlSec = 0, polling = false;
+@app.route('/send', methods=['POST'])
+def send():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    oid = int(data.get('oid', 0))
+    content = str(data.get('content', '')).strip()
+    if not oid or not content:
+        return jsonify({'ok': False}), 400
+    msg = Message(
+        sender_id=session['uid'],
+        receiver_id=oid,
+        msg_type='text',
+        content=content,
+        timestamp=datetime.now().strftime('%H:%M')
+    )
+    db.session.add(msg)
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = 0
+    db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id})
 
-  document.getElementById('ttlBtn').addEventListener('click', e => {
-    ttlSec = ttlSec ? 0 : 10;
-    e.currentTarget.classList.toggle('on', ttlSec > 0);
-  });
 
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function renderBody(m) {
-    if (m.msg_type === 'sticker') return `<div style="font-size:64px;line-height:1;">${m.content}</div>`;
-    if (m.msg_type === 'image') return `<img src="${esc(m.content)}">`;
-    if (m.msg_type === 'audio') return `<audio controls src="${esc(m.content)}"></audio>`;
-    if (m.msg_type === 'file') return `<a class="file-link" href="${esc(m.content)}" download>📄 ${esc(m.file_name || 'Файл')}</a>`;
-    if (m.content.startsWith('↪ ')) {
-      const i = m.content.indexOf('\n');
-      if (i !== -1) return `<div class="reply-quote">${esc(m.content.slice(2, i))}</div><div>${esc(m.content.slice(i + 1)).replace(/\n/g, '<br>')}</div>`;
-    }
-    return `<div>${esc(m.content).replace(/\n/g, '<br>')}</div>`;
-  }
+@app.route('/poll/<int:oid>')
+def poll(oid):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    uid = session['uid']
+    msgs = Message.query.filter(
+        ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
+        ((Message.sender_id == oid) & (Message.receiver_id == uid))
+    ).order_by(Message.id.asc()).all()
 
-  function createRow(m) {
-    const mine = m.sender_id === ME_ID;
-    const row = document.createElement('div');
-    row.className = `msg-row ${mine ? 'mine' : 'theirs'}`;
-    const ticks = mine ? `<span class="ticks ${m.is_read ? 'read' : ''}">${m.is_read ? '✓✓' : '✓'}</span>` : '';
-    row.innerHTML = `<div class="bubble">${renderBody(m)}<div class="msg-foot"><span>${m.ttl ? '⏱️ ' : ''}${esc(m.timestamp)}</span>${ticks}</div></div>${m.reaction ? `<div class="reaction-badge">${esc(m.reaction)}</div>` : ''}`;
-    if (m.id) {
-      row.addEventListener('click', () => {
-        selectedMsg = m;
-        document.getElementById('actDelAllBtn').style.display = mine ? 'block' : 'none';
-        msgModal.style.display = 'flex';
-      });
-    }
-    return row;
-  }
+    out = []
+    for m in msgs:
+        hidden = m.hidden_for.split(',') if m.hidden_for else []
+        if str(uid) in hidden:
+            continue
+        out.append({
+            'id': m.id,
+            'sender_id': m.sender_id,
+            'msg_type': m.msg_type,
+            'content': m.content,
+            'file_name': m.file_name,
+            'reaction': m.reaction,
+            'timestamp': m.timestamp
+        })
 
-  async function poll() {
-    if (polling) return;
-    polling = true;
-    try {
-      const res = await fetch(`/poll/${OTHER_ID}`);
-      const data = await res.json();
-      if (!data.ok) return;
-      document.getElementById('typingStatus').textContent = data.typing ? 'печатает...' : (data.online ? 'в сети' : 'был(а) недавно');
-      const h = JSON.stringify(data.messages);
-      if (h === lastHash) return;
-      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
-      lastHash = h;
-      box.innerHTML = bannerHtml;
-      data.messages.forEach(m => box.appendChild(createRow(m)));
-      if (atBottom) box.scrollTop = box.scrollHeight;
-    } catch (e) {} finally { polling = false; }
-  }
+    other = db.session.get(User, oid)
+    is_typing = bool(other and other.typing_to == uid and (time.time() - (other.typing_at or 0)) < 3.5)
+    return jsonify({'ok': True, 'messages': out, 'typing': is_typing})
 
-  async function send(content, msg_type = 'text') {
-    if (!content) return;
-    const finalContent = (msg_type === 'text' && replyText) ? `↪ ${replyText}\n${content}` : content;
-    input.value = ''; replyText = ''; replyBar.style.display = 'none'; stickerPanel.style.display = 'none';
-    const d = new Date(), ts = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-    box.appendChild(createRow({ id: 0, sender_id: ME_ID, msg_type, content: finalContent, timestamp: ts, is_read: false, ttl: ttlSec > 0 }));
-    box.scrollTop = box.scrollHeight;
-    await fetch('/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oid: OTHER_ID, content: finalContent, msg_type, ttl: ttlSec }) });
-    poll();
-  }
 
-  document.getElementById('sendBtn').addEventListener('click', () => send(input.value.trim(), 'text'));
-  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input.value.trim(), 'text'); } });
-  input.addEventListener('input', () => {
-    if (Date.now() - lastTyping > 1800) { lastTyping = Date.now(); fetch(`/typing/${OTHER_ID}`, { method: 'POST' }).catch(() => {}); }
-  });
+@app.route('/typing/<int:oid>', methods=['POST'])
+def typing(oid):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = oid
+        me.typing_at = time.time()
+        db.session.commit()
+    return jsonify({'ok': True})
 
-  document.getElementById('stickerBtn').addEventListener('click', () => stickerPanel.style.display = stickerPanel.style.display === 'grid' ? 'none' : 'grid');
-  document.querySelectorAll('.sticker-item').forEach(el => el.addEventListener('click', () => send(el.dataset.s, 'sticker')));
 
-  document.getElementById('actReplyBtn').addEventListener('click', () => {
-    if (!selectedMsg) return;
-    replyText = selectedMsg.msg_type === 'text' ? selectedMsg.content.replace(/\n/g, ' ').slice(0, 50) : `[${selectedMsg.msg_type}]`;
-    replyPrev.textContent = `Ответ: ${replyText}`; replyBar.style.display = 'flex'; msgModal.style.display = 'none'; input.focus();
-  });
-  document.getElementById('cancelReplyBtn').addEventListener('click', () => { replyText = ''; replyBar.style.display = 'none'; });
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    oid = request.form.get('oid', type=int)
+    f = request.files.get('file')
+    if not oid or not f or not f.filename:
+        return jsonify({'ok': False}), 400
+    orig_name = secure_filename(f.filename) or 'file'
+    saved_name = f"{int(time.time() * 1000)}_{orig_name}"
+    f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
 
-  const actCall = async (path) => { if (selectedMsg) { await fetch(path, { method: 'POST' }); msgModal.style.display = 'none'; poll(); } };
-  document.getElementById('actDelMeBtn').addEventListener('click', () => actCall(`/action/del_me/${selectedMsg.id}`));
-  document.getElementById('actDelAllBtn').addEventListener('click', () => actCall(`/action/del_all/${selectedMsg.id}`));
-  document.getElementById('emojiPicker').addEventListener('click', e => { if (e.target.dataset.emj) actCall(`/action/react_${encodeURIComponent(e.target.dataset.emj)}/${selectedMsg.id}`); });
-  document.getElementById('closeMsgModalBtn').addEventListener('click', () => msgModal.style.display = 'none');
+    ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
+    if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+        mtype = 'image'
+    elif ext in ('webm', 'ogg', 'mp3', 'wav', 'm4a'):
+        mtype = 'audio'
+    else:
+        mtype = 'file'
 
-  const fileInput = document.getElementById('fileInput');
-  document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const f = fileInput.files[0]; if (!f) return;
-    const fd = new FormData(); fd.append('oid', OTHER_ID); fd.append('file', f); fileInput.value = '';
-    await fetch('/upload_file', { method: 'POST', body: fd }); poll();
-  });
+    msg = Message(
+        sender_id=session['uid'],
+        receiver_id=oid,
+        msg_type=mtype,
+        content=url_for('uploaded_file', fn=saved_name),
+        file_name=f.filename,
+        timestamp=datetime.now().strftime('%H:%M')
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({'ok': True})
 
-  let rec = null, chunks = [];
-  const micBtn = document.getElementById('micBtn');
-  micBtn.addEventListener('click', async () => {
-    if (rec && rec.state === 'recording') { rec.stop(); micBtn.classList.remove('rec-active'); return; }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      rec = new MediaRecorder(stream); chunks = [];
-      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-      rec.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const fd = new FormData(); fd.append('oid', OTHER_ID); fd.append('file', new Blob(chunks, { type: 'audio/webm' }), 'voice.webm');
-        await fetch('/upload_file', { method: 'POST', body: fd }); poll();
-      };
-      rec.start(); micBtn.classList.add('rec-active');
-    } catch (e) { alert('Нет доступа к микрофону'); }
-  });
 
-  poll();
-  setInterval(poll, 300);
-}
-</script>
-</body>
-</html>
+@app.route('/uploads/<path:fn>')
+def uploaded_file(fn):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], fn)
+
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    me = db.session.get(User, session['uid'])
+    if me:
+        name = str(data.get('name', '')).strip()
+        if name:
+            me.name = name[:80]
+        me.bio = str(data.get('bio', '')).strip()[:200]
+        avatar = data.get('avatar')
+        if avatar and str(avatar).startswith('data:image/'):
+            me.avatar = avatar
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
+def del_me(mid, u):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
+        hidden.discard('')
+        hidden.add(str(session['uid']))
+        msg.hidden_for = ','.join(hidden)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+
+@app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
+def del_all(mid, u):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg and msg.sender_id == session['uid']:
+        db.session.delete(msg)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
+def react_msg(mid, u, emj):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        msg.reaction = '' if msg.reaction == emj else emj
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
