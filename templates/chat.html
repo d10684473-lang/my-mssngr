@@ -150,19 +150,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .profile-media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
   .profile-media-grid img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; }
 
-  /* ЗВОНКИ */
-  .call-overlay { display:none; position:fixed; inset:0; background:#17212b; z-index:9999; flex-direction:column; align-items:center; justify-content:center; color:#fff; }
-  .call-overlay.show { display:flex; }
-  .call-avatar { width:120px; height:120px; border-radius:50%; background:#3390ec; display:flex; align-items:center; justify-content:center; font-size:50px; margin-bottom:20px; }
-  .call-name { font-size:24px; font-weight:600; margin-bottom:8px; }
-  .call-status { font-size:16px; color:#7f91a4; margin-bottom:40px; }
-  .call-actions { display:flex; gap:30px; }
-  .call-btn { width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; font-size:24px; display:flex; align-items:center; justify-content:center; color:#fff; transition:0.2s; }
-  .call-btn.reject { background:#ff3b30; }
-  .call-btn.accept { background:#31c48d; }
-  .call-btn.end { background:#ff3b30; }
-  .call-btn.mute { background:#242f3d; }
-  
   @media (max-width:768px) {
     .sidebar{width:100%;display:{{ 'none' if mode else 'flex' }}}
     .main{width:100%;display:{{ 'flex' if mode else 'none' }}}
@@ -174,16 +161,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
 </style>
 </head>
 <body>
-
-<!-- Оверлей Звонка -->
-<div class="call-overlay" id="callOverlay">
-  <div class="call-avatar" id="callAvatar">?</div>
-  <div class="call-name" id="callName">Имя</div>
-  <div class="call-status" id="callStatus">Вызов...</div>
-  <div class="call-actions" id="callActions">
-    <!-- Кнопки будут добавлены через JS в зависимости от роли -->
-  </div>
-</div>
 
 <script>
 (function(){
@@ -229,7 +206,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
           <div class="status-line" id="typingStatus">{{ other.bio or ('@' + other.username) }}</div>
         </div>
       </div>
-      <button type="button" class="icon-btn" id="startCallBtn" title="Позвонить" style="color:#31c48d;">📞</button>
     {% elif mode == 'group' and group %}
       <div class="avatar">👥</div>
       <div>
@@ -279,8 +255,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
       <div class="profile-status" id="pvStatus">в сети</div>
       
       <div class="profile-actions">
-        <button class="profile-action-btn" onclick="document.getElementById('profileViewModal').classList.remove('show'); document.getElementById('startCallBtn').click();"><span>📞</span><span>call</span></button>
-        <button class="profile-action-btn" onclick="alert('Уведомления отключены для этого чата')"><span>🔔</span><span>mute</span></button>
+        <button class="profile-action-btn" onclick="alert('Уведомления отключены')"><span>🔔</span><span>mute</span></button>
         <button class="profile-action-btn" onclick="document.getElementById('profileViewModal').classList.remove('show');document.getElementById('userSearch').focus();"><span>🔍</span><span>search</span></button>
         <button class="profile-action-btn" onclick="alert('Дополнительные настройки')"><span>•••</span><span>more</span></button>
       </div>
@@ -655,205 +630,6 @@ function switchProfileTab(tabName) {
 
   var mediaRecorder = null, audioChunks = [], micBtn = document.getElementById('micBtn');
   micBtn.addEventListener('click', async function(){ if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); micBtn.classList.remove('rec-active'); return; } try { var stream = await navigator.mediaDevices.getUserMedia({ audio: true }); var mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm')) ? 'audio/webm' : ((window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4')) ? 'audio/mp4' : ''); var ext = mime === 'audio/mp4' ? 'm4a' : 'webm'; mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); audioChunks = []; mediaRecorder.ondataavailable = function(e){ if (e.data.size > 0) audioChunks.push(e.data); }; mediaRecorder.onstop = async function(){ stream.getTracks().forEach(function(t){ t.stop(); }); var blob = new Blob(audioChunks, { type: mime || 'audio/webm' }); var fd = new FormData(); if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID); fd.append('file', blob, 'voice.' + ext); try { await fetch('/upload_file', { method:'POST', body: fd }); await pollMessages(); messagesBox.scrollTop = messagesBox.scrollHeight; } catch(err){ console.error('Voice:', err); } }; mediaRecorder.start(); micBtn.classList.add('rec-active'); } catch(err){ alert('Нет доступа к микрофону'); } });
-
-  // --- ЗВОНКИ (WebRTC) ---
-  var peerConnection = null;
-  var localStream = null;
-  var currentCallId = null;
-  var callPollInterval = null;
-  var pendingCandidates = [];
-  var isRemoteDescriptionSet = false;
-
-  var callOverlay = document.getElementById('callOverlay');
-  var callStatus = document.getElementById('callStatus');
-  var callName = document.getElementById('callName');
-  var callAvatar = document.getElementById('callAvatar');
-
-  var rtcConfig = { 
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ] 
-  };
-
-  document.getElementById('startCallBtn').addEventListener('click', async function() {
-    if (MODE !== 'personal') return;
-    try {
-      var res = await fetch('/api/call/start/' + CHAT_ID, { method: 'POST' });
-      var data = await res.json();
-      if (data.ok) {
-        currentCallId = data.call_id;
-        callName.textContent = OTHER_NAME;
-        if (OTHER_AVATAR) { callAvatar.style.background = 'none'; callAvatar.innerHTML = '<img src="' + OTHER_AVATAR + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'; }
-        else { callAvatar.textContent = OTHER_NAME[0].toUpperCase(); }
-        callStatus.textContent = 'Вызов...';
-        callOverlay.classList.add('show');
-        
-        document.getElementById('callActions').innerHTML = '<button class="call-btn end" onclick="endCall()">✕</button>';
-        
-        await startWebRTC(true);
-        startCallPolling();
-      }
-    } catch(e) { console.error(e); }
-  });
-
-  setInterval(async function() {
-    if (currentCallId) return; 
-    try {
-      var res = await fetch('/api/call/poll_incoming');
-      var data = await res.json();
-      if (data.ok && data.call_id) {
-        currentCallId = data.call_id;
-        callName.textContent = data.caller_name;
-        if (data.caller_avatar) { callAvatar.style.background = 'none'; callAvatar.innerHTML = '<img src="' + data.caller_avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'; }
-        else { callAvatar.textContent = data.caller_name[0].toUpperCase(); }
-        callStatus.textContent = 'Входящий звонок...';
-        callOverlay.classList.add('show');
-        
-        document.getElementById('callActions').innerHTML = 
-          '<button class="call-btn reject" onclick="rejectCall()">✕</button>' +
-          '<button class="call-btn accept" onclick="acceptCall()">📞</button>';
-      }
-    } catch(e) {}
-  }, 3000);
-
-  window.rejectCall = async function() {
-    if (!currentCallId) return;
-    await fetch('/api/call/reject/' + currentCallId, { method: 'POST' });
-    cleanupCall();
-  };
-
-  window.acceptCall = async function() {
-    if (!currentCallId) return;
-    await fetch('/api/call/answer/' + currentCallId, { method: 'POST' });
-    callStatus.textContent = 'Соединение...';
-    document.getElementById('callActions').innerHTML = '<button class="call-btn end" onclick="endCall()">✕</button>';
-    await startWebRTC(false);
-    startCallPolling();
-  };
-
-  window.endCall = async function() {
-    if (!currentCallId) return;
-    await fetch('/api/call/end/' + currentCallId, { method: 'POST' });
-    cleanupCall();
-  };
-
-  function cleanupCall() {
-    if (callPollInterval) clearInterval(callPollInterval);
-    if (peerConnection) { peerConnection.close(); peerConnection = null; }
-    if (localStream) { localStream.getTracks().forEach(function(t){ t.stop(); }); localStream = null; }
-    callOverlay.classList.remove('show');
-    currentCallId = null;
-    pendingCandidates = [];
-    isRemoteDescriptionSet = false;
-  }
-
-  async function flushPendingCandidates() {
-    if (!peerConnection) return;
-    for (var i = 0; i < pendingCandidates.length; i++) {
-      try {
-        await peerConnection.addIceCandidate(pendingCandidates[i]);
-      } catch (e) { console.warn('ICE error:', e); }
-    }
-    pendingCandidates = [];
-  }
-
-  async function startWebRTC(isCaller) {
-    peerConnection = new RTCPeerConnection(rtcConfig);
-    isRemoteDescriptionSet = false;
-    pendingCandidates = [];
-
-    peerConnection.onicecandidate = function(event) {
-      if (event.candidate && currentCallId) {
-        fetch('/api/call/signal/' + currentCallId, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ type: 'candidate', payload: event.candidate })
-        }).catch(function(){});
-      }
-    };
-
-    peerConnection.ontrack = function(event) {
-      var remoteAudio = new Audio();
-      remoteAudio.srcObject = event.streams[0];
-      remoteAudio.play();
-      callStatus.textContent = 'В эфире';
-    };
-
-    peerConnection.onconnectionstatechange = function() {
-      if (peerConnection.connectionState === 'connected') {
-        callStatus.textContent = 'В эфире';
-      } else if (peerConnection.connectionState === 'failed') {
-        callStatus.textContent = 'Соединение не удалось';
-        setTimeout(cleanupCall, 3000);
-      }
-    };
-
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStream.getTracks().forEach(function(track) { 
-      peerConnection.addTrack(track, localStream); 
-    });
-
-    if (isCaller) {
-      var offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      // НЕ ставим isRemoteDescriptionSet = true! Ждем answer от собеседника.
-      fetch('/api/call/signal/' + currentCallId, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ type: 'offer', payload: offer })
-      });
-    }
-  }
-
-  function startCallPolling() {
-    callPollInterval = setInterval(async function() {
-      if (!currentCallId) return;
-      try {
-        var res = await fetch('/api/call/signals/' + currentCallId);
-        var data = await res.json();
-        if (!data.ok) return;
-
-        if (data.call_status === 'ended' || data.call_status === 'rejected') {
-          callStatus.textContent = data.call_status === 'rejected' ? 'Отклонен' : 'Завершен';
-          setTimeout(cleanupCall, 1500);
-          return;
-        }
-
-        for (var i = 0; i < data.signals.length; i++) {
-          var sig = data.signals[i];
-          
-          if (sig.type === 'offer') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
-            isRemoteDescriptionSet = true;
-            await flushPendingCandidates();
-            
-            var answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            fetch('/api/call/signal/' + currentCallId, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ type: 'answer', payload: answer })
-            });
-            
-          } else if (sig.type === 'answer') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
-            isRemoteDescriptionSet = true;
-            await flushPendingCandidates();
-            
-          } else if (sig.type === 'candidate') {
-            var candidate = new RTCIceCandidate(sig.payload);
-            if (isRemoteDescriptionSet) {
-              try { await peerConnection.addIceCandidate(candidate); } 
-              catch(e) { console.warn('Не удалось добавить кандидата:', e); }
-            } else {
-              pendingCandidates.push(candidate);
-            }
-          }
-        }
-      } catch(e) { console.error('Ошибка сигналинга:', e); }
-    }, 1000);
-  }
 
   pollMessages(); setInterval(pollMessages, 1000);
 })();
