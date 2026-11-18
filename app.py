@@ -48,7 +48,7 @@ class User(db.Model):
     invited_by = db.Column(db.Integer, default=0)
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
-    activity = db.Column(db.String(50), default='')
+    activity = db.Column(db.String(50), default='') # Оставляем для совместимости БД
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -75,20 +75,6 @@ class Chat(db.Model):
 class ChatMember(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, primary_key=True)
-
-class Poll(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    chat_id = db.Column(db.Integer, nullable=False)
-    question = db.Column(db.String(200), nullable=False)
-    options = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.Float, default=0.0)
-    sender_id = db.Column(db.Integer, nullable=False)
-
-class PollVote(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    poll_id = db.Column(db.Integer, nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
-    option_index = db.Column(db.Integer, nullable=False)
 
 # ===================== АВТО-МИГРАЦИЯ =====================
 
@@ -210,7 +196,7 @@ def api_conversations():
         out.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g})
     return jsonify({'ok': True, 'conversations': out})
 
-# ===================== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ API =====================
+# ===================== ПРОФИЛЬ API =====================
 
 @app.route('/api/profile/<int:uid>')
 def api_profile(uid):
@@ -219,7 +205,6 @@ def api_profile(uid):
     user = db.session.get(User, uid)
     if not user: return jsonify({'ok': False}), 404
     
-    # Получаем историю переписки для вкладок
     msgs = Message.query.filter(
         ((Message.sender_id == me_id) & (Message.receiver_id == uid)) |
         ((Message.sender_id == uid) & (Message.receiver_id == me_id))
@@ -238,7 +223,7 @@ def api_profile(uid):
     return jsonify({
         'ok': True, 'id': user.id, 'name': user.name, 'username': user.username,
         'bio': user.bio, 'avatar': user.avatar, 'online': is_online(user),
-        'last_seen': user.last_seen, 'activity': user.activity,
+        'last_seen': user.last_seen,
         'media': media, 'files': files, 'audio': audio, 'links': links
     })
 
@@ -277,51 +262,14 @@ def poll(oid):
         if str(uid) in (m.hidden_for.split(',') if m.hidden_for else []): continue
         out.append({'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned})
 
-    # ИСПРАВЛЕНО: Ищем опросы между двумя пользователями (в обе стороны)
-    polls_db = Poll.query.filter(
-        ((Poll.chat_id == uid) & (Poll.sender_id == oid)) |
-        ((Poll.chat_id == oid) & (Poll.sender_id == uid))
-    ).order_by(Poll.id.desc()).all()
-    
-    polls_out = []
-    for p in polls_db:
-        votes = PollVote.query.filter_by(poll_id=p.id).all()
-        my_vote = next((v.option_index for v in votes if v.user_id == uid), -1)
-        counts = [0] * len(json.loads(p.options))
-        for v in votes:
-            if v.option_index < len(counts): counts[v.option_index] += 1
-        polls_out.append({'id': p.id, 'question': p.question, 'options': json.loads(p.options), 'counts': counts, 'my_vote': my_vote, 'sender_id': p.sender_id, 'created_at': p.created_at})
-
     other = db.session.get(User, oid)
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(other and other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other), 'activity': other.activity if other else '', 'polls': polls_out})
+    return jsonify({'ok': True, 'messages': out, 'typing': bool(other and other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other)})
 
 @app.route('/typing/<int:oid>', methods=['POST'])
 def typing(oid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     me = db.session.get(User, session['uid'])
     if me: me.typing_to = oid; me.typing_at = time.time(); db.session.commit()
-    return jsonify({'ok': True})
-
-# ===================== POLLS API =====================
-
-@app.route('/create_poll', methods=['POST'])
-def create_poll():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    chat_id = int(data.get('chat_id', 0))
-    question = str(data.get('question', '')).strip()
-    options = data.get('options', [])
-    if not chat_id or not question or len(options) < 2: return jsonify({'ok': False}), 400
-    p = Poll(chat_id=chat_id, question=question, options=json.dumps(options, ensure_ascii=False), created_at=time.time(), sender_id=session['uid'])
-    db.session.add(p); db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/vote/<int:pid>/<int:opt>', methods=['POST'])
-def vote(pid, opt):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    PollVote.query.filter_by(poll_id=pid, user_id=session['uid']).delete()
-    v = PollVote(poll_id=pid, user_id=session['uid'], option_index=opt)
-    db.session.add(v); db.session.commit()
     return jsonify({'ok': True})
 
 # ===================== GROUPS & OTHER =====================
@@ -369,17 +317,7 @@ def poll_group(gid):
         u = db.session.get(User, mb.user_id)
         if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5: typing_users.append(u.name)
 
-    polls_db = Poll.query.filter_by(chat_id=-gid).order_by(Poll.id.desc()).all()
-    polls_out = []
-    for p in polls_db:
-        votes = PollVote.query.filter_by(poll_id=p.id).all()
-        my_vote = next((v.option_index for v in votes if v.user_id == me.id), -1)
-        counts = [0] * len(json.loads(p.options))
-        for v in votes:
-            if v.option_index < len(counts): counts[v.option_index] += 1
-        polls_out.append({'id': p.id, 'question': p.question, 'options': json.loads(p.options), 'counts': counts, 'my_vote': my_vote, 'sender_id': p.sender_id, 'created_at': p.created_at})
-
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data, 'polls': polls_out})
+    return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data})
 
 @app.route('/create_group', methods=['POST'])
 def create_group():
@@ -430,7 +368,6 @@ def update_profile():
     if me:
         if data.get('name'): me.name = str(data.get('name')).strip()[:80]
         me.bio = str(data.get('bio', '')).strip()[:200]
-        if data.get('activity') is not None: me.activity = str(data.get('activity'))[:50]
         if data.get('avatar') and str(data.get('avatar')).startswith('data:image/'): me.avatar = data.get('avatar')
         db.session.commit()
     return jsonify({'ok': True})
