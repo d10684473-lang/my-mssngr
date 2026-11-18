@@ -106,15 +106,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   @keyframes pulse{50%{opacity:.4}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-  /* ОПРОСЫ */
-  .poll-box{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;width:280px;}
-  .poll-q{font-weight:600;font-size:14px;margin-bottom:8px;}
-  .poll-opt{background:var(--sidebar);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer;font-size:13px;position:relative;overflow:hidden;transition:0.2s;}
-  .poll-opt:hover{border-color:var(--active);}
-  .poll-opt.voted{border-color:var(--active);font-weight:600;}
-  .poll-bar{position:absolute;top:0;left:0;bottom:0;background:rgba(43,128,255,0.15);z-index:0;transition:width 0.3s;}
-  .poll-txt{position:relative;z-index:1;display:flex;justify-content:space-between;}
-
   /* МОДАЛКИ */
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:100;padding:16px}
   .modal.show{display:flex}
@@ -131,12 +122,15 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .chip{background:var(--sidebar);border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px}
   .chip.selected{background:var(--active);color:#fff;border-color:var(--active)}
 
-  /* ПРОФИЛЬ (КАК НА СКРИНШОТЕ) */
+  /* ПРОФИЛЬ */
   .profile-modal-card { max-width: 450px; padding: 0; overflow: hidden; background: #f0f2f5; }
   .dark .profile-modal-card { background: #17212b; }
   .profile-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; color: #2b80ff; font-weight: 500; font-size: 16px; }
   .profile-top { display: flex; flex-direction: column; align-items: center; padding: 0 20px 20px; }
-  .profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  
+  /* ИСПРАВЛЕНИЕ БУКВЫ (Добавлен flex для центрирования текста внутри аватарки) */
+  .profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; }
+  
   .profile-name { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 5px; color: var(--text); }
   .profile-status { font-size: 14px; color: #2b80ff; margin-top: 4px; }
   
@@ -165,7 +159,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     .back-btn{display:inline-block}
     .msg-row{max-width:85%}
     .msg-row.group-msg{max-width:92%}
-    .poll-box{width:100%;}
     .profile-modal-card { max-width: 100%; height: 100%; border-radius: 0; }
   }
 </style>
@@ -213,7 +206,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
         {% if other.avatar %}<img src="{{ other.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar {{ 'online' if other and other.last_seen and (now - other.last_seen) < 30 else '' }}">{{ other.name[0]|upper }}</div>{% endif %}
         <div>
           <div class="chat-title">{{ other.name }}</div>
-          <div class="status-line" id="typingStatus">{{ other.activity or other.bio or ('@' + other.username) }}</div>
+          <div class="status-line" id="typingStatus">{{ other.bio or ('@' + other.username) }}</div>
         </div>
       </div>
     {% elif mode == 'group' and group %}
@@ -243,7 +236,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
       <input type="file" id="fileInput" hidden>
       <button type="button" class="icon-btn" id="attachBtn" title="Прикрепить">📎</button>
       <button type="button" class="icon-btn" id="micBtn" title="Голосовое">🎤</button>
-      <button type="button" class="icon-btn" id="pollBtn" title="Опрос">📊</button>
       <input type="text" id="msgInput" placeholder="Сообщение..." autocomplete="off">
       <button type="button" class="send-btn" id="sendBtn" title="Отправить">➤</button>
     </div>
@@ -253,20 +245,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   {% endif %}
 </div>
 
-<!-- Модалка опроса -->
-<div class="modal" id="pollModal">
-  <div class="modal-card">
-    <h3>📊 Создать опрос</h3>
-    <input type="text" id="pollQ" placeholder="Вопрос">
-    <input type="text" class="pollOpt" placeholder="Вариант 1">
-    <input type="text" class="pollOpt" placeholder="Вариант 2">
-    <button type="button" class="btn-secondary" id="addOptBtn">+ Добавить вариант</button>
-    <button type="button" class="btn-primary" id="createPollBtn">Создать</button>
-    <button type="button" class="btn-secondary" id="closePollBtn" style="text-align:center;">Отмена</button>
-  </div>
-</div>
-
-<!-- Профиль собеседника (как на скриншоте) -->
+<!-- Профиль собеседника -->
 <div class="modal" id="profileViewModal">
   <div class="modal-card profile-modal-card">
     <div class="profile-header" onclick="document.getElementById('profileViewModal').classList.remove('show')">
@@ -274,7 +253,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     </div>
     <div class="profile-top">
       <img id="pvAvatar" class="profile-avatar" src="" alt="avatar" style="display:none;">
-      <div id="pvAvatarLetter" class="profile-avatar" style="display:none; background:#3390ec; color:white; font-size:40px;"></div>
+      <div id="pvAvatarLetter" class="profile-avatar" style="display:none; background:#3390ec; color:white;"></div>
       <div class="profile-name" id="pvName">Имя</div>
       <div class="profile-status" id="pvStatus">в сети</div>
       
@@ -319,15 +298,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     </div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
-    <div class="field-label">Ваш статус (Activity)</div>
-    <select id="profActivity">
-      <option value="" {{ 'selected' if not me.activity else '' }}>Не выбрано</option>
-      <option value="🎵 Слушает музыку" {{ 'selected' if me.activity == '🎵 Слушает музыку' else '' }}>🎵 Слушает музыку</option>
-      <option value="💻 Пишет код" {{ 'selected' if me.activity == '💻 Пишет код' else '' }}>💻 Пишет код</option>
-      <option value="🎮 Играет" {{ 'selected' if me.activity == '🎮 Играет' else '' }}>🎮 Играет</option>
-      <option value="📚 Учится" {{ 'selected' if me.activity == '📚 Учится' else '' }}>📚 Учится</option>
-      <option value="☕ Пьет кофе" {{ 'selected' if me.activity == '☕ Пьет кофе' else '' }}>☕ Пьет кофе</option>
-    </select>
     <div class="field-label" style="margin-top:10px;">Размер шрифта</div>
     <input type="range" id="setFont" min="12" max="20" value="15" oninput="document.documentElement.style.setProperty('--font-size', this.value + 'px')">
     <div class="field-label">Скругление пузырей</div>
@@ -411,7 +381,6 @@ function openUserProfile(uid) {
     document.getElementById('pvBio').textContent = data.bio || 'Нет описания';
     
     var statusText = data.online ? 'в сети' : 'был(а) недавно';
-    if (data.activity) statusText = data.activity;
     document.getElementById('pvStatus').textContent = statusText;
     document.getElementById('pvStatus').style.color = data.online ? '#2b80ff' : 'var(--muted)';
     
@@ -465,11 +434,9 @@ function switchProfileTab(tabName) {
 
   window.addEventListener('focus', function(){ document.title = 'Ramplez'; });
 
-  // Открытие профиля собеседника
   var openOtherProfileBtn = document.getElementById('openOtherProfile');
   if (openOtherProfileBtn) openOtherProfileBtn.addEventListener('click', function(){ openUserProfile(CHAT_ID); });
 
-  // Сайдбар
   var chatList = document.getElementById('chatList');
   var searchEl = document.getElementById('userSearch');
   
@@ -529,7 +496,7 @@ function switchProfileTab(tabName) {
   });
   if (searchEl) searchEl.addEventListener('input', applyFiltersAndSearch);
 
-  // Настройки (Мой профиль)
+  // Настройки
   var sf = localStorage.getItem('ramplez_font'); if(sf) { document.getElementById('setFont').value = sf; document.documentElement.style.setProperty('--font-size', sf + 'px'); }
   var sr = localStorage.getItem('ramplez_radius'); if(sr) { document.getElementById('setRadius').value = sr; document.documentElement.style.setProperty('--bubble-radius', sr + 'px'); }
   document.getElementById('setFont').addEventListener('input', function(e){ localStorage.setItem('ramplez_font', e.target.value); });
@@ -544,8 +511,8 @@ function switchProfileTab(tabName) {
   avatarInput.addEventListener('change', function(e){ var file = e.target.files[0]; if (!file) return; var reader = new FileReader(); reader.onload = function(ev){ var img = new Image(); img.onload = function(){ var max = 200, w = img.width, h = img.height; if (w > h && w > max) { h = Math.round(h * max / w); w = max; } else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; } var c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h); compressedAvatarBase64 = c.toDataURL('image/jpeg', 0.82); var prev = document.getElementById('avatarPreview'); prev.src = compressedAvatarBase64; prev.style.display = 'block'; }; img.src = ev.target.result; }; reader.readAsDataURL(file); });
 
   document.getElementById('saveProfileBtn').addEventListener('click', async function(){
-    var name = document.getElementById('profName').value.trim(); var bio = document.getElementById('profBio').value.trim(); var act = document.getElementById('profActivity').value;
-    await fetch('/update_profile', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, bio: bio, avatar: compressedAvatarBase64, activity: act }) });
+    var name = document.getElementById('profName').value.trim(); var bio = document.getElementById('profBio').value.trim();
+    await fetch('/update_profile', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: name, bio: bio, avatar: compressedAvatarBase64 }) });
     location.reload();
   });
 
@@ -584,40 +551,7 @@ function switchProfileTab(tabName) {
   pinBanner.addEventListener('click', function(){ if (currentPinnedId) { var el = document.getElementById('msg-' + currentPinnedId); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); } });
 
   var replyText = ''; var selectedMsg = null; var lastRenderHash = ''; var lastTypingSent = 0; var lastMsgId = 0;
-  var MEMBERS = []; var allMessages = [];
-
-  // Опросы
-  var pollModal = document.getElementById('pollModal');
-  document.getElementById('pollBtn').addEventListener('click', function(){ pollModal.classList.add('show'); });
-  document.getElementById('closePollBtn').addEventListener('click', function(){ pollModal.classList.remove('show'); });
-  document.getElementById('addOptBtn').addEventListener('click', function(){
-    var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'pollOpt'; inp.placeholder = 'Вариант ' + (document.querySelectorAll('.pollOpt').length + 1);
-    document.getElementById('createPollBtn').before(inp);
-  });
-  document.getElementById('createPollBtn').addEventListener('click', async function(){
-    var q = document.getElementById('pollQ').value.trim();
-    var opts = [];
-    document.querySelectorAll('.pollOpt').forEach(function(i){ if(i.value.trim()) opts.push(i.value.trim()); });
-    if (!q || opts.length < 2) { alert('Заполни вопрос и минимум 2 варианта'); return; }
-    await fetch('/create_poll', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chat_id: (MODE === 'group' ? -CHAT_ID : CHAT_ID), question: q, options: opts}) });
-    pollModal.classList.remove('show'); pollMessages();
-  });
-  window.votePoll = async function(pid, opt) {
-    await fetch('/vote/' + pid + '/' + opt, { method: 'POST' });
-    pollMessages();
-  };
-
-  function buildPoll(p) {
-    var totalVotes = p.counts.reduce(function(a,b){return a+b;}, 0);
-    var html = '<div class="poll-box"><div class="poll-q">' + escapeHtml(p.question) + '</div>';
-    p.options.forEach(function(opt, i) {
-      var pct = totalVotes > 0 ? Math.round(p.counts[i] / totalVotes * 100) : 0;
-      var voted = (p.my_vote === i) ? 'voted' : '';
-      html += '<div class="poll-opt ' + voted + '" onclick="votePoll(' + p.id + ',' + i + ')"><div class="poll-bar" style="width:' + pct + '%"></div><div class="poll-txt"><span>' + escapeHtml(opt) + '</span><span>' + pct + '%</span></div></div>';
-    });
-    html += '</div>';
-    return html;
-  }
+  var MEMBERS = [];
 
   function escapeHtml(s){ var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
   function getAvatarColor(str) { var hash = 0; for (var i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash); var c = (hash & 0x00FFFFFF).toString(16).toUpperCase(); return '#' + '00000'.substring(0, 6 - c.length) + c; }
@@ -672,12 +606,11 @@ function switchProfileTab(tabName) {
       var url = MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID; var res = await fetch(url);
       if (res.status === 401) { window.location.href = '/'; return; } var data = await res.json(); if (!data.ok) return;
       if (data.members) MEMBERS = data.members;
-      allMessages = data.messages;
 
       var statusEl = document.getElementById('typingStatus');
       if (statusEl) {
         if (data.typing) { statusEl.textContent = data.typing_names && data.typing_names.length ? (data.typing_names.join(', ') + ' печатает...') : 'печатает...'; statusEl.classList.remove('online'); } 
-        else if (MODE === 'personal') { statusEl.textContent = data.other_online ? 'в сети' : (data.activity || data.other_last_seen || OTHER_BIO); statusEl.classList.toggle('online', !!data.other_online); } 
+        else if (MODE === 'personal') { statusEl.textContent = data.other_online ? 'в сети' : OTHER_BIO; statusEl.classList.toggle('online', !!data.other_online); } 
         else { statusEl.textContent = 'Групповой чат'; statusEl.classList.remove('online'); }
       }
 
@@ -687,20 +620,11 @@ function switchProfileTab(tabName) {
         lastMsgId = last.id;
       }
 
-      var hash = JSON.stringify(data.messages) + '|' + JSON.stringify(data.members || []) + '|' + JSON.stringify(data.polls || []);
+      var hash = JSON.stringify(data.messages) + '|' + JSON.stringify(data.members || []);
       if (hash === lastRenderHash) return;
       var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80; lastRenderHash = hash;
 
       messagesInner.innerHTML = ''; var lastDate = null; var pinnedMsg = null;
-
-      if (data.polls && data.polls.length > 0) {
-        data.polls.forEach(function(p) {
-          var div = document.createElement('div');
-          div.className = 'msg-row ' + (p.sender_id === ME_ID ? 'mine' : 'theirs');
-          div.innerHTML = buildPoll(p);
-          messagesInner.appendChild(div);
-        });
-      }
 
       data.messages.forEach(function(m){
         if (m.pinned) pinnedMsg = m;
