@@ -2,7 +2,6 @@
 import os
 import json
 import time
-import uuid
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, jsonify, send_from_directory)
@@ -21,9 +20,6 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# Хранилище в оперативной памяти для Drop-in чатов
-EPHEMERAL_ROOMS = {} # room_id: {'users': {uid: name}, 'messages': [], 'video': {}, 'checklist': []}
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -48,7 +44,6 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
-    typing_status = db.Column(db.String(50), default='печатает...')
     invited_by = db.Column(db.Integer, default=0)
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
@@ -69,27 +64,31 @@ class Message(db.Model):
     read_at = db.Column(db.Float, default=0.0)
     read_by = db.Column(db.String(200), default='')
     pinned = db.Column(db.Integer, default=0)
-    parent_id = db.Column(db.Integer, default=0) # Для веток
 
 class Chat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     owner_id = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.Float, default=0.0)
-    video_url = db.Column(db.String(500), default='')
-    video_time = db.Column(db.Float, default=0.0)
-    video_playing = db.Column(db.Integer, default=0)
 
 class ChatMember(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, primary_key=True)
 
-class ChecklistItem(db.Model):
+# НОВОЕ: Опросы
+class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chat_id = db.Column(db.Integer, nullable=False)
-    text = db.Column(db.String(200), nullable=False)
-    done = db.Column(db.Integer, default=0)
+    chat_id = db.Column(db.Integer, nullable=False) # >0 для юзеров, <0 для групп
+    question = db.Column(db.String(200), nullable=False)
+    options = db.Column(db.Text, nullable=False) # JSON список строк
+    created_at = db.Column(db.Float, default=0.0)
+    sender_id = db.Column(db.Integer, nullable=False)
+
+class PollVote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
+    option_index = db.Column(db.Integer, nullable=False)
 
 # ===================== АВТО-МИГРАЦИЯ =====================
 
@@ -106,7 +105,6 @@ def ensure_schema():
                 if 'last_seen' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN last_seen FLOAT DEFAULT 0.0'))
                 if 'onboarded' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN onboarded INTEGER DEFAULT 0'))
                 if 'activity' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN activity VARCHAR(50) DEFAULT ""'))
-                if 'typing_status' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN typing_status VARCHAR(50) DEFAULT "печатает..."'))
             if 'message' in tables:
                 cols = {c['name'] for c in insp.get_columns('message')}
                 if 'expires_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN expires_at FLOAT DEFAULT 0.0'))
@@ -114,12 +112,6 @@ def ensure_schema():
                 if 'read_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN read_at FLOAT DEFAULT 0.0'))
                 if 'read_by' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN read_by VARCHAR(200) DEFAULT ""'))
                 if 'pinned' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN pinned INTEGER DEFAULT 0'))
-                if 'parent_id' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN parent_id INTEGER DEFAULT 0'))
-            if 'chat' in tables:
-                cols = {c['name'] for c in insp.get_columns('chat')}
-                if 'video_url' not in cols: db.session.execute(text('ALTER TABLE chat ADD COLUMN video_url VARCHAR(500) DEFAULT ""'))
-                if 'video_time' not in cols: db.session.execute(text('ALTER TABLE chat ADD COLUMN video_time FLOAT DEFAULT 0.0'))
-                if 'video_playing' not in cols: db.session.execute(text('ALTER TABLE chat ADD COLUMN video_playing INTEGER DEFAULT 0'))
             db.session.commit()
         except Exception as e:
             db.session.rollback()
@@ -172,80 +164,7 @@ def index():
 def logout():
     session.clear(); return redirect(url_for('index'))
 
-# ===================== QUICK ROOMS (DROP-IN) =====================
-
-@app.route('/quick', methods=['GET', 'POST'])
-def quick():
-    if request.method == 'POST':
-        name = request.form.get('name', 'Гость').strip()[:30]
-        room_id = str(uuid.uuid4())[:8]
-        guest_id = int(time.time() * 1000)
-        EPHEMERAL_ROOMS[room_id] = {'users': {guest_id: name}, 'messages': [], 'video': {'url': '', 'time': 0, 'playing': 0}, 'checklist': []}
-        session['guest_room'] = room_id
-        session['guest_id'] = guest_id
-        session['guest_name'] = name
-        return redirect(url_for('quick_room', room_id=room_id))
-    return render_template('quick_login.html')
-
-@app.route('/quick/<room_id>')
-def quick_room(room_id):
-    if room_id not in EPHEMERAL_ROOMS:
-        return "Комната не найдена или уже удалена. <a href='/quick'>Создать новую</a>", 404
-    if 'guest_room' not in session or session['guest_room'] != room_id:
-        # Если перешли по ссылке, но нет сессии гостя
-        if request.method == 'GET':
-             return render_template('quick_join.html', room_id=room_id)
-    return render_template('quick_chat.html', room_id=room_id, name=session.get('guest_name', 'Гость'), gid=session.get('guest_id'))
-
-@app.route('/quick_join/<room_id>', methods=['POST'])
-def quick_join(room_id):
-    if room_id not in EPHEMERAL_ROOMS:
-        return "Комната не найдена", 404
-    name = request.form.get('name', 'Гость').strip()[:30]
-    guest_id = int(time.time() * 1000)
-    EPHEMERAL_ROOMS[room_id]['users'][guest_id] = name
-    session['guest_room'] = room_id
-    session['guest_id'] = guest_id
-    session['guest_name'] = name
-    return redirect(url_for('quick_room', room_id=room_id))
-
-@app.route('/api/quick_poll/<room_id>')
-def quick_poll(room_id):
-    if room_id not in EPHEMERAL_ROOMS or 'guest_id' not in session: return jsonify({'ok': False}), 403
-    room = EPHEMERAL_ROOMS[room_id]
-    return jsonify({'ok': True, 'messages': room['messages'], 'users': room['users'], 'video': room['video'], 'checklist': room['checklist']})
-
-@app.route('/api/quick_send/<room_id>', methods=['POST'])
-def quick_send(room_id):
-    if room_id not in EPHEMERAL_ROOMS or 'guest_id' not in session: return jsonify({'ok': False}), 403
-    data = request.get_json(silent=True) or {}
-    content = data.get('content', '').strip()
-    if content:
-        EPHEMERAL_ROOMS[room_id]['messages'].append({
-            'id': int(time.time()*1000), 'sender_id': session['guest_id'], 'sender_name': session['guest_name'],
-            'content': content, 'timestamp': datetime.now().strftime('%H:%M'), 'created_at': time.time(), 'msg_type': 'text'
-        })
-    return jsonify({'ok': True})
-
-@app.route('/api/quick_video/<room_id>', methods=['POST'])
-def quick_video(room_id):
-    if room_id not in EPHEMERAL_ROOMS: return jsonify({'ok': False}), 403
-    data = request.get_json()
-    EPHEMERAL_ROOMS[room_id]['video'] = {'url': data.get('url', ''), 'time': data.get('time', 0), 'playing': data.get('playing', 0)}
-    return jsonify({'ok': True})
-
-@app.route('/api/quick_check/<room_id>', methods=['POST'])
-def quick_check(room_id):
-    if room_id not in EPHEMERAL_ROOMS: return jsonify({'ok': False}), 403
-    data = request.get_json()
-    if data.get('action') == 'add':
-        EPHEMERAL_ROOMS[room_id]['checklist'].append({'id': int(time.time()*1000), 'text': data['text'], 'done': 0})
-    elif data.get('action') == 'toggle':
-        for item in EPHEMERAL_ROOMS[room_id]['checklist']:
-            if item['id'] == data['id']: item['done'] = 1 - item['done']
-    return jsonify({'ok': True})
-
-# ===================== MAIN CHAT =====================
+# ===================== CHAT =====================
 
 @app.route('/chat')
 def chat():
@@ -253,9 +172,7 @@ def chat():
     me = db.session.get(User, session['uid'])
     if not me: session.clear(); return redirect(url_for('index'))
 
-    stealth = request.args.get('stealth', type=int, default=0)
-    if not stealth:
-        me.last_seen = time.time(); db.session.commit()
+    me.last_seen = time.time(); db.session.commit()
 
     users = User.query.filter(User.id != me.id).all()
     my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
@@ -275,12 +192,13 @@ def chat():
         unread_g = sum(1 for m in Message.query.filter_by(receiver_id=-g.id).all() if m.sender_id != me.id and str(me.id) not in (m.read_by.split(',') if m.read_by else []))
         conversations.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g, 'active': (mode == 'group' and group and group.id == g.id)})
 
-    return render_template('chat.html', me=me, users=users, other=other, group=group, mode=mode, conversations=conversations, now=time.time(), stealth=stealth)
+    return render_template('chat.html', me=me, users=users, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
 
 @app.route('/api/conversations')
 def api_conversations():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     me = db.session.get(User, session['uid'])
+    if not me: return jsonify({'ok': False}), 401
     users = User.query.filter(User.id != me.id).all()
     my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
     out = []
@@ -292,13 +210,17 @@ def api_conversations():
         out.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g})
     return jsonify({'ok': True, 'conversations': out})
 
+# ===================== SEND / POLL =====================
+
 @app.route('/send', methods=['POST'])
 def send():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     data = request.get_json(silent=True) or {}
-    oid = int(data.get('oid', 0)); content = str(data.get('content', '')).strip(); parent_id = int(data.get('parent_id', 0))
+    oid = int(data.get('oid', 0))
+    content = str(data.get('content', '')).strip()
     if not oid or not content: return jsonify({'ok': False}), 400
-    msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), parent_id=parent_id)
+
+    msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg)
     me = db.session.get(User, session['uid']); me.typing_to = 0; me.last_seen = time.time()
     db.session.commit()
@@ -307,43 +229,75 @@ def send():
 @app.route('/poll/<int:oid>')
 def poll(oid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
-    uid = session['uid']; now = time.time()
-    stealth = request.args.get('stealth', type=int, default=0)
-    
-    me = db.session.get(User, uid)
-    if me and not stealth: me.last_seen = now; db.session.commit()
+    uid = session['uid']
+    now = time.time()
+    me = db.session.get(User, uid); me.last_seen = now; db.session.commit()
 
-    if not stealth:
-        unread = Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).all()
-        if unread:
-            for um in unread: um.read_at = now
-            db.session.commit()
+    unread = Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).all()
+    if unread:
+        for um in unread: um.read_at = now
+        db.session.commit()
 
     msgs = Message.query.filter(((Message.sender_id == uid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == uid))).order_by(Message.id.asc()).all()
     out = []
     for m in msgs:
         if m.expires_at and m.expires_at < now: continue
         if str(uid) in (m.hidden_for.split(',') if m.hidden_for else []): continue
-        out.append({'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned, 'parent_id': m.parent_id})
+        out.append({'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned})
+
+    # Опросы
+    polls_db = Poll.query.filter_by(chat_id=oid).order_by(Poll.id.desc()).all()
+    polls_out = []
+    for p in polls_db:
+        votes = PollVote.query.filter_by(poll_id=p.id).all()
+        my_vote = next((v.option_index for v in votes if v.user_id == uid), -1)
+        counts = [0] * len(json.loads(p.options))
+        for v in votes:
+            if v.option_index < len(counts): counts[v.option_index] += 1
+        polls_out.append({'id': p.id, 'question': p.question, 'options': json.loads(p.options), 'counts': counts, 'my_vote': my_vote, 'sender_id': p.sender_id, 'created_at': p.created_at})
 
     other = db.session.get(User, oid)
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(other and other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other) and not stealth, 'activity': other.activity if other else '', 'typing_status': other.typing_status if other else 'печатает...'})
+    return jsonify({'ok': True, 'messages': out, 'typing': bool(other and other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other), 'activity': other.activity if other else '', 'polls': polls_out})
 
 @app.route('/typing/<int:oid>', methods=['POST'])
 def typing(oid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
     me = db.session.get(User, session['uid'])
-    if me: me.typing_to = oid; me.typing_at = time.time(); me.typing_status = data.get('status', 'печатает...'); db.session.commit()
+    if me: me.typing_to = oid; me.typing_at = time.time(); db.session.commit()
     return jsonify({'ok': True})
+
+# ===================== POLLS API =====================
+
+@app.route('/create_poll', methods=['POST'])
+def create_poll():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    chat_id = int(data.get('chat_id', 0))
+    question = str(data.get('question', '')).strip()
+    options = data.get('options', [])
+    if not chat_id or not question or len(options) < 2: return jsonify({'ok': False}), 400
+    p = Poll(chat_id=chat_id, question=question, options=json.dumps(options, ensure_ascii=False), created_at=time.time(), sender_id=session['uid'])
+    db.session.add(p); db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/vote/<int:pid>/<int:opt>', methods=['POST'])
+def vote(pid, opt):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    PollVote.query.filter_by(poll_id=pid, user_id=session['uid']).delete()
+    v = PollVote(poll_id=pid, user_id=session['uid'], option_index=opt)
+    db.session.add(v); db.session.commit()
+    return jsonify({'ok': True})
+
+# ===================== GROUPS & OTHER =====================
 
 @app.route('/send_group', methods=['POST'])
 def send_group():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     data = request.get_json(silent=True) or {}
-    gid = int(data.get('gid', 0)); content = str(data.get('content', '')).strip(); parent_id = int(data.get('parent_id', 0))
+    gid = int(data.get('gid', 0))
+    content = str(data.get('content', '')).strip()
     if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
-    msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), parent_id=parent_id)
+    msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg); db.session.get(User, session['uid']).last_seen = time.time(); db.session.commit()
     return jsonify({'ok': True, 'id': msg.id})
 
@@ -352,41 +306,45 @@ def poll_group(gid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     if not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
     now = time.time()
-    stealth = request.args.get('stealth', type=int, default=0)
-    me = db.session.get(User, session['uid'])
-    
-    if me and not stealth: me.last_seen = now; db.session.commit()
+    me = db.session.get(User, session['uid']); me.last_seen = now; db.session.commit()
 
     member_ids = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
     member_users = User.query.filter(User.id.in_(member_ids)).all()
     users_map = {u.id: u.name for u in member_users}
     members_data = [{'id': u.id, 'name': u.name} for u in member_users]
 
-    if not stealth:
-        unread_msgs = Message.query.filter_by(receiver_id=-gid).filter(Message.sender_id != me.id).all()
-        changed = False
-        for um in unread_msgs:
-            rb = set(um.read_by.split(',')) if um.read_by else set(); rb.discard('')
-            if str(me.id) not in rb: rb.add(str(me.id)); um.read_by = ','.join(rb); changed = True
-        if changed: db.session.commit()
+    unread_msgs = Message.query.filter_by(receiver_id=-gid).filter(Message.sender_id != me.id).all()
+    changed = False
+    for um in unread_msgs:
+        rb = set(um.read_by.split(',')) if um.read_by else set(); rb.discard('')
+        if str(me.id) not in rb: rb.add(str(me.id)); um.read_by = ','.join(rb); changed = True
+    if changed: db.session.commit()
 
     msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
     out = []
     for m in msgs:
         if m.expires_at and m.expires_at < now: continue
         if str(me.id) in (m.hidden_for.split(',') if m.hidden_for else []): continue
-        out.append({'id': m.id, 'sender_id': m.sender_id, 'sender_name': users_map.get(m.sender_id, 'Аноним'), 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_by': m.read_by or '', 'pinned': m.pinned, 'parent_id': m.parent_id})
+        out.append({'id': m.id, 'sender_id': m.sender_id, 'sender_name': users_map.get(m.sender_id, 'Аноним'), 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_by': m.read_by or '', 'pinned': m.pinned})
 
     typing_users = []
     for mb in ChatMember.query.filter_by(chat_id=gid).all():
         if mb.user_id == me.id: continue
         u = db.session.get(User, mb.user_id)
-        if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5: typing_users.append({'name': u.name, 'status': u.typing_status})
+        if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5: typing_users.append(u.name)
 
-    chat = db.session.get(Chat, gid)
-    cl_items = [{'id': c.id, 'text': c.text, 'done': c.done} for c in ChecklistItem.query.filter_by(chat_id=gid).all()]
-    
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_users': typing_users, 'members': members_data, 'video': {'url': chat.video_url, 'time': chat.video_time, 'playing': chat.video_playing}, 'checklist': cl_items})
+    # Опросы для группы
+    polls_db = Poll.query.filter_by(chat_id=-gid).order_by(Poll.id.desc()).all()
+    polls_out = []
+    for p in polls_db:
+        votes = PollVote.query.filter_by(poll_id=p.id).all()
+        my_vote = next((v.option_index for v in votes if v.user_id == me.id), -1)
+        counts = [0] * len(json.loads(p.options))
+        for v in votes:
+            if v.option_index < len(counts): counts[v.option_index] += 1
+        polls_out.append({'id': p.id, 'question': p.question, 'options': json.loads(p.options), 'counts': counts, 'my_vote': my_vote, 'sender_id': p.sender_id, 'created_at': p.created_at})
+
+    return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data, 'polls': polls_out})
 
 @app.route('/create_group', methods=['POST'])
 def create_group():
@@ -411,31 +369,6 @@ def pin_msg(mid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     msg = db.session.get(Message, mid)
     if msg: msg.pinned = 1 if msg.pinned == 0 else 0; db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/sync_video/<int:gid>', methods=['POST'])
-def sync_video(gid):
-    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
-    data = request.get_json()
-    chat = db.session.get(Chat, gid)
-    if data.get('url') is not None: chat.video_url = data['url']
-    if data.get('time') is not None: chat.video_time = data['time']
-    if data.get('playing') is not None: chat.video_playing = data['playing']
-    db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/checklist/<int:gid>', methods=['POST'])
-def checklist(gid):
-    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
-    data = request.get_json()
-    if data.get('action') == 'add':
-        item = ChecklistItem(chat_id=gid, text=data['text'], done=0, user_id=session['uid'])
-        db.session.add(item); db.session.commit()
-    elif data.get('action') == 'toggle':
-        item = db.session.get(ChecklistItem, data['id'])
-        if item: item.done = 1 - item.done; db.session.commit()
-    elif data.get('action') == 'del':
-        ChecklistItem.query.filter_by(id=data['id']).delete(); db.session.commit()
     return jsonify({'ok': True})
 
 @app.route('/upload_file', methods=['POST'])
