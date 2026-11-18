@@ -19,6 +19,7 @@
     --other-msg: #e4e6eb;
     --other-text: #111111;
     --card: #ffffff;
+    --logo-color: #405a66; /* Цвет логотипа для светлой темы */
   }
   body.dark {
     --bg: #17212b;
@@ -33,18 +34,39 @@
     --other-msg: #262d35;
     --other-text: #f5f5f5;
     --card: #17212b;
+    --logo-color: #f5f5f5; /* Цвет логотипа для темной темы */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
+  
   .sidebar { width: 320px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-  .side-head { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  
+  /* Новая шапка с логотипом */
+  .brand-head { 
+    padding: 18px 14px 10px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+  }
+  .logo-img {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    /* Если у картинки останется белый фон, можно применить mix-blend-mode:
+       mix-blend-mode: multiply; 
+       Но мы рассчитываем на прозрачный PNG. */
+  }
+
+  .side-head { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); }
   .me-info { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: #3390ec; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; object-fit: cover; flex-shrink: 0; }
   .me-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .icon-btn { background: none; border: none; color: var(--text); cursor: pointer; font-size: 18px; padding: 6px; border-radius: 8px; text-decoration: none; }
   .icon-btn:hover { background: var(--hover); }
+  
   .search-box { padding: 8px 12px; border-bottom: 1px solid var(--border); }
   .search-box input { width: 100%; padding: 8px 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; }
+  
   .chat-list { flex: 1; overflow-y: auto; }
   .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; text-decoration: none; color: var(--text); border-bottom: 1px solid var(--border); }
   .chat-item:hover { background: var(--hover); }
@@ -100,6 +122,11 @@
 <body>
 
 <div class="sidebar" id="sidebarPanel">
+  <!-- Вставляем логотип -->
+  <div class="brand-head">
+    <img src="/static/logo.png" alt="Ramplez" class="logo-img">
+  </div>
+  
   <div class="side-head">
     <div class="me-info" id="openProfileBtn">
       {% if me.avatar %}
@@ -173,7 +200,7 @@
   <div class="modal-card">
     <h3>Настройки профиля</h3>
     <div style="display:flex;align-items:center;gap:12px;">
-      <img id="avatarPreview" src="{{ me.avatar or '' }}" class="avatar" style="width:60px;height:60px;{{ '' if me.avatar else 'display:none;' }}">
+      <img id="avatarPreview" class="avatar" style="width:60px;height:60px;{{ '' if me.avatar else 'display:none;' }}" src="{{ me.avatar if me.avatar else 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }}">
       <input type="file" id="avatarInput" accept="image/*">
     </div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Ваше имя">
@@ -222,7 +249,7 @@ document.getElementById('userSearch').addEventListener('input', (e) => {
   });
 });
 
-// Профиль и сжатие аватарки через Canvas до 200px
+// Профиль и сжатие аватарки
 let compressedAvatarBase64 = '';
 const profileModal = document.getElementById('profileModal');
 
@@ -231,6 +258,7 @@ document.getElementById('openProfileBtn').addEventListener('click', () => {
 });
 document.getElementById('closeProfileBtn').addEventListener('click', () => {
   profileModal.style.display = 'none';
+  compressedAvatarBase64 = ''; // Сбрасываем при закрытии
 });
 
 document.getElementById('avatarInput').addEventListener('change', (e) => {
@@ -314,6 +342,7 @@ if (OTHER_ID) {
   async function pollMessages() {
     try {
       const res = await fetch(`/poll/${OTHER_ID}`);
+      if (res.status === 401) { window.location.href = '/'; return; }
       const data = await res.json();
       if (!data.ok) return;
 
@@ -374,120 +403,4 @@ if (OTHER_ID) {
     }
   }
 
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  msgInput.addEventListener('input', () => {
-    const now = Date.now();
-    if (now - lastTypingSent > 2000) {
-      lastTypingSent = now;
-      fetch(`/typing/${OTHER_ID}`, { method: 'POST' }).catch(() => {});
-    }
-  });
-
-  // Ответ на сообщение
-  document.getElementById('actReplyBtn').addEventListener('click', () => {
-    if (!selectedMsg) return;
-    const preview = selectedMsg.msg_type === 'text' ? selectedMsg.content.replace(/\n/g, ' ').slice(0, 60) : `[${selectedMsg.msg_type}]`;
-    replyText = preview;
-    replyPreview.textContent = `Ответ: ${preview}`;
-    replyBar.style.display = 'flex';
-    msgModal.style.display = 'none';
-    msgInput.focus();
-  });
-
-  document.getElementById('cancelReplyBtn').addEventListener('click', () => {
-    replyText = '';
-    replyBar.style.display = 'none';
-  });
-
-  // Удаление и реакции
-  document.getElementById('actDelMeBtn').addEventListener('click', async () => {
-    if (!selectedMsg) return;
-    await fetch(`/del_me/${selectedMsg.id}/${OTHER_ID}`, { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
-
-  document.getElementById('actDelAllBtn').addEventListener('click', async () => {
-    if (!selectedMsg) return;
-    await fetch(`/del_all/${selectedMsg.id}/${OTHER_ID}`, { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
-
-  document.getElementById('emojiPicker').addEventListener('click', async (e) => {
-    const emj = e.target.dataset.emj;
-    if (!emj || !selectedMsg) return;
-    await fetch(`/react_msg/${selectedMsg.id}/${OTHER_ID}/${encodeURIComponent(emj)}`, { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
-
-  document.getElementById('closeMsgModalBtn').addEventListener('click', () => {
-    msgModal.style.display = 'none';
-  });
-
-  // Прикрепление файлов
-  const fileInput = document.getElementById('fileInput');
-  document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('oid', OTHER_ID);
-    fd.append('file', file);
-    fileInput.value = '';
-    try {
-      await fetch('/upload_file', { method: 'POST', body: fd });
-      await pollMessages();
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-    } catch (err) {
-      console.error('File upload error:', err);
-    }
-  });
-
-  // Запись голосовых сообщений
-  let mediaRecorder = null;
-  let audioChunks = [];
-  const micBtn = document.getElementById('micBtn');
-
-  micBtn.addEventListener('click', async () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      micBtn.classList.remove('rec-active');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const fd = new FormData();
-        fd.append('oid', OTHER_ID);
-        fd.append('file', blob, 'voice.webm');
-        await fetch('/upload_file', { method: 'POST', body: fd });
-        await pollMessages();
-        messagesBox.scrollTop = messagesBox.scrollHeight;
-      };
-      mediaRecorder.start();
-      micBtn.classList.add('rec-active');
-    } catch (err) {
-      alert('Нет доступа к микрофону');
-    }
-  });
-
-  pollMessages();
-  setInterval(pollMessages, 1000);
-}
-</script>
-</body>
-</html>
+  sendBtn.addEventListener('click
