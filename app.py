@@ -2,6 +2,7 @@
 import os
 import json
 import time
+import re
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, jsonify, send_from_directory)
@@ -75,12 +76,11 @@ class ChatMember(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, primary_key=True)
 
-# НОВОЕ: Опросы
 class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chat_id = db.Column(db.Integer, nullable=False) # >0 для юзеров, <0 для групп
+    chat_id = db.Column(db.Integer, nullable=False)
     question = db.Column(db.String(200), nullable=False)
-    options = db.Column(db.Text, nullable=False) # JSON список строк
+    options = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.Float, default=0.0)
     sender_id = db.Column(db.Integer, nullable=False)
 
@@ -210,6 +210,38 @@ def api_conversations():
         out.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g})
     return jsonify({'ok': True, 'conversations': out})
 
+# ===================== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ API =====================
+
+@app.route('/api/profile/<int:uid>')
+def api_profile(uid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me_id = session['uid']
+    user = db.session.get(User, uid)
+    if not user: return jsonify({'ok': False}), 404
+    
+    # Получаем историю переписки для вкладок
+    msgs = Message.query.filter(
+        ((Message.sender_id == me_id) & (Message.receiver_id == uid)) |
+        ((Message.sender_id == uid) & (Message.receiver_id == me_id))
+    ).order_by(Message.id.desc()).all()
+    
+    media, files, audio, links = [], [], [], []
+    for m in msgs:
+        if m.hidden_for and str(me_id) in m.hidden_for.split(','): continue
+        if m.msg_type == 'image': media.append({'id': m.id, 'url': m.content, 'timestamp': m.timestamp})
+        elif m.msg_type == 'file': files.append({'id': m.id, 'url': m.content, 'name': m.file_name, 'timestamp': m.timestamp})
+        elif m.msg_type == 'audio': audio.append({'id': m.id, 'url': m.content, 'timestamp': m.timestamp})
+        elif m.msg_type == 'text':
+            urls = re.findall(r'(https?://\S+)', m.content)
+            for u in urls: links.append({'id': m.id, 'url': u, 'text': m.content, 'timestamp': m.timestamp})
+            
+    return jsonify({
+        'ok': True, 'id': user.id, 'name': user.name, 'username': user.username,
+        'bio': user.bio, 'avatar': user.avatar, 'online': is_online(user),
+        'last_seen': user.last_seen, 'activity': user.activity,
+        'media': media, 'files': files, 'audio': audio, 'links': links
+    })
+
 # ===================== SEND / POLL =====================
 
 @app.route('/send', methods=['POST'])
@@ -245,8 +277,12 @@ def poll(oid):
         if str(uid) in (m.hidden_for.split(',') if m.hidden_for else []): continue
         out.append({'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned})
 
-    # Опросы
-    polls_db = Poll.query.filter_by(chat_id=oid).order_by(Poll.id.desc()).all()
+    # ИСПРАВЛЕНО: Ищем опросы между двумя пользователями (в обе стороны)
+    polls_db = Poll.query.filter(
+        ((Poll.chat_id == uid) & (Poll.sender_id == oid)) |
+        ((Poll.chat_id == oid) & (Poll.sender_id == uid))
+    ).order_by(Poll.id.desc()).all()
+    
     polls_out = []
     for p in polls_db:
         votes = PollVote.query.filter_by(poll_id=p.id).all()
@@ -333,7 +369,6 @@ def poll_group(gid):
         u = db.session.get(User, mb.user_id)
         if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5: typing_users.append(u.name)
 
-    # Опросы для группы
     polls_db = Poll.query.filter_by(chat_id=-gid).order_by(Poll.id.desc()).all()
     polls_out = []
     for p in polls_db:
