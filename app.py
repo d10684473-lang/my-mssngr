@@ -33,10 +33,6 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
 
 db = SQLAlchemy(app)
 
-# Хранилище в оперативной памяти (для режима "Без следов" и рисования)
-EPHEMERAL_MSGS = {}
-DRAW_DATA = {}
-
 # ===================== МОДЕЛИ =====================
 
 class User(db.Model):
@@ -51,7 +47,7 @@ class User(db.Model):
     invited_by = db.Column(db.Integer, default=0)
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
-    activity = db.Column(db.String(50), default='') # Живой статус
+    activity = db.Column(db.String(50), default='')
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -67,7 +63,7 @@ class Message(db.Model):
     created_at = db.Column(db.Float, default=0.0)
     read_at = db.Column(db.Float, default=0.0)
     read_by = db.Column(db.String(200), default='')
-    pinned = db.Column(db.Integer, default=0) # Закрепленные
+    pinned = db.Column(db.Integer, default=0)
 
 class Chat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -183,6 +179,22 @@ def chat():
 
     return render_template('chat.html', me=me, users=users, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
 
+@app.route('/api/conversations')
+def api_conversations():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if not me: return jsonify({'ok': False}), 401
+    users = User.query.filter(User.id != me.id).all()
+    my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
+    out = []
+    for u in users:
+        unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, read_at=0).count()
+        out.append({'type': 'user', 'id': u.id, 'title': u.name, 'avatar': u.avatar, 'sub': u.bio or ('@' + u.username), 'online': is_online(u), 'unread': unread})
+    for g in my_groups:
+        unread_g = sum(1 for m in Message.query.filter_by(receiver_id=-g.id).all() if m.sender_id != me.id and str(me.id) not in (m.read_by.split(',') if m.read_by else []))
+        out.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g})
+    return jsonify({'ok': True, 'conversations': out})
+
 # ===================== SEND / POLL =====================
 
 @app.route('/send', methods=['POST'])
@@ -191,15 +203,7 @@ def send():
     data = request.get_json(silent=True) or {}
     oid = int(data.get('oid', 0))
     content = str(data.get('content', '')).strip()
-    is_ephemeral = data.get('ephemeral', False)
     if not oid or not content: return jsonify({'ok': False}), 400
-
-    msg_id = int(time.time() * 1000)
-    if is_ephemeral:
-        key = f"{min(session['uid'], oid)}_{max(session['uid'], oid)}"
-        if key not in EPHEMERAL_MSGS: EPHEMERAL_MSGS[key] = []
-        EPHEMERAL_MSGS[key].append({'id': msg_id, 'sender_id': session['uid'], 'content': content, 'timestamp': datetime.now().strftime('%H:%M'), 'created_at': time.time(), 'msg_type': 'text', 'read_at': 1, 'ephemeral': True})
-        return jsonify({'ok': True, 'id': msg_id})
 
     msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg)
@@ -214,7 +218,6 @@ def poll(oid):
     now = time.time()
     me = db.session.get(User, uid); me.last_seen = now; db.session.commit()
 
-    # Помечаем прочитанным
     unread = Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).all()
     if unread:
         for um in unread: um.read_at = now
@@ -227,12 +230,6 @@ def poll(oid):
         if str(uid) in (m.hidden_for.split(',') if m.hidden_for else []): continue
         out.append({'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '', 'timestamp': m.timestamp, 'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned})
 
-    # Добавляем эфемерные
-    key = f"{min(uid, oid)}_{max(uid, oid)}"
-    if key in EPHEMERAL_MSGS:
-        for em in EPHEMERAL_MSGS[key]:
-            out.append(em)
-
     other = db.session.get(User, oid)
     return jsonify({'ok': True, 'messages': out, 'typing': bool(other and other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other), 'activity': other.activity if other else ''})
 
@@ -243,41 +240,7 @@ def typing(oid):
     if me: me.typing_to = oid; me.typing_at = time.time(); db.session.commit()
     return jsonify({'ok': True})
 
-# ===================== AI & PIN & DRAW =====================
-
-@app.route('/ai_summary/<int:oid>')
-def ai_summary(oid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    msgs = Message.query.filter(((Message.sender_id == session['uid']) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == session['uid']))).order_by(Message.id.desc()).limit(20).all()
-    text = " ".join([m.content for m in msgs if m.msg_type == 'text'])
-    # Имитация ИИ (в реальности здесь запрос к OpenAI/DeepSeek)
-    summary = f"Анализ {len(msgs)} сообщений: Похоже, вы обсуждали планы на вечер и делились ссылками. Настроение позитивное. (Демо-версия ИИ)"
-    return jsonify({'ok': True, 'summary': summary})
-
-@app.route('/pin_msg/<int:mid>', methods=['POST'])
-def pin_msg(mid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    msg = db.session.get(Message, mid)
-    if msg:
-        msg.pinned = 1 if msg.pinned == 0 else 0
-        db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/draw/<int:oid>', methods=['GET', 'POST'])
-def draw(oid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    key = f"{min(session['uid'], oid)}_{max(session['uid'], oid)}"
-    if request.method == 'POST':
-        data = request.get_json()
-        if key not in DRAW_DATA: DRAW_DATA[key] = []
-        if data.get('clear'):
-            DRAW_DATA[key] = []
-        elif data.get('line'):
-            DRAW_DATA[key].append(data['line'])
-        return jsonify({'ok': True})
-    return jsonify({'ok': True, 'lines': DRAW_DATA.get(key, [])})
-
-# ===================== GROUPS & OTHER ROUTES =====================
+# ===================== GROUPS & OTHER =====================
 
 @app.route('/send_group', methods=['POST'])
 def send_group():
@@ -340,6 +303,13 @@ def create_group():
 def leave_group(gid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete(); db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/pin_msg/<int:mid>', methods=['POST'])
+def pin_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg: msg.pinned = 1 if msg.pinned == 0 else 0; db.session.commit()
     return jsonify({'ok': True})
 
 @app.route('/upload_file', methods=['POST'])
