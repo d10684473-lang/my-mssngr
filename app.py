@@ -48,7 +48,7 @@ class User(db.Model):
     invited_by = db.Column(db.Integer, default=0)
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
-    activity = db.Column(db.String(50), default='') # Оставляем для совместимости БД
+    activity = db.Column(db.String(50), default='')
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -75,6 +75,22 @@ class Chat(db.Model):
 class ChatMember(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, primary_key=True)
+
+# --- НОВОЕ: Звонки ---
+class Call(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    caller_id = db.Column(db.Integer, nullable=False)
+    receiver_id = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default='ringing') # ringing, active, ended, rejected
+    created_at = db.Column(db.Float, default=time.time)
+
+class CallSignal(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    call_id = db.Column(db.Integer, nullable=False)
+    sender_id = db.Column(db.Integer, nullable=False)
+    signal_type = db.Column(db.String(20), nullable=False) # offer, answer, candidate
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.Float, default=time.time)
 
 # ===================== АВТО-МИГРАЦИЯ =====================
 
@@ -118,6 +134,86 @@ def parse_reactions(raw):
 def dump_reactions(d): return json.dumps(d, ensure_ascii=False)
 def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
 def is_member(uid, gid): return ChatMember.query.filter_by(chat_id=gid, user_id=uid).first() is not None
+
+# ===================== ЗВОНКИ API =====================
+
+@app.route('/api/call/start/<int:oid>', methods=['POST'])
+def call_start(oid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    # Завершаем старые звонки
+    Call.query.filter(
+        ((Call.caller_id == session['uid']) | (Call.receiver_id == session['uid'])) & 
+        (Call.status.in_(['ringing', 'active']))
+    ).update({'status': 'ended'}, synchronize_session=False)
+    db.session.commit()
+    
+    c = Call(caller_id=session['uid'], receiver_id=oid, status='ringing')
+    db.session.add(c); db.session.commit()
+    return jsonify({'ok': True, 'call_id': c.id})
+
+@app.route('/api/call/status/<int:cid>')
+def call_status(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    c = db.session.get(Call, cid)
+    if not c: return jsonify({'ok': False}), 404
+    return jsonify({'ok': True, 'status': c.status})
+
+@app.route('/api/call/answer/<int:cid>', methods=['POST'])
+def call_answer(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    c = db.session.get(Call, cid)
+    if c and c.receiver_id == session['uid']:
+        c.status = 'active'; db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/call/reject/<int:cid>', methods=['POST'])
+def call_reject(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    c = db.session.get(Call, cid)
+    if c and c.receiver_id == session['uid']:
+        c.status = 'rejected'; db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/call/end/<int:cid>', methods=['POST'])
+def call_end(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    c = db.session.get(Call, cid)
+    if c and (c.caller_id == session['uid'] or c.receiver_id == session['uid']):
+        c.status = 'ended'; db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/call/signal/<int:cid>', methods=['POST'])
+def call_signal(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    s = CallSignal(call_id=cid, sender_id=session['uid'], signal_type=data.get('type'), payload=json.dumps(data.get('payload')))
+    db.session.add(s); db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/call/signals/<int:cid>')
+def call_signals(cid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    # Получаем сигналы, отправленные НЕ нами
+    signals = CallSignal.query.filter_by(call_id=cid).filter(CallSignal.sender_id != session['uid']).order_by(CallSignal.id.asc()).all()
+    out = []
+    for s in signals:
+        out.append({'type': s.signal_type, 'payload': json.loads(s.payload)})
+        db.session.delete(s) # удаляем после прочтения
+    db.session.commit()
+    
+    # Проверяем, не завершен ли звонок
+    c = db.session.get(Call, cid)
+    return jsonify({'ok': True, 'signals': out, 'call_status': c.status if c else 'ended'})
+
+@app.route('/api/call/poll_incoming')
+def call_poll_incoming():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    # Ищем входящие звонки, которые висят не более 30 секунд
+    c = Call.query.filter_by(receiver_id=session['uid'], status='ringing').order_by(Call.id.desc()).first()
+    if c and (time.time() - c.created_at < 30):
+        caller = db.session.get(User, c.caller_id)
+        return jsonify({'ok': True, 'call_id': c.id, 'caller_name': caller.name, 'caller_avatar': caller.avatar})
+    return jsonify({'ok': True, 'call_id': None})
 
 # ===================== AUTH =====================
 
