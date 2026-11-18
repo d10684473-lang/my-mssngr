@@ -232,12 +232,9 @@ def chat():
     elif oid:
         other = db.session.get(User, oid)
         mode = 'personal' if other and other.id != me.id else None
-    elif users:
-        other = users[0]
-        mode = 'personal'
-    elif my_groups:
-        group = my_groups[0]
-        mode = 'group'
+    
+    # Автовыбор убран отсюда — теперь он работает на клиенте (в chat.html) 
+    # и только для десктопной версии, чтобы на телефоне открывался список чатов.
 
     conversations = []
     for u in users:
@@ -255,12 +252,11 @@ def chat():
             'active': (mode == 'group' and group and group.id == g.id)
         })
 
-    # ⬇⬇⬇ ГЛАВНОЕ ИСПРАВЛЕНИЕ — добавлен now=time.time() ⬇⬇⬇
     return render_template('chat.html',
                            me=me, users=users, other=other, group=group,
                            mode=mode, conversations=conversations,
                            my_groups=my_groups,
-                           now=time.time())
+                           now=time.time()) # Передаем now для шаблона
 
 
 # ===================== SEND / POLL (PERSONAL) =====================
@@ -420,6 +416,12 @@ def poll_group(gid):
         me.last_seen = now
         db.session.commit()
 
+    # Собираем имена всех участников
+    member_ids = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
+    member_users = User.query.filter(User.id.in_(member_ids)).all() if member_ids else []
+    users_map = {u.id: u.name for u in member_users}
+    members_data = [{'id': u.id, 'name': u.name} for u in member_users]
+
     msgs = (Message.query
             .filter(Message.receiver_id == -gid)
             .order_by(Message.id.asc())
@@ -435,6 +437,7 @@ def poll_group(gid):
         out.append({
             'id': m.id,
             'sender_id': m.sender_id,
+            'sender_name': users_map.get(m.sender_id, 'Аноним'), # Имя для группового чата
             'msg_type': m.msg_type,
             'content': m.content,
             'file_name': m.file_name,
@@ -444,8 +447,7 @@ def poll_group(gid):
         })
 
     typing_users = []
-    members = ChatMember.query.filter_by(chat_id=gid).all()
-    for mb in members:
+    for mb in ChatMember.query.filter_by(chat_id=gid).all():
         if mb.user_id == me.id:
             continue
         u = db.session.get(User, mb.user_id)
@@ -454,7 +456,8 @@ def poll_group(gid):
 
     return jsonify({
         'ok': True, 'messages': out, 'typing': bool(typing_users),
-        'typing_names': typing_users
+        'typing_names': typing_users,
+        'members': members_data # Список участников для JS
     })
 
 
