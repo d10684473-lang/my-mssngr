@@ -60,15 +60,13 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .chat-item.active .unread-badge{background:#fff;color:var(--active)}
 
   /* ЧАТ */
-  .main{flex:1;display:flex;flex-direction:column;background:var(--chat-bg);min-width:0;position:relative;}
+  .main{flex:1;display:flex;flex-direction:column;background:var(--chat-bg);min-width:0}
   .chat-head{padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
   .back-btn{display:none}
   .status-line{font-size:12px;color:#3390ec;height:16px}
   .status-line.online{color:#31c48d}
-  
   .pin-banner{background:var(--bg);border-bottom:1px solid var(--border);padding:8px 16px;display:none;align-items:center;gap:8px;font-size:13px;cursor:pointer}
   .pin-banner.show{display:flex}
-  
   .messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center}
   .messages-inner{width:100%;max-width:900px;padding:16px;display:flex;flex-direction:column;gap:8px}
   .date-separator{align-self:center;background:var(--hover);color:var(--muted);font-size:12px;font-weight:600;padding:3px 12px;border-radius:12px;margin:10px 0;box-shadow:0 1px 2px rgba(0,0,0,.1)}
@@ -108,12 +106,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   @keyframes pulse{50%{opacity:.4}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-  /* Панели (Ветки, Избранное, Чек-лист) */
-  .side-panel{position:absolute;top:0;right:-350px;width:350px;height:100%;background:var(--bg);border-left:1px solid var(--border);transition:right .3s;display:flex;flex-direction:column;z-index:50;box-shadow:-5px 0 15px rgba(0,0,0,0.1)}
-  .side-panel.open{right:0}
-  .panel-head{padding:15px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-weight:600}
-  .panel-body{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:10px}
-
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:100;padding:16px}
   .modal.show{display:flex}
   .modal-card{background:var(--card);color:var(--text);width:100%;max-width:400px;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
@@ -129,21 +121,19 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .chip{background:var(--sidebar);border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px}
   .chip.selected{background:var(--active);color:#fff;border-color:var(--active)}
 
-  /* Видео плеер */
-  .video-container{display:none;background:#000;padding:10px;margin:0 auto;width:100%;max-width:900px;border-radius:0 0 16px 16px}
-  .video-container.show{display:block}
-  .video-container video{width:100%;max-height:400px;border-radius:8px}
+  /* ОНБОРДИНГ */
+  .onboard-step{display:none !important;}
+  .onboard-step.active{display:flex !important;flex-direction:column;gap:14px;align-items:center;text-align:center}
+  .onboard-emoji{font-size:56px}
 
-  /* Чек-лист */
-  .cl-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--sidebar);border-radius:8px;}
-  .cl-item input{width:auto;}
-  .cl-item span{flex:1;font-size:14px;}
-  .cl-item span.done{text-decoration:line-through;opacity:0.5;}
-
-  /* Звуковая панель */
-  .sound-panel{position:absolute;bottom:70px;left:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:none;gap:10px;box-shadow:0 5px 15px rgba(0,0,0,0.2);z-index:60}
-  .sound-panel.show{display:flex}
-  .sound-btn{background:var(--hover);border:none;border-radius:8px;width:40px;height:40px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text)}
+  /* ОПРОСЫ */
+  .poll-box{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;width:280px;}
+  .poll-q{font-weight:600;font-size:14px;margin-bottom:8px;}
+  .poll-opt{background:var(--sidebar);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;cursor:pointer;font-size:13px;position:relative;overflow:hidden;transition:0.2s;}
+  .poll-opt:hover{border-color:var(--active);}
+  .poll-opt.voted{border-color:var(--active);font-weight:600;}
+  .poll-bar{position:absolute;top:0;left:0;bottom:0;background:rgba(43,128,255,0.15);z-index:0;transition:width 0.3s;}
+  .poll-txt{position:relative;z-index:1;display:flex;justify-content:space-between;}
 
   @media (max-width:768px) {
     .sidebar{width:100%;display:{{ 'none' if mode else 'flex' }}}
@@ -151,7 +141,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     .back-btn{display:inline-block}
     .msg-row{max-width:85%}
     .msg-row.group-msg{max-width:92%}
-    .side-panel{width:100%;right:-100%}
+    .poll-box{width:100%;}
   }
 </style>
 </head>
@@ -175,7 +165,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     </div>
     <div style="display:flex;gap:2px;">
       <button type="button" class="icon-btn" id="newGroupBtn" title="Новая группа">＋</button>
-      <button type="button" class="icon-btn" id="quickChatBtn" title="Быстрый чат (без регистрации)" style="color:#ff9500;">⚡</button>
       <button type="button" class="icon-btn" id="themeBtn" title="Тема">🌓</button>
       <a class="icon-btn" href="/logout" title="Выйти">🚪</a>
     </div>
@@ -196,39 +185,24 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     <a href="/chat" class="icon-btn back-btn">←</a>
     {% if mode == 'personal' and other %}
       {% if other.avatar %}<img src="{{ other.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar {{ 'online' if other and other.last_seen and (now - other.last_seen) < 30 else '' }}">{{ other.name[0]|upper }}</div>{% endif %}
-      <div style="flex:1;min-width:0;">
+      <div>
         <div class="chat-title">{{ other.name }}</div>
         <div class="status-line" id="typingStatus">{{ other.activity or other.bio or ('@' + other.username) }}</div>
       </div>
     {% elif mode == 'group' and group %}
       <div class="avatar">👥</div>
-      <div style="flex:1;min-width:0;">
+      <div>
         <div class="chat-title">{{ group.title }}</div>
         <div class="status-line" id="typingStatus">Групповой чат</div>
       </div>
-      <button type="button" class="icon-btn" id="leaveGroupBtn" title="Покинуть">⎋</button>
-    {% endif %}
-    
-    <button type="button" class="icon-btn" id="stealthBtn" title="Режим призрака">👻</button>
-    <button type="button" class="icon-btn" id="favBtn" title="Избранное">📌</button>
-    <button type="button" class="icon-btn" id="themeChatBtn" title="Тема чата">🎨</button>
-    {% if mode == 'group' %}
-      <button type="button" class="icon-btn" id="videoBtn" title="Watch Party">🎬</button>
-      <button type="button" class="icon-btn" id="checklistBtn" title="Чек-лист">📋</button>
+      <button type="button" class="icon-btn" id="leaveGroupBtn" title="Покинуть" style="margin-left:auto;">⎋</button>
     {% endif %}
   </div>
 
-  <div class="pin-banner" id="pinBanner" onclick="document.getElementById('favPanel').classList.add('open')">
+  <div class="pin-banner" id="pinBanner">
     <span style="font-size:16px;">📌</span>
-    <div style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="pinText">Закрепленные сообщения</div>
+    <div style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="pinText"></div>
   </div>
-
-  <!-- Видео плеер -->
-  {% if mode == 'group' %}
-  <div class="video-container" id="videoContainer">
-    <video id="syncVideo" controls crossorigin="anonymous"></video>
-  </div>
-  {% endif %}
 
   <div class="messages" id="messagesBox"><div class="messages-inner" id="messagesInner"></div></div>
 
@@ -237,78 +211,35 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     <button type="button" class="icon-btn" id="cancelReplyBtn">✕</button>
   </div>
 
-  <div class="sound-panel" id="soundPanel">
-    <button class="sound-btn" onclick="playSound('applause')">👏</button>
-    <button class="sound-btn" onclick="playSound('drum')">🥁</button>
-    <button class="sound-btn" onclick="playSound('laugh')">😂</button>
-    <button class="sound-btn" onclick="playSound('fail')">💥</button>
-  </div>
-
   <div class="composer">
-    <div class="composer-inner" style="position:relative;">
+    <div class="composer-inner">
       <input type="file" id="fileInput" hidden>
       <button type="button" class="icon-btn" id="attachBtn" title="Прикрепить">📎</button>
       <button type="button" class="icon-btn" id="micBtn" title="Голосовое">🎤</button>
-      <button type="button" class="icon-btn" id="soundBtn" title="Звуки">🔊</button>
+      <button type="button" class="icon-btn" id="pollBtn" title="Опрос">📊</button>
       <input type="text" id="msgInput" placeholder="Сообщение..." autocomplete="off">
       <button type="button" class="send-btn" id="sendBtn" title="Отправить">➤</button>
     </div>
   </div>
-  
-  <!-- Панели -->
-  <div class="side-panel" id="threadPanel">
-    <div class="panel-head"><span id="threadTitle">Ветка</span><button class="icon-btn" onclick="closePanel('threadPanel')">✕</button></div>
-    <div class="panel-body" id="threadBody"></div>
-    <div class="composer" style="border-top:1px solid var(--border);"><div class="composer-inner"><input type="text" id="threadInput" placeholder="Ответить в ветке..."><button class="send-btn" id="threadSendBtn">➤</button></div></div>
-  </div>
-
-  <div class="side-panel" id="favPanel">
-    <div class="panel-head"><span>📌 Избранное чата</span><button class="icon-btn" onclick="closePanel('favPanel')">✕</button></div>
-    <div class="panel-body" id="favBody"></div>
-  </div>
-
-  {% if mode == 'group' %}
-  <div class="side-panel" id="checklistPanel">
-    <div class="panel-head"><span>📋 Чек-лист</span><button class="icon-btn" onclick="closePanel('checklistPanel')">✕</button></div>
-    <div class="panel-body" id="checklistBody"></div>
-    <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;">
-      <input type="text" id="newCheckText" placeholder="Новая задача..." style="flex:1;border-radius:8px;border:1px solid var(--border);padding:8px;background:var(--sidebar);color:var(--text);">
-      <button class="btn-primary" onclick="addChecklistItem()" style="padding:8px 12px;">+</button>
-    </div>
-  </div>
-  {% endif %}
-
   {% else %}
   <div class="empty-state">Выбери чат слева или создай группу кнопкой ＋</div>
   {% endif %}
 </div>
 
-<!-- Модалка смены темы чата -->
-<div class="modal" id="themeModal">
+<!-- Модалка опроса -->
+<div class="modal" id="pollModal">
   <div class="modal-card">
-    <h3>🎨 Тема чата</h3>
-    <div class="field-label">Цвет моих сообщений</div>
-    <input type="color" id="themeColor" style="height:40px;padding:2px;">
-    <div class="field-label">Радиус пузырей</div>
-    <input type="range" id="themeRadius" min="0" max="25" value="16">
-    <button class="btn-primary" onclick="saveChatTheme()">Применить</button>
-    <button class="btn-secondary" onclick="document.getElementById('themeModal').classList.remove('show')" style="text-align:center;">Закрыть</button>
+    <h3>📊 Создать опрос</h3>
+    <input type="text" id="pollQ" placeholder="Вопрос">
+    <input type="text" class="pollOpt" placeholder="Вариант 1">
+    <input type="text" class="pollOpt" placeholder="Вариант 2">
+    <button type="button" class="btn-secondary" id="addOptBtn">+ Добавить вариант</button>
+    <button type="button" class="btn-primary" id="createPollBtn">Создать</button>
+    <button type="button" class="btn-secondary" id="closePollBtn" style="text-align:center;">Отмена</button>
   </div>
 </div>
 
-<!-- Модалка видео -->
-{% if mode == 'group' %}
-<div class="modal" id="videoModal">
-  <div class="modal-card">
-    <h3>🎬 Watch Party</h3>
-    <input type="text" id="videoUrl" placeholder="Ссылка на .mp4 видео">
-    <button class="btn-primary" onclick="setVideo()">Включить</button>
-    <button class="btn-secondary" onclick="document.getElementById('videoModal').classList.remove('show')" style="text-align:center;">Отмена</button>
-  </div>
-</div>
-{% endif %}
-
-<!-- Профиль -->
+<!-- Профиль и Настройки -->
 <div class="modal" id="profileModal">
   <div class="modal-card">
     <h3>Профиль и Настройки</h3>
@@ -318,14 +249,26 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     </div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
-    <div class="field-label">Ваш статус</div>
+    <div class="field-label">Ваш статус (Activity)</div>
     <select id="profActivity">
       <option value="" {{ 'selected' if not me.activity else '' }}>Не выбрано</option>
       <option value="🎵 Слушает музыку" {{ 'selected' if me.activity == '🎵 Слушает музыку' else '' }}>🎵 Слушает музыку</option>
       <option value="💻 Пишет код" {{ 'selected' if me.activity == '💻 Пишет код' else '' }}>💻 Пишет код</option>
       <option value="🎮 Играет" {{ 'selected' if me.activity == '🎮 Играет' else '' }}>🎮 Играет</option>
       <option value="📚 Учится" {{ 'selected' if me.activity == '📚 Учится' else '' }}>📚 Учится</option>
+      <option value="☕ Пьет кофе" {{ 'selected' if me.activity == '☕ Пьет кофе' else '' }}>☕ Пьет кофе</option>
     </select>
+    <div class="field-label" style="margin-top:10px;">Размер шрифта</div>
+    <input type="range" id="setFont" min="12" max="20" value="15" oninput="document.documentElement.style.setProperty('--font-size', this.value + 'px')">
+    <div class="field-label">Скругление пузырей</div>
+    <input type="range" id="setRadius" min="4" max="24" value="16" oninput="document.documentElement.style.setProperty('--bubble-radius', this.value + 'px')">
+    <div>
+      <div class="field-label">Пригласить друзей</div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="inviteLink" readonly value="{{ request.host_url }}join/{{ me.id }}" style="flex:1;font-size:12px;">
+        <button type="button" class="btn-primary" id="copyInviteBtn" style="padding:10px 14px;">📋</button>
+      </div>
+    </div>
     <button type="button" class="btn-primary" id="saveProfileBtn">Сохранить</button>
     <button type="button" class="btn-secondary" id="closeProfileBtn" style="text-align:center;">Отмена</button>
   </div>
@@ -335,16 +278,15 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
 <div class="modal" id="msgModal">
   <div class="modal-card">
     <div class="emoji-row" id="emojiPicker"><span data-emj="👍">👍</span><span data-emj="❤️">❤️</span><span data-emj="😂">😂</span><span data-emj="😮">😮</span><span data-emj="🔥">🔥</span></div>
-    <button type="button" class="btn-secondary" id="actThreadBtn">🧵 Открыть ветку</button>
     <button type="button" class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
-    <button type="button" class="btn-secondary" id="actPinBtn">📌 Закрепить</button>
+    <button type="button" class="btn-secondary" id="actPinBtn">📌 Закрепить / Открепить</button>
     <button type="button" class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
     <button type="button" class="btn-secondary" id="actDelAllBtn" style="color:#ff3b30;">🗑️ Удалить у всех</button>
     <button type="button" class="btn-secondary" id="closeMsgModalBtn" style="text-align:center;">Закрыть</button>
   </div>
 </div>
 
-<!-- Группа -->
+<!-- Новая группа -->
 <div class="modal" id="groupModal">
   <div class="modal-card">
     <h3>Новая группа</h3>
@@ -378,25 +320,10 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   if (root.classList.contains('dark')) document.body.classList.add('dark');
 })();
 
-// --- ЗВУКИ ---
+// --- ЗВУК ---
 var audioCtx = null;
 document.addEventListener('click', function(){ if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } }, { once: true });
 function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.value = 880; gain.gain.setValueAtTime(0.06, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18); osc.start(); osc.stop(audioCtx.currentTime + 0.18); } catch(e){} }
-
-function playSound(type) {
-  if (!audioCtx) return;
-  var t = audioCtx.currentTime;
-  if (type === 'applause') {
-    for(let i=0; i<10; i++) { var o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.value = 400 + Math.random()*400; g.gain.setValueAtTime(0.05, t+i*0.1); g.gain.exponentialRampToValueAtTime(0.001, t+i*0.1+0.1); o.start(t+i*0.1); o.stop(t+i*0.1+0.1); }
-  } else if (type === 'drum') {
-    var o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(50, t+0.3); g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.3); o.start(t); o.stop(t+0.3);
-  } else if (type === 'laugh') {
-    for(let i=0; i<4; i++) { var o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.frequency.setValueAtTime(300, t+i*0.2); o.frequency.linearRampToValueAtTime(400, t+i*0.2+0.1); o.frequency.linearRampToValueAtTime(300, t+i*0.2+0.2); g.gain.setValueAtTime(0.1, t+i*0.2); g.gain.exponentialRampToValueAtTime(0.001, t+i*0.2+0.2); o.start(t+i*0.2); o.stop(t+i*0.2+0.2); }
-  } else if (type === 'fail') {
-    var o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); o.type='sawtooth'; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(50, t+0.4); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.4); o.start(t); o.stop(t+0.4);
-  }
-  // Отправляем сигнал, чтобы у собеседника тоже проиграло (опционально, для простоты только у себя)
-}
 
 // --- ОСНОВНАЯ ЛОГИКА ---
 (function(){
@@ -407,42 +334,10 @@ function playSound(type) {
   var OTHER_BIO = {{ ((other.bio or ('@' + other.username)) if (mode == 'personal' and other) else '')|tojson }};
   var conversationsData = {{ conversations|tojson }};
   var lastSidebarHash = '';
-  var isStealth = false;
-  var currentThreadParent = 0;
-  var localMessages = [];
 
-  // Настройки темы для конкретного чата
-  var chatThemeKey = 'ramplez_theme_' + MODE + '_' + CHAT_ID;
-  var chatTheme = JSON.parse(localStorage.getItem(chatThemeKey) || '{}');
-  if (chatTheme.color) document.documentElement.style.setProperty('--my-msg', chatTheme.color);
-  if (chatTheme.radius) document.documentElement.style.setProperty('--bubble-radius', chatTheme.radius + 'px');
-  
-  document.getElementById('themeChatBtn').addEventListener('click', function(){
-    document.getElementById('themeColor').value = chatTheme.color || '#2b80ff';
-    document.getElementById('themeRadius').value = chatTheme.radius || 16;
-    document.getElementById('themeModal').classList.add('show');
-  });
-  window.saveChatTheme = function() {
-    var c = document.getElementById('themeColor').value;
-    var r = document.getElementById('themeRadius').value;
-    chatTheme = {color: c, radius: r};
-    localStorage.setItem(chatThemeKey, JSON.stringify(chatTheme));
-    document.documentElement.style.setProperty('--my-msg', c);
-    document.documentElement.style.setProperty('--bubble-radius', r + 'px');
-    document.getElementById('themeModal').classList.remove('show');
-  };
+  window.addEventListener('focus', function(){ document.title = 'Ramplez'; });
 
-  // Stealth Mode
-  document.getElementById('stealthBtn').addEventListener('click', function(){
-    isStealth = !isStealth;
-    this.style.color = isStealth ? '#ff9500' : 'var(--text)';
-  });
-
-  // Soundboard
-  document.getElementById('soundBtn').addEventListener('click', function(){ document.getElementById('soundPanel').classList.toggle('show'); });
-  document.addEventListener('click', function(e){ if (!e.target.closest('#soundPanel') && !e.target.closest('#soundBtn')) document.getElementById('soundPanel').classList.remove('show'); });
-
-  // Sidebar
+  // --- Сайдбар (динамический) ---
   var chatList = document.getElementById('chatList');
   var searchEl = document.getElementById('userSearch');
   
@@ -460,36 +355,53 @@ function playSound(type) {
     var hash = JSON.stringify(convs);
     if (hash === lastSidebarHash) return;
     lastSidebarHash = hash;
-    var scrollPos = chatList.scrollTop;
+    
+    var scrollPos = chatList.scrollTop; // Сохраняем позицию скролла
+
     var html = '';
     convs.forEach(function(c){
       var isActive = (MODE === 'personal' && c.type === 'user' && c.id === CHAT_ID) || (MODE === 'group' && c.type === 'group' && c.id === CHAT_ID);
       html += '<a class="chat-item ' + (isActive ? 'active' : '') + '" href="' + (c.type === 'group' ? '/chat?g=' : '/chat?u=') + c.id + '" data-name="' + c.title.toLowerCase() + '" data-type="' + c.type + '">';
       if (c.avatar) html += '<img src="' + c.avatar + '" class="avatar" alt="avatar">';
       else html += '<div class="avatar ' + (c.online ? 'online' : '') + '">' + c.title[0].toUpperCase() + '</div>';
+      
       html += '<div class="chat-meta"><div class="chat-title"><span>' + c.title + '</span>';
       if (c.unread > 0) html += '<span class="unread-badge">' + c.unread + '</span>';
       html += '</div><div class="chat-sub">' + c.sub + '</div></div></a>';
     });
+    
     if (convs.length === 0) html = '<div class="empty-state">Пока никого нет.</div>';
+    
     chatList.innerHTML = html;
-    chatList.scrollTop = scrollPos;
+    chatList.scrollTop = scrollPos; // Восстанавливаем скролл
     applyFiltersAndSearch();
   }
+  
   renderSidebar(conversationsData);
 
   async function fetchConversations() {
-    try { var res = await fetch('/api/conversations'); var data = await res.json(); if (data.ok) renderSidebar(data.conversations); } catch(e) {}
+    try {
+      var res = await fetch('/api/conversations');
+      var data = await res.json();
+      if (data.ok) renderSidebar(data.conversations);
+    } catch(e) {}
   }
   setInterval(fetchConversations, 2000);
 
   document.querySelectorAll('.chat-filter-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       document.querySelectorAll('.chat-filter-btn').forEach(function(b){ b.classList.remove('active'); });
-      btn.classList.add('active'); applyFiltersAndSearch();
+      btn.classList.add('active');
+      applyFiltersAndSearch();
     });
   });
   if (searchEl) searchEl.addEventListener('input', applyFiltersAndSearch);
+
+  // Настройки
+  var sf = localStorage.getItem('ramplez_font'); if(sf) { document.getElementById('setFont').value = sf; document.documentElement.style.setProperty('--font-size', sf + 'px'); }
+  var sr = localStorage.getItem('ramplez_radius'); if(sr) { document.getElementById('setRadius').value = sr; document.documentElement.style.setProperty('--bubble-radius', sr + 'px'); }
+  document.getElementById('setFont').addEventListener('input', function(e){ localStorage.setItem('ramplez_font', e.target.value); });
+  document.getElementById('setRadius').addEventListener('input', function(e){ localStorage.setItem('ramplez_radius', e.target.value); });
 
   // Профиль
   var compressedAvatarBase64 = ''; var profileModal = document.getElementById('profileModal'); var avatarInput = document.getElementById('avatarInput');
@@ -506,94 +418,80 @@ function playSound(type) {
     location.reload();
   });
 
-  // Онбординг и группы
+  document.getElementById('copyInviteBtn').addEventListener('click', async function(){ var inp = document.getElementById('inviteLink'); try { await navigator.clipboard.writeText(inp.value); this.textContent = '✓'; var self=this; setTimeout(function(){ self.textContent = '📋'; }, 1500); } catch(e) { inp.select(); document.execCommand('copy'); } });
+
+  // Онбординг
   var onboardModal = document.getElementById('onboardModal');
   if (onboardModal) {
     var steps = onboardModal.querySelectorAll('.onboard-step');
-    function showStep(n) { steps.forEach(function(s){ s.classList.toggle('active', s.dataset.step === String(n)); }); }
-    onboardModal.addEventListener('click', function(e){ var next = e.target.closest('[data-next]'); if (next) showStep(next.dataset.next); });
-    document.getElementById('finishOnboard').addEventListener('click', async function(){ await fetch('/complete_onboarding', { method: 'POST' }); onboardModal.classList.remove('show'); });
+    function showStep(n) { 
+      steps.forEach(function(s){ 
+        if (s.dataset.step === String(n)) { s.classList.add('active'); s.style.display = 'flex'; } 
+        else { s.classList.remove('active'); s.style.display = 'none'; } 
+      }); 
+    }
+    showStep(1); // Инициализация
+    onboardModal.addEventListener('click', function(e){ 
+      var next = e.target.closest('[data-next]'); 
+      if (next) showStep(next.dataset.next); 
+    });
+    document.getElementById('finishOnboard').addEventListener('click', async function(){ 
+      await fetch('/complete_onboarding', { method: 'POST' }); 
+      onboardModal.classList.remove('show'); 
+    });
   }
+
+  // Группы
   var groupModal = document.getElementById('groupModal');
   document.getElementById('newGroupBtn').addEventListener('click', function(){ if (groupModal) groupModal.classList.add('show'); });
   document.getElementById('closeGroupModalBtn').addEventListener('click', function(){ if (groupModal) groupModal.classList.remove('show'); });
   document.querySelectorAll('#memberChips .chip').forEach(function(ch){ ch.addEventListener('click', function(){ ch.classList.toggle('selected'); }); });
   document.getElementById('createGroupBtn').addEventListener('click', async function(){ var title = document.getElementById('groupTitle').value.trim(); var ids = []; document.querySelectorAll('#memberChips .chip.selected').forEach(function(ch){ ids.push(parseInt(ch.dataset.uid)); }); if (!title || !ids.length) { alert('Введи название и выбери участников'); return; } var res = await fetch('/create_group', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title: title, member_ids: ids }) }); var data = await res.json(); if (data.ok) window.location.href = '/chat?g=' + data.gid; });
   var leaveBtn = document.getElementById('leaveGroupBtn'); if (leaveBtn) leaveBtn.addEventListener('click', async function(){ if (!confirm('Покинуть группу?')) return; await fetch('/leave_group/' + CHAT_ID, { method: 'POST' }); window.location.href = '/chat'; });
-  
-  // Quick chat
-  document.getElementById('quickChatBtn').addEventListener('click', function(){ window.location.href = '/quick'; });
 
   // ЧАТ
   if (!CHAT_ID || !MODE) return;
   var messagesBox = document.getElementById('messagesBox'); var messagesInner = document.getElementById('messagesInner'); var msgInput = document.getElementById('msgInput'); var sendBtn = document.getElementById('sendBtn');
   var replyBar = document.getElementById('replyBar'); var replyPreview = document.getElementById('replyPreview'); var msgModal = document.getElementById('msgModal');
   var pinBanner = document.getElementById('pinBanner'); var pinText = document.getElementById('pinText');
-  
+  var currentPinnedId = null;
+
+  pinBanner.addEventListener('click', function(){ if (currentPinnedId) { var el = document.getElementById('msg-' + currentPinnedId); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); } });
+
   var replyText = ''; var selectedMsg = null; var lastRenderHash = ''; var lastTypingSent = 0; var lastMsgId = 0;
   var MEMBERS = []; var allMessages = [];
 
-  // Ветки
-  window.closePanel = function(id) { document.getElementById(id).classList.remove('open'); };
-  document.getElementById('actThreadBtn').addEventListener('click', function(){ if(!selectedMsg) return; msgModal.classList.remove('show'); openThread(selectedMsg); });
-  function openThread(msg) {
-    currentThreadParent = msg.id;
-    document.getElementById('threadTitle').textContent = 'Ветка: ' + (msg.content.slice(0,20)) + '...';
-    document.getElementById('threadPanel').classList.add('open');
-    renderThread();
-  }
-  function renderThread() {
-    var body = document.getElementById('threadBody'); body.innerHTML = '';
-    allMessages.filter(function(m){ return m.parent_id === currentThreadParent; }).forEach(function(m){
-      var div = document.createElement('div'); div.className = 'bubble ' + (m.sender_id === ME_ID ? 'mine' : 'theirs');
-      div.style.marginBottom = '8px'; div.innerHTML = formatBody(m); body.appendChild(div);
-    });
-    body.scrollTop = body.scrollHeight;
-  }
-  document.getElementById('threadSendBtn').addEventListener('click', async function(){
-    var val = document.getElementById('threadInput').value.trim(); if(!val) return;
-    document.getElementById('threadInput').value = '';
-    var payload = { content: val, parent_id: currentThreadParent };
-    if (MODE === 'group') { payload.gid = CHAT_ID; await fetch('/send_group', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); }
-    else { payload.oid = CHAT_ID; await fetch('/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); }
-    await pollMessages(); renderThread();
+  // Опросы
+  var pollModal = document.getElementById('pollModal');
+  document.getElementById('pollBtn').addEventListener('click', function(){ pollModal.classList.add('show'); });
+  document.getElementById('closePollBtn').addEventListener('click', function(){ pollModal.classList.remove('show'); });
+  document.getElementById('addOptBtn').addEventListener('click', function(){
+    var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'pollOpt'; inp.placeholder = 'Вариант ' + (document.querySelectorAll('.pollOpt').length + 1);
+    document.getElementById('createPollBtn').before(inp);
   });
-
-  // Избранное
-  document.getElementById('favBtn').addEventListener('click', function(){
-    document.getElementById('favPanel').classList.add('open');
-    var body = document.getElementById('favBody'); body.innerHTML = '';
-    allMessages.filter(function(m){ return m.pinned; }).forEach(function(m){
-      var div = document.createElement('div'); div.className = 'bubble ' + (m.sender_id === ME_ID ? 'mine' : 'theirs');
-      div.style.marginBottom = '8px'; div.style.maxWidth = '100%'; div.innerHTML = formatBody(m); body.appendChild(div);
-    });
+  document.getElementById('createPollBtn').addEventListener('click', async function(){
+    var q = document.getElementById('pollQ').value.trim();
+    var opts = [];
+    document.querySelectorAll('.pollOpt').forEach(function(i){ if(i.value.trim()) opts.push(i.value.trim()); });
+    if (!q || opts.length < 2) { alert('Заполни вопрос и минимум 2 варианта'); return; }
+    await fetch('/create_poll', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chat_id: (MODE === 'group' ? -CHAT_ID : CHAT_ID), question: q, options: opts}) });
+    pollModal.classList.remove('show'); pollMessages();
   });
+  window.votePoll = async function(pid, opt) {
+    await fetch('/vote/' + pid + '/' + opt, { method: 'POST' });
+    pollMessages();
+  };
 
-  // Чек-лист и видео (только для групп)
-  var chatVideo = document.getElementById('syncVideo');
-  var videoContainer = document.getElementById('videoContainer');
-  window.setVideo = function() {
-    var url = document.getElementById('videoUrl').value.trim(); if(!url) return;
-    fetch('/sync_video/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url: url, time: 0, playing: 1}) });
-    document.getElementById('videoModal').classList.remove('show');
-  };
-  if (document.getElementById('videoBtn')) {
-    document.getElementById('videoBtn').addEventListener('click', function(){ document.getElementById('videoModal').classList.add('show'); });
-    chatVideo.addEventListener('pause', function(){ if(chatVideo.readyState > 2) fetch('/sync_video/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({time: chatVideo.currentTime, playing: 0}) }); });
-    chatVideo.addEventListener('play', function(){ fetch('/sync_video/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({time: chatVideo.currentTime, playing: 1}) }); });
-    chatVideo.addEventListener('seeked', function(){ fetch('/sync_video/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({time: chatVideo.currentTime, playing: chatVideo.paused ? 0 : 1}) }); });
-  }
-  
-  window.addChecklistItem = async function() {
-    var t = document.getElementById('newCheckText').value.trim(); if(!t) return;
-    document.getElementById('newCheckText').value = '';
-    await fetch('/checklist/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action: 'add', text: t}) });
-  };
-  window.toggleChecklistItem = async function(id) {
-    await fetch('/checklist/' + CHAT_ID, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action: 'toggle', id: id}) });
-  };
-  if (document.getElementById('checklistBtn')) {
-    document.getElementById('checklistBtn').addEventListener('click', function(){ document.getElementById('checklistPanel').classList.toggle('open'); });
+  function buildPoll(p) {
+    var totalVotes = p.counts.reduce(function(a,b){return a+b;}, 0);
+    var html = '<div class="poll-box"><div class="poll-q">' + escapeHtml(p.question) + '</div>';
+    p.options.forEach(function(opt, i) {
+      var pct = totalVotes > 0 ? Math.round(p.counts[i] / totalVotes * 100) : 0;
+      var voted = (p.my_vote === i) ? 'voted' : '';
+      html += '<div class="poll-opt ' + voted + '" onclick="votePoll(' + p.id + ',' + i + ')"><div class="poll-bar" style="width:' + pct + '%"></div><div class="poll-txt"><span>' + escapeHtml(opt) + '</span><span>' + pct + '%</span></div></div>';
+    });
+    html += '</div>';
+    return html;
   }
 
   // Отрисовка сообщений
@@ -622,7 +520,7 @@ function playSound(type) {
     row.id = 'msg-' + m.id;
     var bubbleHtml = '<div class="bubble">' + formatBody(m) + '<div class="msg-foot"><span>' + escapeHtml(m.timestamp) + '</span>';
     
-    if (isMine && !isStealth) {
+    if (isMine) {
       if (MODE === 'personal') { bubbleHtml += m.read_at > 0 ? '<span class="read-status read">✓✓</span>' : '<span class="read-status unread">✓</span>'; } 
       else if (MODE === 'group' && m.read_by) { var readers = m.read_by.split(',').filter(Boolean); bubbleHtml += readers.length > 0 ? '<span class="read-status read" title="Прочитали: ' + readers.length + '">✓✓</span>' : '<span class="read-status unread">✓</span>'; }
     }
@@ -647,44 +545,16 @@ function playSound(type) {
 
   async function pollMessages() {
     try {
-      var url = (MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID) + (isStealth ? '?stealth=1' : '');
-      var res = await fetch(url);
+      var url = MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID; var res = await fetch(url);
       if (res.status === 401) { window.location.href = '/'; return; } var data = await res.json(); if (!data.ok) return;
-      
       if (data.members) MEMBERS = data.members;
       allMessages = data.messages;
 
       var statusEl = document.getElementById('typingStatus');
       if (statusEl) {
-        if (data.typing) {
-          if (MODE === 'personal') { statusEl.textContent = data.typing_status; }
-          else { statusEl.textContent = data.typing_users.map(function(u){ return u.name + ' ' + u.status; }).join(', '); }
-          statusEl.classList.remove('online');
-        } 
+        if (data.typing) { statusEl.textContent = data.typing_names && data.typing_names.length ? (data.typing_names.join(', ') + ' печатает...') : 'печатает...'; statusEl.classList.remove('online'); } 
         else if (MODE === 'personal') { statusEl.textContent = data.other_online ? 'в сети' : (data.activity || data.other_last_seen || OTHER_BIO); statusEl.classList.toggle('online', !!data.other_online); } 
         else { statusEl.textContent = 'Групповой чат'; statusEl.classList.remove('online'); }
-      }
-
-      // Видео синхронизация
-      if (MODE === 'group' && data.video && chatVideo) {
-        if (data.video.url && data.video.url !== chatVideo.src) {
-          chatVideo.src = data.video.url; videoContainer.classList.add('show'); chatVideo.currentTime = data.video.time;
-          if (data.video.playing) chatVideo.play().catch(function(){});
-        } else if (data.video.url) {
-          if (Math.abs(chatVideo.currentTime - data.video.time) > 2) chatVideo.currentTime = data.video.time;
-          if (data.video.playing && chatVideo.paused) chatVideo.play().catch(function(){});
-          if (!data.video.playing && !chatVideo.paused) chatVideo.pause();
-        }
-      }
-
-      // Чек-лист
-      if (MODE === 'group' && data.checklist) {
-        var cbody = document.getElementById('checklistBody'); cbody.innerHTML = '';
-        data.checklist.forEach(function(c){
-          var div = document.createElement('div'); div.className = 'cl-item';
-          div.innerHTML = '<input type="checkbox" ' + (c.done ? 'checked' : '') + ' onchange="toggleChecklistItem(' + c.id + ')"><span class="' + (c.done ? 'done' : '') + '">' + escapeHtml(c.text) + '</span>';
-          cbody.appendChild(div);
-        });
       }
 
       if (data.messages.length > 0) {
@@ -693,27 +563,35 @@ function playSound(type) {
         lastMsgId = last.id;
       }
 
-      var hash = JSON.stringify(data.messages) + '|' + JSON.stringify(data.members || []) + '|' + JSON.stringify(data.checklist || []);
-      if (hash === lastRenderHash) { if(document.getElementById('threadPanel').classList.contains('open')) renderThread(); return; }
+      var hash = JSON.stringify(data.messages) + '|' + JSON.stringify(data.members || []) + '|' + JSON.stringify(data.polls || []);
+      if (hash === lastRenderHash) return;
       var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80; lastRenderHash = hash;
 
-      messagesInner.innerHTML = ''; var lastDate = null; var pinnedMsgs = [];
+      messagesInner.innerHTML = ''; var lastDate = null; var pinnedMsg = null;
+
+      // Рендер опросов
+      if (data.polls && data.polls.length > 0) {
+        data.polls.forEach(function(p) {
+          var div = document.createElement('div');
+          div.className = 'msg-row ' + (p.sender_id === ME_ID ? 'mine' : 'theirs');
+          div.innerHTML = buildPoll(p);
+          messagesInner.appendChild(div);
+        });
+      }
 
       data.messages.forEach(function(m){
-        if (m.pinned) pinnedMsgs.push(m);
+        if (m.pinned) pinnedMsg = m;
         if (m.created_at > 0) { var dateStr = new Date(m.created_at * 1000).toDateString(); if (dateStr !== lastDate) { var sep = document.createElement('div'); sep.className = 'date-separator'; sep.textContent = formatDate(m.created_at); messagesInner.appendChild(sep); lastDate = dateStr; } }
         messagesInner.appendChild(buildRow(m));
       });
 
-      if (pinnedMsgs.length > 0) { pinBanner.classList.add('show'); pinText.textContent = 'Закреплено: ' + pinnedMsgs.length; } 
-      else { pinBanner.classList.remove('show'); }
+      if (pinnedMsg) { pinBanner.classList.add('show'); pinText.textContent = pinnedMsg.content; currentPinnedId = pinnedMsg.id; } 
+      else { pinBanner.classList.remove('show'); currentPinnedId = null; }
 
       if (atBottom || data.messages.length <= 15) messagesBox.scrollTop = messagesBox.scrollHeight;
-      if(document.getElementById('threadPanel').classList.contains('open')) renderThread();
     } catch (err) { console.error('Poll:', err); }
   }
 
-  var typingTimeout = null;
   async function sendMessage() {
     var raw = msgInput.value.trim(); if (!raw) return;
     var content = replyText ? '↪ ' + replyText + '\n' + raw : raw; msgInput.value = ''; replyText = ''; replyBar.style.display = 'none';
@@ -724,19 +602,7 @@ function playSound(type) {
 
   sendBtn.addEventListener('click', sendMessage);
   msgInput.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-  
-  // Умный статус
-  msgInput.addEventListener('input', function(){
-    var now = Date.now();
-    if (now - lastTypingSent > 2000) {
-      lastTypingSent = now;
-      fetch('/typing/' + (MODE === 'personal' ? CHAT_ID : 0), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status: 'печатает...'}) }).catch(function(){});
-    }
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(function(){
-      fetch('/typing/' + (MODE === 'personal' ? CHAT_ID : 0), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status: 'долго думает...'}) }).catch(function(){});
-    }, 15000);
-  });
+  msgInput.addEventListener('input', function(){ var now = Date.now(); if (now - lastTypingSent > 2000) { lastTypingSent = now; fetch('/typing/' + (MODE === 'personal' ? CHAT_ID : 0), { method:'POST' }).catch(function(){}); } });
 
   document.getElementById('actReplyBtn').addEventListener('click', function(){ if (!selectedMsg) return; var prev = selectedMsg.msg_type === 'text' ? selectedMsg.content.replace(/\n/g, ' ').slice(0,60) : '[' + selectedMsg.msg_type + ']'; replyText = prev; replyPreview.textContent = 'Ответ: ' + prev; replyBar.style.display = 'flex'; msgModal.classList.remove('show'); msgInput.focus(); });
   document.getElementById('actPinBtn').addEventListener('click', async function(){ if (!selectedMsg) return; await fetch('/pin_msg/' + selectedMsg.id, { method:'POST' }); msgModal.classList.remove('show'); pollMessages(); });
