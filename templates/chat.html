@@ -48,7 +48,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .chat-filters{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);overflow-x:auto}
   .chat-filter-btn{background:var(--hover);color:var(--muted);border:none;border-radius:12px;padding:4px 12px;font-size:13px;cursor:pointer;white-space:nowrap;transition:all .2s}
   .chat-filter-btn.active{background:var(--active);color:#fff}
-  .chat-list{flex:1;overflow-y:auto}
+  .chat-list{flex:1;overflow-y:auto; overflow-anchor: none;}
   .chat-item{display:flex;align-items:center;gap:12px;padding:10px 14px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--border);cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;font:inherit;transition:background .1s}
   .chat-item:hover{background:var(--hover)}
   .chat-item.active{background:var(--active);color:#fff}
@@ -72,7 +72,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .date-separator{align-self:center;background:var(--hover);color:var(--muted);font-size:12px;font-weight:600;padding:3px 12px;border-radius:12px;margin:10px 0;box-shadow:0 1px 2px rgba(0,0,0,.1)}
 
   /* Сообщения */
-  .msg-row{display:flex;flex-direction:column;max-width:75%;margin-bottom:4px;animation:fadeIn .2s ease-out; min-width: 60px;}
+  .msg-row{display:flex;flex-direction:column;max-width:75%;margin-bottom:4px;animation:fadeIn .2s ease-out;}
   .msg-row.mine{align-self:flex-end;align-items:flex-end}
   .msg-row.theirs{align-self:flex-start;align-items:flex-start}
   .msg-row.group-msg{flex-direction:row;align-items:flex-start;gap:8px;max-width:85%;align-self:flex-start}
@@ -80,7 +80,8 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .msg-content{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
   .msg-author{font-size:12px;font-weight:600;margin-bottom:2px;padding-left:4px}
   
-  .bubble{padding:8px 12px;border-radius:var(--bubble-radius);word-break:break-word;line-height:1.4;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.1); display:inline-block; max-width:100%; min-width:60px;}
+  /* Исправлен баг со сжатием */
+  .bubble{padding:8px 12px;border-radius:var(--bubble-radius);word-break:break-word;line-height:1.4;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.1);width:fit-content;max-width:100%;}
   .mine .bubble{background:var(--my-msg);color:#fff;border-bottom-right-radius:4px}
   .theirs .bubble, .group-msg .bubble{background:var(--other-msg);color:var(--other-text);border-bottom-left-radius:4px}
   .reply-quote{border-left:3px solid currentColor;padding-left:8px;margin-bottom:5px;font-size:12px;opacity:.85;white-space:pre-line}
@@ -165,7 +166,6 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
     <button class="chat-filter-btn" data-filter="group">Группы</button>
   </div>
   
-  <!-- Сюда JS будет рендерить обновленные чаты -->
   <div class="chat-list" id="chatList"></div>
 </div>
 
@@ -279,7 +279,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   <div class="modal-card">
     <div class="onboard-step active" data-step="1"><div class="onboard-emoji">👋</div><h2>Привет! Это Ramplez</h2><p>Самый легкий мессенджер с крутыми фичами.</p><button type="button" class="btn-primary" data-next="2">Дальше</button></div>
     <div class="onboard-step" data-step="2"><div class="onboard-emoji">🎨</div><h2>Настрой профиль</h2><p>Поставь аватарку и живой статус.</p><button type="button" class="btn-primary" data-next="3">Дальше</button></div>
-    <div class="onboard-step" data-step="3"><div class="onboard-emoji">🚀</div><h2>Готово!</h2><p>Жми 🎨 для совместного рисования!</p><button type="button" class="btn-primary" id="finishOnboard">Погнали</button></div>
+    <div class="onboard-step" data-step="3"><div class="onboard-emoji">🚀</div><h2>Готово!</h2><p>Жми ＋ чтобы создать группу.</p><button type="button" class="btn-primary" id="finishOnboard">Погнали</button></div>
   </div>
 </div>
 {% endif %}
@@ -331,6 +331,8 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
     var hash = JSON.stringify(convs);
     if (hash === lastSidebarHash) return;
     lastSidebarHash = hash;
+    
+    var scrollPos = chatList.scrollTop; // Сохраняем позицию скролла
 
     var html = '';
     convs.forEach(function(c){
@@ -347,10 +349,11 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
     if (convs.length === 0) html = '<div class="empty-state">Пока никого нет.</div>';
     
     chatList.innerHTML = html;
+    chatList.scrollTop = scrollPos; // Восстанавливаем скролл
     applyFiltersAndSearch();
   }
   
-  renderSidebar(conversationsData); // Первый рендер
+  renderSidebar(conversationsData);
 
   async function fetchConversations() {
     try {
@@ -359,9 +362,8 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
       if (data.ok) renderSidebar(data.conversations);
     } catch(e) {}
   }
-  setInterval(fetchConversations, 2000); // Каждые 2 секунды обновляем сайдбар
+  setInterval(fetchConversations, 2000);
 
-  // Фильтры
   document.querySelectorAll('.chat-filter-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       document.querySelectorAll('.chat-filter-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -416,19 +418,12 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
   var messagesBox = document.getElementById('messagesBox'); var messagesInner = document.getElementById('messagesInner'); var msgInput = document.getElementById('msgInput'); var sendBtn = document.getElementById('sendBtn');
   var replyBar = document.getElementById('replyBar'); var replyPreview = document.getElementById('replyPreview'); var msgModal = document.getElementById('msgModal');
   var pinBanner = document.getElementById('pinBanner'); var pinText = document.getElementById('pinText');
+  var currentPinnedId = null;
+
+  pinBanner.addEventListener('click', function(){ if (currentPinnedId) { var el = document.getElementById('msg-' + currentPinnedId); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); } });
 
   var replyText = ''; var selectedMsg = null; var lastRenderHash = ''; var lastTypingSent = 0; var lastMsgId = 0;
   var MEMBERS = [];
-
-  // Рисовалка (Оставлена, это прикольно)
-  var drawModal = document.getElementById('drawModal'); var canvas = document.getElementById('drawCanvas'); var ctx = canvas.getContext('2d'); var drawing = false; var lastPoint = null; var localLines = [];
-  document.getElementById('drawBtn').addEventListener('click', function(){ drawModal.classList.add('show'); syncDraw(); });
-  document.getElementById('closeDrawBtn').addEventListener('click', function(){ drawModal.classList.remove('show'); });
-  document.getElementById('clearDrawBtn').addEventListener('click', function(){ fetch('/draw/' + CHAT_ID, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({clear:true}) }); ctx.clearRect(0,0,500,350); localLines = []; });
-  function syncDraw() { if (!drawModal.classList.contains('show')) return; fetch('/draw/' + CHAT_ID).then(r=>r.json()).then(data => { if (data.ok) { ctx.clearRect(0,0,500,350); data.lines.forEach(function(l){ ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.strokeStyle = l.color; ctx.lineWidth = 3; ctx.stroke(); }); localLines = data.lines; } }); setTimeout(syncDraw, 1500); }
-  canvas.addEventListener('mousedown', function(e){ drawing = true; var rect = canvas.getBoundingClientRect(); lastPoint = {x: (e.clientX - rect.left) * 500 / rect.width, y: (e.clientY - rect.top) * 350 / rect.height}; });
-  canvas.addEventListener('mousemove', function(e){ if (!drawing) return; var rect = canvas.getBoundingClientRect(); var current = {x: (e.clientX - rect.left) * 500 / rect.width, y: (e.clientY - rect.top) * 350 / rect.height}; var line = {x1: lastPoint.x, y1: lastPoint.y, x2: current.x, y2: current.y, color: '#3390ec'}; localLines.push(line); ctx.beginPath(); ctx.moveTo(line.x1, line.y1); ctx.lineTo(line.x2, line.y2); ctx.strokeStyle = line.color; ctx.lineWidth = 3; ctx.stroke(); lastPoint = current; fetch('/draw/' + CHAT_ID, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({line:line}) }); });
-  window.addEventListener('mouseup', function(){ drawing = false; });
 
   // Отрисовка сообщений
   function escapeHtml(s){ var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
@@ -453,6 +448,7 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
 
   function buildRow(m) {
     var isMine = m.sender_id === ME_ID; var row = document.createElement('div');
+    row.id = 'msg-' + m.id; // ID для скролла к закрепленному
     var bubbleHtml = '<div class="bubble">' + formatBody(m) + '<div class="msg-foot"><span>' + escapeHtml(m.timestamp) + '</span>';
     
     if (isMine) {
@@ -509,7 +505,8 @@ function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOsci
         messagesInner.appendChild(buildRow(m));
       });
 
-      if (pinnedMsg) { pinBanner.classList.add('show'); pinText.textContent = pinnedMsg.content; } else { pinBanner.classList.remove('show'); }
+      if (pinnedMsg) { pinBanner.classList.add('show'); pinText.textContent = pinnedMsg.content; currentPinnedId = pinnedMsg.id; } 
+      else { pinBanner.classList.remove('show'); currentPinnedId = null; }
 
       if (atBottom || data.messages.length <= 15) messagesBox.scrollTop = messagesBox.scrollHeight;
     } catch (err) { console.error('Poll:', err); }
