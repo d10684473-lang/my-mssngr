@@ -1,752 +1,518 @@
-<!-- templates/chat.html -->
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#3390ec">
-<title>Ramplez</title>
-<link rel="manifest" href="/static/manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&display=swap" rel="stylesheet">
-<script>
-try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentElement.classList.add('dark'); } catch(e){}
-</script>
-<style>
-  :root {
-    --bg:#ffffff; --sidebar:#f4f4f5; --chat-bg:#e5ddd5; --border:#dcdcdc;
-    --text:#111111; --muted:#707579; --hover:#e9e9eb; --active:#3390ec;
-    --my-msg:#2b80ff; --other-msg:#e4e6eb; --other-text:#111111; --card:#ffffff;
-    --badge-bg:#2b80ff; --badge-text:#fff;
-  }
-  :root.dark, body.dark {
-    --bg:#17212b; --sidebar:#17212b; --chat-bg:#0e1621; --border:#242f3d;
-    --text:#f5f5f5; --muted:#7f91a4; --hover:#202b36; --active:#2b5278;
-    --my-msg:#2b7de9; --other-msg:#262d35; --other-text:#f5f5f5; --card:#17212b;
-    --badge-bg:#2b7de9; --badge-text:#fff;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  html,body{height:100%}
-  body{background:var(--bg);color:var(--text);height:100dvh;display:flex;overflow:hidden;transition:background .2s,color .2s}
+# app.py
+import os
+import json
+import time
+from datetime import datetime
+from flask import (Flask, render_template, request, redirect, url_for,
+                   session, jsonify, send_from_directory)
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import Engine
 
-  /* === САЙДБАР === */
-  .sidebar{width:340px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-  .brand-head{padding:14px 14px 6px;display:flex;align-items:center;justify-content:center}
-  .logo{height:32px;width:auto;display:block}
-  .logo text{fill:var(--text);font-family:'Comfortaa','Nunito',-apple-system,sans-serif;letter-spacing:-.5px;transition:fill .2s}
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
 
-  .side-head{padding:8px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .me-info{display:flex;align-items:center;gap:10px;cursor:pointer;min-width:0}
-  .avatar{width:40px;height:40px;border-radius:50%;background:#3390ec;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;object-fit:cover;flex-shrink:0;position:relative}
-  .avatar.online::after{content:'';position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;background:#31c48d;border:2px solid var(--sidebar);border-radius:50%}
-  .me-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .icon-btn{background:none;border:none;color:var(--text);cursor:pointer;font-size:18px;padding:6px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-  .icon-btn:hover{background:var(--hover)}
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=30'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
 
-  .search-box{padding:8px 12px;border-bottom:1px solid var(--border)}
-  .search-box input{width:100%;padding:8px 12px;border-radius:18px;border:1px solid var(--border);background:var(--bg);color:var(--text);outline:none}
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-  /* Фильтры чатов */
-  .chat-filters{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);overflow-x:auto}
-  .chat-filter-btn{background:var(--hover);color:var(--muted);border:none;border-radius:12px;padding:4px 12px;font-size:13px;cursor:pointer;white-space:nowrap;transition:all .2s}
-  .chat-filter-btn.active{background:var(--active);color:#fff}
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    cur = dbapi_connection.cursor()
+    try:
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cur.close()
 
-  .chat-list{flex:1;overflow-y:auto}
-  .chat-item{display:flex;align-items:center;gap:12px;padding:10px 14px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--border);cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;font:inherit;transition:background .1s}
-  .chat-item:hover{background:var(--hover)}
-  .chat-item.active{background:var(--active);color:#fff}
-  .chat-item.active .chat-sub{color:#e0efff}
-  .chat-meta{min-width:0;flex:1}
-  .chat-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between}
-  .chat-sub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  
-  /* Бейдж непрочитанного */
-  .unread-badge{background:var(--badge-bg);color:var(--badge-text);font-size:11px;font-weight:700;padding:2px 6px;border-radius:10px;min-width:20px;text-align:center}
-  .chat-item.active .unread-badge{background:#fff;color:var(--active)}
+db = SQLAlchemy(app)
 
-  /* === ОСНОВНАЯ ЧАСТЬ === */
-  .main{flex:1;display:flex;flex-direction:column;background:var(--chat-bg);min-width:0}
-  .chat-head{padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
-  .back-btn{display:none}
-  .status-line{font-size:12px;color:#3390ec;height:16px}
-  .status-line.online{color:#31c48d}
+# ===================== МОДЕЛИ =====================
 
-  .messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center} /* Центрируем ленту */
-  .messages-inner{width:100%;max-width:900px;padding:16px;display:flex;flex-direction:column;gap:8px} /* Макс ширина 900px */
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    bio = db.Column(db.String(200), default='')
+    avatar = db.Column(db.Text, default='')
+    typing_to = db.Column(db.Integer, default=0)
+    typing_at = db.Column(db.Float, default=0.0)
+    invited_by = db.Column(db.Integer, default=0)
+    last_seen = db.Column(db.Float, default=0.0)
+    onboarded = db.Column(db.Integer, default=0)
 
-  /* Разделитель дат */
-  .date-separator{align-self:center;background:var(--hover);color:var(--muted);font-size:12px;font-weight:600;padding:3px 12px;border-radius:12px;margin:10px 0;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, nullable=False)
+    receiver_id = db.Column(db.Integer, nullable=False)
+    msg_type = db.Column(db.String(20), default='text')
+    content = db.Column(db.Text, nullable=False)
+    file_name = db.Column(db.String(200), default='')
+    reaction = db.Column(db.String(20), default='')
+    hidden_for = db.Column(db.String(50), default='')
+    timestamp = db.Column(db.String(10), default='')
+    expires_at = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.Float, default=0.0)
+    read_at = db.Column(db.Float, default=0.0)
+    read_by = db.Column(db.String(200), default='')
 
-  .msg-row{display:flex;flex-direction:column;max-width:72%;cursor:pointer;animation:fadeIn .2s ease-out}
-  .msg-row.mine{align-self:flex-end;align-items:flex-end}
-  .msg-row.theirs{align-self:flex-start;align-items:flex-start}
+class Chat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    owner_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.Float, default=0.0)
 
-  /* Групповые сообщения */
-  .msg-row.group-msg{flex-direction:row;align-items:flex-start;gap:8px;max-width:85%;align-self:flex-start}
-  .msg-avatar{width:32px;height:32px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-size:14px;margin-top:20px}
-  .msg-content{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
-  .msg-author{font-size:12px;font-weight:600;margin-bottom:2px;padding-left:4px}
+class ChatMember(db.Model):
+    chat_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, primary_key=True)
 
-  .bubble{padding:9px 13px;border-radius:16px;word-break:break-word;line-height:1.4;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-  .mine .bubble{background:var(--my-msg);color:#fff;border-bottom-right-radius:4px}
-  .theirs .bubble, .group-msg .bubble{background:var(--other-msg);color:var(--other-text);border-bottom-left-radius:4px}
-  .reply-quote{border-left:3px solid currentColor;padding-left:8px;margin-bottom:5px;font-size:12px;opacity:.85;white-space:pre-line}
-  .bubble img{max-width:260px;max-height:260px;border-radius:10px;display:block;margin-bottom:4px}
-  .bubble audio{max-width:240px;height:36px;display:block}
-  .file-link{color:inherit;font-weight:600;text-decoration:underline}
-  .msg-foot{display:flex;align-items:center;gap:6px;font-size:11px;margin-top:4px;opacity:.8;justify-content:flex-end}
-  .read-status{font-size:12px;font-weight:700;margin-left:2px;letter-spacing:-2px}
-  .read-status.read{color:#31c48d}
-  
-  .reactions{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
-  .reaction-badge{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:1px 7px;font-size:12px;user-select:none;cursor:pointer}
-  .reaction-badge.mine{background:var(--active);color:#fff;border-color:var(--active)}
+# ===================== АВТО-МИГРАЦИЯ =====================
 
-  .reply-bar{display:none;padding:8px 16px;background:var(--bg);border-top:1px solid var(--border);align-items:center;justify-content:space-between;font-size:13px;flex-shrink:0}
-  .composer{padding:10px 14px;background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
-  .composer-inner{width:100%;max-width:900px;margin:0 auto;display:flex;align-items:center;gap:8px}
-  .composer input[type="text"]{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border);background:var(--sidebar);color:var(--text);outline:none;font-size:15px}
-  .send-btn{background:#2b80ff;color:#fff;border:none;border-radius:50%;width:40px;height:40px;cursor:pointer;font-size:16px;flex-shrink:0}
-  .rec-active{color:#ff3b30 !important;animation:pulse 1s infinite}
-  @keyframes pulse{50%{opacity:.4}}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+def ensure_schema():
+    with app.app_context():
+        db.create_all()
+        try:
+            insp = inspect(db.engine)
+            if not db.engine.url.drivername.startswith('sqlite'):
+                return
+            tables = set(insp.get_table_names())
+            if 'user' in tables:
+                cols = {c['name'] for c in insp.get_columns('user')}
+                if 'invited_by' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN invited_by INTEGER DEFAULT 0'))
+                if 'last_seen' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN last_seen FLOAT DEFAULT 0.0'))
+                if 'onboarded' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN onboarded INTEGER DEFAULT 0'))
+            if 'message' in tables:
+                cols = {c['name'] for c in insp.get_columns('message')}
+                if 'expires_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN expires_at FLOAT DEFAULT 0.0'))
+                if 'created_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN created_at FLOAT DEFAULT 0.0'))
+                if 'read_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN read_at FLOAT DEFAULT 0.0'))
+                if 'read_by' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN read_by VARCHAR(200) DEFAULT ""'))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f'[migrate] warning: {e}')
 
-  .expiry-btn{font-size:11px;padding:4px 8px;border-radius:10px;background:var(--hover);border:1px solid var(--border);color:var(--text);cursor:pointer}
-  .expiry-btn.active{background:#ff9500;color:#fff;border-color:#ff9500}
+ensure_schema()
 
-  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:100;padding:16px}
-  .modal.show{display:flex}
-  .modal-card{background:var(--card);color:var(--text);width:100%;max-width:400px;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
-  .modal-card input,.modal-card textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--sidebar);color:var(--text);outline:none}
-  .btn-primary{background:#2b80ff;color:#fff;border:none;padding:10px;border-radius:10px;font-weight:600;cursor:pointer}
-  .btn-secondary{background:var(--hover);color:var(--text);border:none;padding:10px;border-radius:10px;cursor:pointer;text-align:left}
-  .emoji-row{display:flex;justify-content:space-around;font-size:24px;padding:4px 0}
-  .emoji-row span{cursor:pointer;transition:transform .1s}
-  .emoji-row span:hover{transform:scale(1.25)}
-  .empty-state{margin:auto;color:var(--muted);text-align:center;padding:20px}
-  .field-label{font-size:12px;color:var(--muted);margin-bottom:4px}
-  .chip-list{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{background:var(--sidebar);border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px}
-  .chip.selected{background:var(--active);color:#fff;border-color:var(--active)}
+# ===================== ХЕЛПЕРЫ =====================
 
-  .onboard-step{display:none}
-  .onboard-step.active{display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
-  .onboard-step h2{font-size:22px}
-  .onboard-step p{color:var(--muted);line-height:1.5}
-  .onboard-emoji{font-size:56px}
+def parse_reactions(raw):
+    if not raw: return {}
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict): return {k: list(v) for k, v in data.items() if isinstance(v, list)}
+    except: pass
+    return {raw: []}
 
-  @media (max-width:768px) {
-    .sidebar{width:100%;display:{{ 'none' if mode else 'flex' }}}
-    .main{width:100%;display:{{ 'flex' if mode else 'none' }}}
-    .back-btn{display:inline-block}
-    .msg-row{max-width:85%}
-    .msg-row.group-msg{max-width:92%}
-  }
-</style>
-</head>
-<body>
+def dump_reactions(d): return json.dumps(d, ensure_ascii=False)
+def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
 
-<script>
-(function(){
-  var M = {{ (mode or '')|tojson }};
-  if (!M && window.innerWidth > 768) {
-    {% if users %} window.location.replace('/chat?u={{ users[0].id }}'); {% endif %}
-  }
-})();
-</script>
+def last_seen_label(u):
+    if not u or not u.last_seen: return 'не в сети'
+    diff = int(time.time() - u.last_seen)
+    if diff < 30: return 'в сети'
+    if diff < 60: return 'был(а) только что'
+    if diff < 3600: return f'был(а) {diff // 60} мин назад'
+    if diff < 86400: return f'был(а) {diff // 3600} ч назад'
+    return 'был(а) давно'
 
-<div class="sidebar" id="sidebarPanel">
-  <div class="brand-head">
-    <svg class="logo" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg" aria-label="ramplez">
-      <text x="100" y="30" text-anchor="middle" font-size="28" font-weight="700">ramplez</text>
-    </svg>
-  </div>
+def is_member(uid, gid):
+    return ChatMember.query.filter_by(chat_id=gid, user_id=uid).first() is not None
 
-  <div class="side-head">
-    <div class="me-info" id="openProfileBtn">
-      {% if me.avatar %}<img src="{{ me.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar">{{ me.name[0]|upper }}</div>{% endif %}
-      <div class="me-name">{{ me.name }}</div>
-    </div>
-    <div style="display:flex;gap:2px;">
-      <button type="button" class="icon-btn" id="newGroupBtn" title="Новая группа">＋</button>
-      <button type="button" class="icon-btn" id="themeBtn" title="Тема">🌓</button>
-      <a class="icon-btn" href="/logout" title="Выйти">🚪</a>
-    </div>
-  </div>
+# ===================== AUTH =====================
 
-  <div class="search-box">
-    <input type="text" id="userSearch" placeholder="Поиск...">
-  </div>
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if 'uid' in session: return redirect(url_for('chat'))
+    ref = request.args.get('ref', type=int)
+    if ref: session['pending_ref'] = ref
+    error = None
+    if request.method == 'POST':
+        action = request.form.get('action', 'login')
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        name = request.form.get('name', '').strip() or username
+        if not username or not password:
+            error = 'Заполните все обязательные поля'
+        elif action == 'register':
+            if User.query.filter_by(username=username).first():
+                error = 'Этот логин уже занят'
+            else:
+                invited_by = session.get('pending_ref') or 0
+                u = User(username=username, name=name, password=generate_password_hash(password), invited_by=invited_by)
+                db.session.add(u)
+                db.session.commit()
+                session['uid'] = u.id
+                session.pop('pending_ref', None)
+                return redirect(url_for('chat'))
+        else:
+            u = User.query.filter_by(username=username).first()
+            if u and check_password_hash(u.password, password):
+                session['uid'] = u.id
+                return redirect(url_for('chat'))
+            error = 'Неверный логин или пароль'
+    return render_template('login.html', error=error)
 
-  <!-- Фильтры -->
-  <div class="chat-filters" id="chatFilters">
-    <button class="chat-filter-btn active" data-filter="all">Все</button>
-    <button class="chat-filter-btn" data-filter="user">Личные</button>
-    <button class="chat-filter-btn" data-filter="group">Группы</button>
-  </div>
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
-  <div class="chat-list" id="chatList">
-    {% for c in conversations %}
-      <a class="chat-item {{ 'active' if c.active else '' }}"
-         href="{{ '/chat?g=' + c.id|string if c.type == 'group' else '/chat?u=' + c.id|string }}"
-         data-name="{{ c.title|lower }}" data-type="{{ c.type }}">
-        {% if c.avatar %}<img src="{{ c.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar {{ 'online' if c.online else '' }}">{{ c.title[0]|upper }}</div>{% endif %}
-        <div class="chat-meta">
-          <div class="chat-title">
-            <span>{{ c.title }}</span>
-            {% if c.unread > 0 %}<span class="unread-badge">{{ c.unread }}</span>{% endif %}
-          </div>
-          <div class="chat-sub">{{ c.sub }}</div>
-        </div>
-      </a>
-    {% endfor %}
-  </div>
-</div>
+# ===================== CHAT =====================
 
-<div class="main" id="mainPanel">
-  {% if mode %}
-  <div class="chat-head">
-    <a href="/chat" class="icon-btn back-btn">←</a>
-    {% if mode == 'personal' and other %}
-      {% if other.avatar %}<img src="{{ other.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar {{ 'online' if other and other.last_seen and (now - other.last_seen) < 30 else '' }}">{{ other.name[0]|upper }}</div>{% endif %}
-      <div>
-        <div class="chat-title">{{ other.name }}</div>
-        <div class="status-line" id="typingStatus">{{ other.bio or ('@' + other.username) }}</div>
-      </div>
-    {% elif mode == 'group' and group %}
-      <div class="avatar">👥</div>
-      <div>
-        <div class="chat-title">{{ group.title }}</div>
-        <div class="status-line" id="typingStatus">Групповой чат</div>
-      </div>
-      <button type="button" class="icon-btn" id="leaveGroupBtn" title="Покинуть" style="margin-left:auto;">⎋</button>
-    {% endif %}
-  </div>
+@app.route('/chat')
+def chat():
+    if 'uid' not in session: return redirect(url_for('index'))
+    me = db.session.get(User, session['uid'])
+    if not me:
+        session.clear()
+        return redirect(url_for('index'))
 
-  <div class="messages" id="messagesBox">
-    <div class="messages-inner" id="messagesInner"></div>
-  </div>
+    me.last_seen = time.time()
+    db.session.commit()
 
-  <div class="reply-bar" id="replyBar">
-    <span id="replyPreview"></span>
-    <button type="button" class="icon-btn" id="cancelReplyBtn">✕</button>
-  </div>
+    users = User.query.filter(User.id != me.id).all()
+    my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
 
-  <div class="composer">
-    <div class="composer-inner">
-      <input type="file" id="fileInput" hidden>
-      <button type="button" class="icon-btn" id="attachBtn" title="Прикрепить">📎</button>
-      <button type="button" class="icon-btn" id="micBtn" title="Голосовое">🎤</button>
-      <button type="button" class="expiry-btn" id="expiryBtn" title="Исчезающие сообщения">⏳</button>
-      <input type="text" id="msgInput" placeholder="Сообщение..." autocomplete="off">
-      <button type="button" class="send-btn" id="sendBtn" title="Отправить">➤</button>
-    </div>
-  </div>
-  {% else %}
-  <div class="empty-state">Выбери чат слева или создай группу кнопкой ＋</div>
-  {% endif %}
-</div>
+    gid = request.args.get('g', type=int)
+    oid = request.args.get('u', type=int)
 
-<!-- Профиль -->
-<div class="modal" id="profileModal">
-  <div class="modal-card">
-    <h3>Профиль</h3>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <img id="avatarPreview" class="avatar" style="width:60px;height:60px;{{ '' if me.avatar else 'display:none;' }}" src="{{ me.avatar if me.avatar else 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }}" alt="preview">
-      <input type="file" id="avatarInput" accept="image/*">
-    </div>
-    <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
-    <textarea id="profBio" rows="2" placeholder="О себе">{{ me.bio }}</textarea>
-    <div>
-      <div class="field-label">Пригласить друзей</div>
-      <div style="display:flex;gap:6px;">
-        <input type="text" id="inviteLink" readonly value="{{ request.host_url }}join/{{ me.id }}" style="flex:1;font-size:12px;">
-        <button type="button" class="btn-primary" id="copyInviteBtn" style="padding:10px 14px;">📋</button>
-      </div>
-    </div>
-    <button type="button" class="btn-primary" id="saveProfileBtn">Сохранить</button>
-    <button type="button" class="btn-secondary" id="closeProfileBtn" style="text-align:center;">Отмена</button>
-  </div>
-</div>
+    mode, other, group = None, None, None
+    if gid and is_member(me.id, gid):
+        group = db.session.get(Chat, gid)
+        mode = 'group'
+    elif oid:
+        other = db.session.get(User, oid)
+        mode = 'personal' if other and other.id != me.id else None
 
-<!-- Действия с сообщением -->
-<div class="modal" id="msgModal">
-  <div class="modal-card">
-    <div class="emoji-row" id="emojiPicker">
-      <span data-emj="👍">👍</span><span data-emj="❤️">❤️</span><span data-emj="😂">😂</span><span data-emj="😮">😮</span><span data-emj="🔥">🔥</span>
-    </div>
-    <button type="button" class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
-    <button type="button" class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
-    <button type="button" class="btn-secondary" id="actDelAllBtn" style="color:#ff3b30;">🗑️ Удалить у всех</button>
-    <button type="button" class="btn-secondary" id="closeMsgModalBtn" style="text-align:center;">Закрыть</button>
-  </div>
-</div>
-
-<!-- Новая группа -->
-<div class="modal" id="groupModal">
-  <div class="modal-card">
-    <h3>Новая группа</h3>
-    <input type="text" id="groupTitle" placeholder="Название группы" maxlength="100">
-    <div>
-      <div class="field-label">Выбери участников</div>
-      <div class="chip-list" id="memberChips">
-        {% for u in users %}<button type="button" class="chip" data-uid="{{ u.id }}">{{ u.name }}</button>{% endfor %}
-      </div>
-    </div>
-    <button type="button" class="btn-primary" id="createGroupBtn">Создать</button>
-    <button type="button" class="btn-secondary" id="closeGroupModalBtn" style="text-align:center;">Отмена</button>
-  </div>
-</div>
-
-<!-- Онбординг -->
-{% if me.onboarded == 0 %}
-<div class="modal show" id="onboardModal">
-  <div class="modal-card">
-    <div class="onboard-step active" data-step="1">
-      <div class="onboard-emoji">👋</div><h2>Привет! Это Ramplez</h2>
-      <p>Лёгкий мессенджер — без тяжёлых фреймворков, работает быстро даже на слабом интернете.</p>
-      <button type="button" class="btn-primary" data-next="2">Дальше</button>
-    </div>
-    <div class="onboard-step" data-step="2">
-      <div class="onboard-emoji">🎨</div><h2>Настрой профиль</h2>
-      <p>Имя, био и аватарку можно поменять в любой момент — нажми на свою аватарку в левом верхнем углу.</p>
-      <button type="button" class="btn-primary" data-next="3">Дальше</button>
-    </div>
-    <div class="onboard-step" data-step="3">
-      <div class="onboard-emoji">🚀</div><h2>Готово!</h2>
-      <p>Создай группу кнопкой ＋, пригласи друзей из профиля — и общайся.</p>
-      <button type="button" class="btn-primary" id="finishOnboard">Погнали</button>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<script>
-/* ================= ТЕМА ================= */
-(function(){
-  var root = document.documentElement;
-  document.addEventListener('click', function(e){
-    var btn = e.target.closest && e.target.closest('#themeBtn');
-    if (!btn) return;
-    e.preventDefault();
-    var dark = root.classList.toggle('dark');
-    document.body.classList.toggle('dark', dark);
-    try { localStorage.setItem('ramplez_theme', dark ? 'dark' : 'light'); } catch(err){}
-  });
-  if (root.classList.contains('dark')) document.body.classList.add('dark');
-})();
-
-/* ================= PWA & ЗВУК ================= */
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js').catch(function(){});
-var audioCtx = null;
-document.addEventListener('click', function(){
-  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
-}, { once: true });
-function playBeep() {
-  if (!audioCtx) return;
-  try {
-    var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-    osc.start(); osc.stop(audioCtx.currentTime + 0.18);
-  } catch(e){}
-}
-
-/* ================= ОСНОВНАЯ ЛОГИКА ================= */
-(function(){
-  'use strict';
-  var ME_ID = {{ me.id }};
-  var MODE = {{ (mode or '')|tojson }};
-  var CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
-  var OTHER_BIO = {{ ((other.bio or ('@' + other.username)) if (mode == 'personal' and other) else '')|tojson }};
-
-  window.addEventListener('focus', function(){ document.title = 'Ramplez'; });
-
-  /* --- Фильтры чатов --- */
-  var filterBtns = document.querySelectorAll('.chat-filter-btn');
-  var chatItems = document.querySelectorAll('.chat-item');
-  filterBtns.forEach(function(btn){
-    btn.addEventListener('click', function(){
-      filterBtns.forEach(function(b){ b.classList.remove('active'); });
-      btn.classList.add('active');
-      var type = btn.dataset.filter;
-      chatItems.forEach(function(item){
-        var show = (type === 'all') || (item.dataset.type === type);
-        item.style.display = show ? 'flex' : 'none';
-      });
-    });
-  });
-
-  /* --- Поиск --- */
-  var searchEl = document.getElementById('userSearch');
-  if (searchEl) searchEl.addEventListener('input', function(e){
-    var q = e.target.value.toLowerCase().trim();
-    var activeFilter = document.querySelector('.chat-filter-btn.active').dataset.filter;
-    chatItems.forEach(function(it){
-      var matchesSearch = it.dataset.name.indexOf(q) !== -1;
-      var matchesFilter = (activeFilter === 'all') || (it.dataset.type === activeFilter);
-      it.style.display = (matchesSearch && matchesFilter) ? 'flex' : 'none';
-    });
-  });
-
-  /* --- Онбординг --- */
-  var onboardModal = document.getElementById('onboardModal');
-  if (onboardModal) {
-    var steps = onboardModal.querySelectorAll('.onboard-step');
-    function showStep(n) { steps.forEach(function(s){ s.classList.toggle('active', s.dataset.step === String(n)); }); }
-    onboardModal.addEventListener('click', function(e){
-      var next = e.target.closest('[data-next]');
-      if (next) showStep(next.dataset.next);
-    });
-    var finishBtn = document.getElementById('finishOnboard');
-    if (finishBtn) finishBtn.addEventListener('click', async function(){
-      await fetch('/complete_onboarding', { method: 'POST' });
-      onboardModal.classList.remove('show');
-    });
-  }
-
-  /* --- Профиль --- */
-  var compressedAvatarBase64 = '';
-  var profileModal = document.getElementById('profileModal');
-  var avatarInput = document.getElementById('avatarInput');
-  function closeProfile(){
-    if (profileModal) profileModal.classList.remove('show');
-    compressedAvatarBase64 = ''; if (avatarInput) avatarInput.value = '';
-  }
-  var openProfileBtn = document.getElementById('openProfileBtn');
-  if (openProfileBtn) openProfileBtn.addEventListener('click', function(){ if (profileModal) profileModal.classList.add('show'); });
-  var closeProfileBtn = document.getElementById('closeProfileBtn');
-  if (closeProfileBtn) closeProfileBtn.addEventListener('click', closeProfile);
-  if (profileModal) profileModal.addEventListener('click', function(e){ if (e.target === profileModal) closeProfile(); });
-
-  if (avatarInput) avatarInput.addEventListener('change', function(e){
-    var file = e.target.files[0]; if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev){
-      var img = new Image();
-      img.onload = function(){
-        var max = 200, w = img.width, h = img.height;
-        if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
-        else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; }
-        var c = document.createElement('canvas'); c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        compressedAvatarBase64 = c.toDataURL('image/jpeg', 0.82);
-        var prev = document.getElementById('avatarPreview');
-        prev.src = compressedAvatarBase64; prev.style.display = 'block';
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  var saveProfileBtn = document.getElementById('saveProfileBtn');
-  if (saveProfileBtn) saveProfileBtn.addEventListener('click', async function(){
-    var name = document.getElementById('profName').value.trim();
-    var bio = document.getElementById('profBio').value.trim();
-    await fetch('/update_profile', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name: name, bio: bio, avatar: compressedAvatarBase64 })
-    });
-    location.reload();
-  });
-
-  var copyBtn = document.getElementById('copyInviteBtn');
-  if (copyBtn) copyBtn.addEventListener('click', async function(){
-    var inp = document.getElementById('inviteLink');
-    try { await navigator.clipboard.writeText(inp.value); copyBtn.textContent = '✓'; setTimeout(function(){ copyBtn.textContent = '📋'; }, 1500); }
-    catch(e) { inp.select(); document.execCommand('copy'); }
-  });
-
-  /* --- Группа --- */
-  var groupModal = document.getElementById('groupModal');
-  var newGroupBtn = document.getElementById('newGroupBtn');
-  if (newGroupBtn) newGroupBtn.addEventListener('click', function(){ if (groupModal) groupModal.classList.add('show'); });
-  var closeGroupModalBtn = document.getElementById('closeGroupModalBtn');
-  if (closeGroupModalBtn) closeGroupModalBtn.addEventListener('click', function(){ if (groupModal) groupModal.classList.remove('show'); });
-  if (groupModal) groupModal.addEventListener('click', function(e){ if (e.target === groupModal) groupModal.classList.remove('show'); });
-
-  document.querySelectorAll('#memberChips .chip').forEach(function(ch){
-    ch.addEventListener('click', function(){ ch.classList.toggle('selected'); });
-  });
-
-  var createGroupBtn = document.getElementById('createGroupBtn');
-  if (createGroupBtn) createGroupBtn.addEventListener('click', async function(){
-    var title = document.getElementById('groupTitle').value.trim();
-    var ids = []; document.querySelectorAll('#memberChips .chip.selected').forEach(function(ch){ ids.push(parseInt(ch.dataset.uid)); });
-    if (!title || !ids.length) { alert('Введи название и выбери хотя бы одного участника'); return; }
-    var res = await fetch('/create_group', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: title, member_ids: ids })
-    });
-    var data = await res.json();
-    if (data.ok) window.location.href = '/chat?g=' + data.gid;
-    else alert('Ошибка создания: ' + (data.error || 'unknown'));
-  });
-
-  var leaveBtn = document.getElementById('leaveGroupBtn');
-  if (leaveBtn) leaveBtn.addEventListener('click', async function(){
-    if (!confirm('Покинуть группу?')) return;
-    await fetch('/leave_group/' + CHAT_ID, { method: 'POST' });
-    window.location.href = '/chat';
-  });
-
-  /* --- ЧАТ --- */
-  if (!CHAT_ID || !MODE) return;
-
-  var messagesBox = document.getElementById('messagesBox');
-  var messagesInner = document.getElementById('messagesInner');
-  var msgInput = document.getElementById('msgInput');
-  var sendBtn = document.getElementById('sendBtn');
-  var replyBar = document.getElementById('replyBar');
-  var replyPreview = document.getElementById('replyPreview');
-  var msgModal = document.getElementById('msgModal');
-
-  var replyText = ''; var selectedMsg = null; var lastRenderHash = ''; var lastTypingSent = 0; var lastMsgId = 0;
-  var MEMBERS = []; var expiresIn = 0; var expiryOptions = [0, 5, 30, 60, 300]; var expiryLabels = ['выкл', '5с', '30с', '1м', '5м'];
-
-  var expiryBtn = document.getElementById('expiryBtn');
-  if (expiryBtn) expiryBtn.addEventListener('click', function(){
-    var idx = (expiryOptions.indexOf(expiresIn) + 1) % expiryOptions.length;
-    expiresIn = expiryOptions[idx]; expiryBtn.textContent = '⏳ ' + expiryLabels[idx];
-    expiryBtn.classList.toggle('active', expiresIn > 0);
-  });
-
-  function escapeHtml(s){ var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
-  
-  function getAvatarColor(str) {
-    var hash = 0; for (var i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    var c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-    return '#' + '00000'.substring(0, 6 - c.length) + c;
-  }
-
-  function formatDate(ts) {
-    var d = new Date(ts * 1000);
-    var today = new Date(); var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return 'Сегодня';
-    if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  }
-
-  function renderReactions(raw) {
-    if (!raw) return '';
-    var d; try { d = JSON.parse(raw); if (!d || typeof d !== 'object' || Array.isArray(d)) throw 0; } catch(e) { d = {}; d[raw] = []; }
-    var memberMap = {}; MEMBERS.forEach(function(u){ memberMap[u.id] = u.name; });
-    var html = '<div class="reactions">';
-    Object.keys(d).forEach(function(emj){
-      var users = d[emj] || []; var mine = users.indexOf(ME_ID) !== -1;
-      var names = users.map(function(uid){ return memberMap[uid] || ('#' + uid); }).join(', ');
-      html += '<span class="reaction-badge ' + (mine ? 'mine' : '') + '" title="' + escapeHtml(names) + '">' + emj + ' ' + users.length + '</span>';
-    });
-    html += '</div>'; return html;
-  }
-
-  function formatBody(m) {
-    if (m.msg_type === 'image') return '<img src="' + escapeHtml(m.content) + '" alt="photo">';
-    if (m.msg_type === 'audio') return '<audio controls src="' + escapeHtml(m.content) + '"></audio>';
-    if (m.msg_type === 'file') return '<a class="file-link" href="' + escapeHtml(m.content) + '" download>📄 ' + escapeHtml(m.file_name || 'Файл') + '</a>';
-    var t = m.content;
-    if (t.indexOf('↪ ') === 0) {
-      var i = t.indexOf('\n');
-      if (i !== -1) return '<div class="reply-quote">' + escapeHtml(t.slice(2, i)) + '</div><div>' + escapeHtml(t.slice(i + 1)).replace(/\n/g,'<br>') + '</div>';
-    }
-    return '<div>' + escapeHtml(t).replace(/\n/g,'<br>') + '</div>';
-  }
-
-  function buildRow(m) {
-    var isMine = m.sender_id === ME_ID;
-    var row = document.createElement('div');
-    var bubbleHtml = '<div class="bubble">' + formatBody(m) + '<div class="msg-foot"><span>' + escapeHtml(m.timestamp) + '</span>';
+    conversations = []
     
-    // Статусы прочтения
-    if (isMine) {
-      if (MODE === 'personal') {
-        bubbleHtml += m.read_at > 0 ? '<span class="read-status read">✓✓</span>' : '<span class="read-status" style="opacity:0.5">✓</span>';
-      } else if (MODE === 'group' && m.read_by) {
-        var readers = m.read_by.split(',').filter(Boolean);
-        bubbleHtml += readers.length > 0 ? '<span class="read-status read" title="Прочитали: ' + readers.length + ' чел.">✓✓</span>' : '<span class="read-status" style="opacity:0.5">✓</span>';
-      }
-    }
-    bubbleHtml += '</div></div>';
-    var reactionsHtml = renderReactions(m.reaction);
+    for u in users:
+        unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, read_at=0).count()
+        conversations.append({
+            'type': 'user', 'id': u.id, 'title': u.name,
+            'avatar': u.avatar, 'sub': u.bio or ('@' + u.username),
+            'online': is_online(u),
+            'unread': unread,
+            'active': (mode == 'personal' and other and other.id == u.id)
+        })
+        
+    for g in my_groups:
+        unread_g = 0
+        msgs = Message.query.filter_by(receiver_id=-g.id).all()
+        for m in msgs:
+            if m.sender_id == me.id: continue
+            rb = m.read_by.split(',') if m.read_by else []
+            if str(me.id) not in rb: unread_g += 1
+            
+        conversations.append({
+            'type': 'group', 'id': g.id, 'title': g.title,
+            'avatar': '', 'sub': 'Групповой чат',
+            'online': False,
+            'unread': unread_g,
+            'active': (mode == 'group' and group and group.id == g.id)
+        })
 
-    if (MODE === 'group' && !isMine) {
-      row.className = 'msg-row group-msg';
-      var initial = String(m.sender_name || '?').trim().charAt(0) || '?';
-      var col = getAvatarColor(m.sender_name || '?');
-      row.innerHTML = '<div class="msg-avatar" style="background:' + col + '">' + escapeHtml(initial.toUpperCase()) + '</div>' +
-                      '<div class="msg-content"><div class="msg-author" style="color:' + col + '">' + escapeHtml(m.sender_name || 'Аноним') + '</div>' +
-                      bubbleHtml + reactionsHtml + '</div>';
-    } else {
-      row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
-      row.innerHTML = bubbleHtml + reactionsHtml;
-    }
+    return render_template('chat.html',
+                           me=me, users=users, other=other, group=group,
+                           mode=mode, conversations=conversations,
+                           my_groups=my_groups, now=time.time())
 
-    var clickTimer = null;
-    row.addEventListener('click', function(e){
-      if (clickTimer) {
-        clearTimeout(clickTimer); clickTimer = null;
-        fetch('/react_msg/' + m.id + '/' + CHAT_ID + '/' + encodeURIComponent('❤️'), { method: 'POST' }).then(function(){ pollMessages(); });
-      } else {
-        clickTimer = setTimeout(function(){
-          clickTimer = null; selectedMsg = m;
-          document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
-          msgModal.classList.add('show');
-        }, 280);
-      }
-    });
-    return row;
-  }
+# ===================== SEND / POLL (PERSONAL) =====================
 
-  async function pollMessages() {
-    try {
-      var url = MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID;
-      var res = await fetch(url);
-      if (res.status === 401) { window.location.href = '/'; return; }
-      var data = await res.json();
-      if (!data.ok) return;
+@app.route('/send', methods=['POST'])
+def send():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    oid = int(data.get('oid', 0))
+    content = str(data.get('content', '')).strip()
+    if not oid or not content: return jsonify({'ok': False}), 400
+    expires_in = float(data.get('expires_in', 0) or 0)
 
-      if (data.members) MEMBERS = data.members;
+    msg = Message(
+        sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content,
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0,
+        created_at=time.time()
+    )
+    db.session.add(msg)
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = 0
+        me.last_seen = time.time()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id})
 
-      var statusEl = document.getElementById('typingStatus');
-      if (statusEl) {
-        if (data.typing) {
-          statusEl.textContent = data.typing_names && data.typing_names.length ? (data.typing_names.join(', ') + ' печатает...') : 'печатает...';
-          statusEl.classList.remove('online');
-        } else if (MODE === 'personal') {
-          statusEl.textContent = data.other_online ? 'в сети' : (data.other_last_seen || OTHER_BIO);
-          statusEl.classList.toggle('online', !!data.other_online);
-        } else {
-          statusEl.textContent = 'Групповой чат'; statusEl.classList.remove('online');
-        }
-      }
+@app.route('/poll/<int:oid>')
+def poll(oid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    uid = session['uid']
+    now = time.time()
 
-      if (data.messages.length > 0) {
-        var last = data.messages[data.messages.length - 1];
-        if (lastMsgId > 0 && last.id > lastMsgId && last.sender_id !== ME_ID) {
-          playBeep();
-          if (document.hidden) {
-            var c = parseInt((document.title.match(/\((\d+)\)/) || [0,0])[1], 10) + 1;
-            document.title = '(' + c + ') Ramplez';
-          }
-        }
-        lastMsgId = last.id;
-      }
+    me = db.session.get(User, uid)
+    if me:
+        me.last_seen = now
+        db.session.commit()
 
-      var hash = JSON.stringify(data.messages) + '|' + JSON.stringify(data.members || []);
-      if (hash === lastRenderHash) return;
-      
-      var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80;
-      lastRenderHash = hash;
+    unread_msgs = Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).all()
+    if unread_msgs:
+        for um in unread_msgs: um.read_at = now
+        db.session.commit()
 
-      messagesInner.innerHTML = '';
-      var lastDate = null;
+    q = Message.query.filter(
+        ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
+        ((Message.sender_id == oid) & (Message.receiver_id == uid))
+    )
+    msgs = q.order_by(Message.id.asc()).all()
 
-      data.messages.forEach(function(m){
-        // Разделитель дат
-        if (m.created_at > 0) {
-          var dateStr = new Date(m.created_at * 1000).toDateString();
-          if (dateStr !== lastDate) {
-            var sep = document.createElement('div');
-            sep.className = 'date-separator';
-            sep.textContent = formatDate(m.created_at);
-            messagesInner.appendChild(sep);
-            lastDate = dateStr;
-          }
-        }
-        messagesInner.appendChild(buildRow(m));
-      });
+    out = []
+    for m in msgs:
+        if m.expires_at and m.expires_at < now: continue
+        hidden = m.hidden_for.split(',') if m.hidden_for else []
+        if str(uid) in hidden: continue
+        out.append({
+            'id': m.id, 'sender_id': m.sender_id, 'msg_type': m.msg_type,
+            'content': m.content, 'file_name': m.file_name, 'reaction': m.reaction or '',
+            'timestamp': m.timestamp, 'expires_at': m.expires_at or 0,
+            'created_at': m.created_at or 0, 'read_at': m.read_at or 0
+        })
 
-      if (atBottom || data.messages.length <= 15) messagesBox.scrollTop = messagesBox.scrollHeight;
-    } catch (err) { console.error('Poll:', err); }
-  }
+    other = db.session.get(User, oid)
+    is_typing = bool(other and other.typing_to == uid and (time.time() - (other.typing_at or 0)) < 3.5)
 
-  async function sendMessage() {
-    var raw = msgInput.value.trim(); if (!raw) return;
-    var content = replyText ? '↪ ' + replyText + '\n' + raw : raw;
-    msgInput.value = ''; replyText = ''; replyBar.style.display = 'none';
-    var payload = { content: content, expires_in: expiresIn };
-    var url;
-    if (MODE === 'group') { payload.gid = CHAT_ID; url = '/send_group'; }
-    else { payload.oid = CHAT_ID; url = '/send'; }
-    try {
-      await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      await pollMessages();
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-    } catch(err){ console.error('Send:', err); }
-  }
+    return jsonify({
+        'ok': True, 'messages': out, 'typing': is_typing,
+        'other_online': is_online(other), 'other_last_seen': last_seen_label(other)
+    })
 
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-  msgInput.addEventListener('input', function(){
-    var now = Date.now();
-    if (now - lastTypingSent > 2000) { lastTypingSent = now; fetch('/typing/' + (MODE === 'personal' ? CHAT_ID : 0), { method:'POST' }).catch(function(){}); }
-  });
+@app.route('/typing/<int:oid>', methods=['POST'])
+def typing(oid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.typing_to = oid
+        me.typing_at = time.time()
+        db.session.commit()
+    return jsonify({'ok': True})
 
-  document.getElementById('actReplyBtn').addEventListener('click', function(){
-    if (!selectedMsg) return;
-    var prev = selectedMsg.msg_type === 'text' ? selectedMsg.content.replace(/\n/g, ' ').slice(0,60) : '[' + selectedMsg.msg_type + ']';
-    replyText = prev; replyPreview.textContent = 'Ответ: ' + prev;
-    replyBar.style.display = 'flex'; msgModal.classList.remove('show'); msgInput.focus();
-  });
-  document.getElementById('cancelReplyBtn').addEventListener('click', function(){ replyText = ''; replyBar.style.display = 'none'; });
+# ===================== GROUPS =====================
 
-  document.getElementById('actDelMeBtn').addEventListener('click', async function(){
-    if (!selectedMsg) return; await fetch('/del_me/' + selectedMsg.id + '/' + CHAT_ID, { method:'POST' });
-    msgModal.classList.remove('show'); pollMessages();
-  });
-  document.getElementById('actDelAllBtn').addEventListener('click', async function(){
-    if (!selectedMsg) return; await fetch('/del_all/' + selectedMsg.id + '/' + CHAT_ID, { method:'POST' });
-    msgModal.classList.remove('show'); pollMessages();
-  });
-  document.getElementById('emojiPicker').addEventListener('click', async function(e){
-    var emj = e.target.dataset.emj; if (!emj || !selectedMsg) return;
-    await fetch('/react_msg/' + selectedMsg.id + '/' + CHAT_ID + '/' + encodeURIComponent(emj), { method:'POST' });
-    msgModal.classList.remove('show'); pollMessages();
-  });
-  document.getElementById('closeMsgModalBtn').addEventListener('click', function(){ msgModal.classList.remove('show'); });
-  if (msgModal) msgModal.addEventListener('click', function(e){ if (e.target === msgModal) msgModal.classList.remove('show'); });
+@app.route('/create_group', methods=['POST'])
+def create_group():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    title = str(data.get('title', '')).strip()
+    ids = data.get('member_ids') or []
+    if not title or not isinstance(ids, list): return jsonify({'ok': False, 'error': 'bad'}), 400
+    try: ids = [int(x) for x in ids if int(x) != session['uid']]
+    except: return jsonify({'ok': False, 'error': 'bad_ids'}), 400
+    if not ids: return jsonify({'ok': False, 'error': 'no_members'}), 400
 
-  var fileInput = document.getElementById('fileInput');
-  document.getElementById('attachBtn').addEventListener('click', function(){ fileInput.click(); });
-  fileInput.addEventListener('change', async function(){
-    var f = fileInput.files[0]; if (!f) return;
-    var fd = new FormData();
-    if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
-    fd.append('expires_in', expiresIn); fd.append('file', f);
-    fileInput.value = '';
-    try { await fetch('/upload_file', { method:'POST', body: fd }); await pollMessages(); messagesBox.scrollTop = messagesBox.scrollHeight; }
-    catch(err){ console.error('Upload:', err); }
-  });
+    g = Chat(title=title[:100], owner_id=session['uid'], created_at=time.time())
+    db.session.add(g)
+    db.session.commit()
 
-  var mediaRecorder = null, audioChunks = [], micBtn = document.getElementById('micBtn');
-  micBtn.addEventListener('click', async function(){
-    if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); micBtn.classList.remove('rec-active'); return; }
-    try {
-      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      var mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm')) ? 'audio/webm' : ((window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4')) ? 'audio/mp4' : '');
-      var ext = mime === 'audio/mp4' ? 'm4a' : 'webm';
-      mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = function(e){ if (e.data.size > 0) audioChunks.push(e.data); };
-      mediaRecorder.onstop = async function(){
-        stream.getTracks().forEach(function(t){ t.stop(); });
-        var blob = new Blob(audioChunks, { type: mime || 'audio/webm' });
-        var fd = new FormData();
-        if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
-        fd.append('expires_in', expiresIn); fd.append('file', blob, 'voice.' + ext);
-        try { await fetch('/upload_file', { method:'POST', body: fd }); await pollMessages(); messagesBox.scrollTop = messagesBox.scrollHeight; }
-        catch(err){ console.error('Voice:', err); }
-      };
-      mediaRecorder.start(); micBtn.classList.add('rec-active');
-    } catch(err){ alert('Нет доступа к микрофону'); }
-  });
+    for uid_ in set(ids + [session['uid']]): db.session.add(ChatMember(chat_id=g.id, user_id=uid_))
+    db.session.commit()
+    return jsonify({'ok': True, 'gid': g.id})
 
-  pollMessages();
-  setInterval(pollMessages, 1000);
-})();
-</script>
-</body>
-</html>
+@app.route('/send_group', methods=['POST'])
+def send_group():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    gid = int(data.get('gid', 0))
+    content = str(data.get('content', '')).strip()
+    if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
+    expires_in = float(data.get('expires_in', 0) or 0)
+
+    msg = Message(
+        sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content,
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0,
+        created_at=time.time()
+    )
+    db.session.add(msg)
+    me = db.session.get(User, session['uid'])
+    if me: me.last_seen = time.time()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id})
+
+@app.route('/poll_group/<int:gid>')
+def poll_group(gid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    if not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
+
+    now = time.time()
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.last_seen = now
+        db.session.commit()
+
+    member_ids = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
+    member_users = User.query.filter(User.id.in_(member_ids)).all() if member_ids else []
+    users_map = {u.id: u.name for u in member_users}
+    members_data = [{'id': u.id, 'name': u.name} for u in member_users]
+
+    unread_msgs = Message.query.filter_by(receiver_id=-gid).filter(Message.sender_id != me.id).all()
+    changed = False
+    for um in unread_msgs:
+        rb = set(um.read_by.split(',')) if um.read_by else set()
+        rb.discard('')
+        if str(me.id) not in rb:
+            rb.add(str(me.id))
+            um.read_by = ','.join(rb)
+            changed = True
+    if changed: db.session.commit()
+
+    msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
+
+    out = []
+    for m in msgs:
+        if m.expires_at and m.expires_at < now: continue
+        hidden = m.hidden_for.split(',') if m.hidden_for else []
+        if str(me.id) in hidden: continue
+        out.append({
+            'id': m.id, 'sender_id': m.sender_id, 'sender_name': users_map.get(m.sender_id, 'Аноним'),
+            'msg_type': m.msg_type, 'content': m.content, 'file_name': m.file_name,
+            'reaction': m.reaction or '', 'timestamp': m.timestamp, 'expires_at': m.expires_at or 0,
+            'created_at': m.created_at or 0, 'read_by': m.read_by or ''
+        })
+
+    typing_users = []
+    for mb in ChatMember.query.filter_by(chat_id=gid).all():
+        if mb.user_id == me.id: continue
+        u = db.session.get(User, mb.user_id)
+        if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5: typing_users.append(u.name)
+
+    return jsonify({
+        'ok': True, 'messages': out, 'typing': bool(typing_users),
+        'typing_names': typing_users, 'members': members_data
+    })
+
+@app.route('/leave_group/<int:gid>', methods=['POST'])
+def leave_group(gid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# ===================== UPLOAD / FILES =====================
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    oid = request.form.get('oid', type=int)
+    gid = request.form.get('gid', type=int)
+    f = request.files.get('file')
+    if not f or not f.filename: return jsonify({'ok': False}), 400
+    if gid and not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
+    if not oid and not gid: return jsonify({'ok': False}), 400
+
+    orig_name = secure_filename(f.filename) or 'file'
+    saved_name = f"{int(time.time() * 1000)}_{orig_name}"
+    f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
+
+    ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
+    mtype = 'image' if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp') else ('audio' if ext in ('webm', 'ogg', 'mp3', 'wav', 'm4a') else 'file')
+
+    expires_in = float(request.form.get('expires_in', 0) or 0)
+    msg = Message(
+        sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype,
+        content=url_for('uploaded_file', fn=saved_name), file_name=f.filename,
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0,
+        created_at=time.time()
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/uploads/<path:fn>')
+def uploaded_file(fn):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], fn)
+
+# ===================== PROFILE =====================
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    me = db.session.get(User, session['uid'])
+    if me:
+        name = str(data.get('name', '')).strip()
+        if name: me.name = name[:80]
+        me.bio = str(data.get('bio', '')).strip()[:200]
+        avatar = data.get('avatar')
+        if avatar and str(avatar).startswith('data:image/'): me.avatar = avatar
+        db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/complete_onboarding', methods=['POST'])
+def complete_onboarding():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.onboarded = 1
+        db.session.commit()
+    return jsonify({'ok': True})
+
+# ===================== ACTIONS ON MESSAGES =====================
+
+@app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
+def del_me(mid, u):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
+        hidden.discard('')
+        hidden.add(str(session['uid']))
+        msg.hidden_for = ','.join(hidden)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+@app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
+def del_all(mid, u):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg and msg.sender_id == session['uid']:
+        db.session.delete(msg)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+@app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
+def react_msg(mid, u, emj):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        reactions = parse_reactions(msg.reaction)
+        for k, v in reactions.items():
+            if session['uid'] in v: v.remove(session['uid'])
+
+        was_mine = False
+        try:
+            old = json.loads(msg.reaction or '{}')
+            if isinstance(old, dict) and session['uid'] in old.get(emj, []): was_mine = True
+        except: 
+            if msg.reaction == emj: was_mine = True
+        if not was_mine: reactions.setdefault(emj, []).append(session['uid'])
+        reactions = {k: v for k, v in reactions.items() if v}
+        msg.reaction = dump_reactions(reactions)
+        db.session.commit()
+    return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
+
+@app.route('/join/<int:uid>')
+def join(uid):
+    session['pending_ref'] = uid
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
