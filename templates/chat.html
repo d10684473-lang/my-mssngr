@@ -127,10 +127,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .dark .profile-modal-card { background: #17212b; }
   .profile-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; color: #2b80ff; font-weight: 500; font-size: 16px; }
   .profile-top { display: flex; flex-direction: column; align-items: center; padding: 0 20px 20px; }
-  
-  /* ИСПРАВЛЕНИЕ БУКВЫ (Добавлен flex для центрирования текста внутри аватарки) */
   .profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; }
-  
   .profile-name { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 5px; color: var(--text); }
   .profile-status { font-size: 14px; color: #2b80ff; margin-top: 4px; }
   
@@ -153,6 +150,19 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   .profile-media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
   .profile-media-grid img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; }
 
+  /* ЗВОНКИ */
+  .call-overlay { display:none; position:fixed; inset:0; background:#17212b; z-index:9999; flex-direction:column; align-items:center; justify-content:center; color:#fff; }
+  .call-overlay.show { display:flex; }
+  .call-avatar { width:120px; height:120px; border-radius:50%; background:#3390ec; display:flex; align-items:center; justify-content:center; font-size:50px; margin-bottom:20px; }
+  .call-name { font-size:24px; font-weight:600; margin-bottom:8px; }
+  .call-status { font-size:16px; color:#7f91a4; margin-bottom:40px; }
+  .call-actions { display:flex; gap:30px; }
+  .call-btn { width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; font-size:24px; display:flex; align-items:center; justify-content:center; color:#fff; transition:0.2s; }
+  .call-btn.reject { background:#ff3b30; }
+  .call-btn.accept { background:#31c48d; }
+  .call-btn.end { background:#ff3b30; }
+  .call-btn.mute { background:#242f3d; }
+  
   @media (max-width:768px) {
     .sidebar{width:100%;display:{{ 'none' if mode else 'flex' }}}
     .main{width:100%;display:{{ 'flex' if mode else 'none' }}}
@@ -164,6 +174,16 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
 </style>
 </head>
 <body>
+
+<!-- Оверлей Звонка -->
+<div class="call-overlay" id="callOverlay">
+  <div class="call-avatar" id="callAvatar">?</div>
+  <div class="call-name" id="callName">Имя</div>
+  <div class="call-status" id="callStatus">Вызов...</div>
+  <div class="call-actions" id="callActions">
+    <!-- Кнопки будут добавлены через JS в зависимости от роли -->
+  </div>
+</div>
 
 <script>
 (function(){
@@ -202,13 +222,14 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
   <div class="chat-head">
     <a href="/chat" class="icon-btn back-btn">←</a>
     {% if mode == 'personal' and other %}
-      <div id="openOtherProfile" style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+      <div id="openOtherProfile" style="display:flex;align-items:center;gap:12px;cursor:pointer;flex:1;">
         {% if other.avatar %}<img src="{{ other.avatar }}" class="avatar" alt="avatar">{% else %}<div class="avatar {{ 'online' if other and other.last_seen and (now - other.last_seen) < 30 else '' }}">{{ other.name[0]|upper }}</div>{% endif %}
         <div>
           <div class="chat-title">{{ other.name }}</div>
           <div class="status-line" id="typingStatus">{{ other.bio or ('@' + other.username) }}</div>
         </div>
       </div>
+      <button type="button" class="icon-btn" id="startCallBtn" title="Позвонить" style="color:#31c48d;">📞</button>
     {% elif mode == 'group' and group %}
       <div class="avatar">👥</div>
       <div>
@@ -258,7 +279,7 @@ try { if (localStorage.getItem('ramplez_theme') === 'dark') document.documentEle
       <div class="profile-status" id="pvStatus">в сети</div>
       
       <div class="profile-actions">
-        <button class="profile-action-btn" onclick="alert('Звонки скоро появятся!')"><span>📞</span><span>call</span></button>
+        <button class="profile-action-btn" onclick="document.getElementById('profileViewModal').classList.remove('show'); document.getElementById('startCallBtn').click();"><span>📞</span><span>call</span></button>
         <button class="profile-action-btn" onclick="alert('Уведомления отключены для этого чата')"><span>🔔</span><span>mute</span></button>
         <button class="profile-action-btn" onclick="document.getElementById('profileViewModal').classList.remove('show');document.getElementById('userSearch').focus();"><span>🔍</span><span>search</span></button>
         <button class="profile-action-btn" onclick="alert('Дополнительные настройки')"><span>•••</span><span>more</span></button>
@@ -365,7 +386,7 @@ var audioCtx = null;
 document.addEventListener('click', function(){ if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } }, { once: true });
 function playBeep() { if (!audioCtx) return; try { var osc = audioCtx.createOscillator(), gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.value = 880; gain.gain.setValueAtTime(0.06, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18); osc.start(); osc.stop(audioCtx.currentTime + 0.18); } catch(e){} }
 
-// --- ПРОФИЛЬ (КАК НА СКРИНШОТЕ) ---
+// --- ПРОФИЛЬ ---
 var profileData = null;
 function openUserProfile(uid) {
   var modal = document.getElementById('profileViewModal');
@@ -375,23 +396,16 @@ function openUserProfile(uid) {
   fetch('/api/profile/' + uid).then(r => r.json()).then(data => {
     if (!data.ok) return;
     profileData = data;
-    
     document.getElementById('pvName').innerHTML = data.name + ' <span style="color:#2b80ff;font-size:18px;">★</span>';
     document.getElementById('pvUsername').textContent = '@' + data.username;
     document.getElementById('pvBio').textContent = data.bio || 'Нет описания';
-    
     var statusText = data.online ? 'в сети' : 'был(а) недавно';
     document.getElementById('pvStatus').textContent = statusText;
     document.getElementById('pvStatus').style.color = data.online ? '#2b80ff' : 'var(--muted)';
-    
     var img = document.getElementById('pvAvatar');
     var letter = document.getElementById('pvAvatarLetter');
-    if (data.avatar) {
-      img.src = data.avatar; img.style.display = 'block'; letter.style.display = 'none';
-    } else {
-      img.style.display = 'none'; letter.style.display = 'flex'; letter.textContent = data.name[0].toUpperCase();
-    }
-    
+    if (data.avatar) { img.src = data.avatar; img.style.display = 'block'; letter.style.display = 'none'; }
+    else { img.style.display = 'none'; letter.style.display = 'flex'; letter.textContent = data.name[0].toUpperCase(); }
     switchProfileTab('media');
   });
 }
@@ -400,25 +414,13 @@ function switchProfileTab(tabName) {
   document.querySelectorAll('.profile-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
   var content = document.getElementById('pvContent');
   if (!profileData) return;
-  
   var items = profileData[tabName] || [];
-  if (items.length === 0) {
-    content.innerHTML = '<div class="empty-state" style="padding:20px;">Здесь пока пусто</div>';
-    return;
-  }
-  
+  if (items.length === 0) { content.innerHTML = '<div class="empty-state" style="padding:20px;">Здесь пока пусто</div>'; return; }
   var html = '';
-  if (tabName === 'media') {
-    html = '<div class="profile-media-grid">';
-    items.forEach(m => { html += '<img src="' + m.url + '" onclick="window.open(\'' + m.url + '\')">'; });
-    html += '</div>';
-  } else if (tabName === 'files') {
-    items.forEach(f => { html += '<div class="profile-info-row"><a href="' + f.url + '" download style="color:#2b80ff;text-decoration:none;">📄 ' + f.name + '</a><span style="font-size:12px;color:var(--muted);">' + f.timestamp + '</span></div>'; });
-  } else if (tabName === 'audio') {
-    items.forEach(a => { html += '<div style="margin-bottom:10px;"><audio controls src="' + a.url + '" style="width:100%;height:36px;"></audio></div>'; });
-  } else if (tabName === 'links') {
-    items.forEach(l => { html += '<div style="margin-bottom:10px;"><a href="' + l.url + '" target="_blank" style="color:#2b80ff;text-decoration:none;">🔗 ' + l.url + '</a></div>'; });
-  }
+  if (tabName === 'media') { html = '<div class="profile-media-grid">'; items.forEach(m => { html += '<img src="' + m.url + '" onclick="window.open(\'' + m.url + '\')">'; }); html += '</div>'; } 
+  else if (tabName === 'files') { items.forEach(f => { html += '<div class="profile-info-row"><a href="' + f.url + '" download style="color:#2b80ff;text-decoration:none;">📄 ' + f.name + '</a><span style="font-size:12px;color:var(--muted);">' + f.timestamp + '</span></div>'; }); } 
+  else if (tabName === 'audio') { items.forEach(a => { html += '<div style="margin-bottom:10px;"><audio controls src="' + a.url + '" style="width:100%;height:36px;"></audio></div>'; }); } 
+  else if (tabName === 'links') { items.forEach(l => { html += '<div style="margin-bottom:10px;"><a href="' + l.url + '" target="_blank" style="color:#2b80ff;text-decoration:none;">🔗 ' + l.url + '</a></div>'; }); }
   content.innerHTML = html;
 }
 
@@ -428,6 +430,8 @@ function switchProfileTab(tabName) {
   var ME_ID = {{ me.id }}; 
   var MODE = {{ (mode or '')|tojson }}; 
   var CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
+  var OTHER_NAME = {{ ((other.name if mode == 'personal' and other else ''))|tojson }};
+  var OTHER_AVATAR = {{ ((other.avatar if mode == 'personal' and other else ''))|tojson }};
   var OTHER_BIO = {{ ((other.bio or ('@' + other.username)) if (mode == 'personal' and other) else '')|tojson }};
   var conversationsData = {{ conversations|tojson }};
   var lastSidebarHash = '';
@@ -454,23 +458,18 @@ function switchProfileTab(tabName) {
     var hash = JSON.stringify(convs);
     if (hash === lastSidebarHash) return;
     lastSidebarHash = hash;
-    
     var scrollPos = chatList.scrollTop;
-
     var html = '';
     convs.forEach(function(c){
       var isActive = (MODE === 'personal' && c.type === 'user' && c.id === CHAT_ID) || (MODE === 'group' && c.type === 'group' && c.id === CHAT_ID);
       html += '<a class="chat-item ' + (isActive ? 'active' : '') + '" href="' + (c.type === 'group' ? '/chat?g=' : '/chat?u=') + c.id + '" data-name="' + c.title.toLowerCase() + '" data-type="' + c.type + '">';
       if (c.avatar) html += '<img src="' + c.avatar + '" class="avatar" alt="avatar">';
       else html += '<div class="avatar ' + (c.online ? 'online' : '') + '">' + c.title[0].toUpperCase() + '</div>';
-      
       html += '<div class="chat-meta"><div class="chat-title"><span>' + c.title + '</span>';
       if (c.unread > 0) html += '<span class="unread-badge">' + c.unread + '</span>';
       html += '</div><div class="chat-sub">' + c.sub + '</div></div></a>';
     });
-    
     if (convs.length === 0) html = '<div class="empty-state">Пока никого нет.</div>';
-    
     chatList.innerHTML = html;
     chatList.scrollTop = scrollPos;
     applyFiltersAndSearch();
@@ -479,19 +478,14 @@ function switchProfileTab(tabName) {
   renderSidebar(conversationsData);
 
   async function fetchConversations() {
-    try {
-      var res = await fetch('/api/conversations');
-      var data = await res.json();
-      if (data.ok) renderSidebar(data.conversations);
-    } catch(e) {}
+    try { var res = await fetch('/api/conversations'); var data = await res.json(); if (data.ok) renderSidebar(data.conversations); } catch(e) {}
   }
   setInterval(fetchConversations, 2000);
 
   document.querySelectorAll('.chat-filter-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       document.querySelectorAll('.chat-filter-btn').forEach(function(b){ b.classList.remove('active'); });
-      btn.classList.add('active');
-      applyFiltersAndSearch();
+      btn.classList.add('active'); applyFiltersAndSearch();
     });
   });
   if (searchEl) searchEl.addEventListener('input', applyFiltersAndSearch);
@@ -522,12 +516,7 @@ function switchProfileTab(tabName) {
   var onboardModal = document.getElementById('onboardModal');
   if (onboardModal) {
     var steps = onboardModal.querySelectorAll('.onboard-step');
-    function showStep(n) { 
-      steps.forEach(function(s){ 
-        if (s.dataset.step === String(n)) { s.classList.add('active'); s.style.display = 'flex'; } 
-        else { s.classList.remove('active'); s.style.display = 'none'; } 
-      }); 
-    }
+    function showStep(n) { steps.forEach(function(s){ if (s.dataset.step === String(n)) { s.classList.add('active'); s.style.display = 'flex'; } else { s.classList.remove('active'); s.style.display = 'none'; } }); }
     showStep(1);
     onboardModal.addEventListener('click', function(e){ var next = e.target.closest('[data-next]'); if (next) showStep(next.dataset.next); });
     document.getElementById('finishOnboard').addEventListener('click', async function(){ await fetch('/complete_onboarding', { method: 'POST' }); onboardModal.classList.remove('show'); });
@@ -666,6 +655,164 @@ function switchProfileTab(tabName) {
 
   var mediaRecorder = null, audioChunks = [], micBtn = document.getElementById('micBtn');
   micBtn.addEventListener('click', async function(){ if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); micBtn.classList.remove('rec-active'); return; } try { var stream = await navigator.mediaDevices.getUserMedia({ audio: true }); var mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm')) ? 'audio/webm' : ((window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4')) ? 'audio/mp4' : ''); var ext = mime === 'audio/mp4' ? 'm4a' : 'webm'; mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); audioChunks = []; mediaRecorder.ondataavailable = function(e){ if (e.data.size > 0) audioChunks.push(e.data); }; mediaRecorder.onstop = async function(){ stream.getTracks().forEach(function(t){ t.stop(); }); var blob = new Blob(audioChunks, { type: mime || 'audio/webm' }); var fd = new FormData(); if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID); fd.append('file', blob, 'voice.' + ext); try { await fetch('/upload_file', { method:'POST', body: fd }); await pollMessages(); messagesBox.scrollTop = messagesBox.scrollHeight; } catch(err){ console.error('Voice:', err); } }; mediaRecorder.start(); micBtn.classList.add('rec-active'); } catch(err){ alert('Нет доступа к микрофону'); } });
+
+  // --- ЗВОНКИ (WebRTC) ---
+  var peerConnection = null;
+  var localStream = null;
+  var currentCallId = null;
+  var callPollInterval = null;
+  var callOverlay = document.getElementById('callOverlay');
+  var callStatus = document.getElementById('callStatus');
+  var callName = document.getElementById('callName');
+  var callAvatar = document.getElementById('callAvatar');
+
+  // Настройки STUN сервера (Google бесплатный)
+  var rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+  document.getElementById('startCallBtn').addEventListener('click', async function() {
+    if (MODE !== 'personal') return;
+    try {
+      var res = await fetch('/api/call/start/' + CHAT_ID, { method: 'POST' });
+      var data = await res.json();
+      if (data.ok) {
+        currentCallId = data.call_id;
+        callName.textContent = OTHER_NAME;
+        if (OTHER_AVATAR) { callAvatar.style.background = 'none'; callAvatar.innerHTML = '<img src="' + OTHER_AVATAR + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'; }
+        else { callAvatar.textContent = OTHER_NAME[0].toUpperCase(); }
+        callStatus.textContent = 'Вызов...';
+        callOverlay.classList.add('show');
+        
+        // Показываем кнопку отмены
+        document.getElementById('callActions').innerHTML = '<button class="call-btn end" onclick="endCall()">✕</button>';
+        
+        // Начинаем звонить (создаем оффер)
+        await startWebRTC(true);
+        startCallPolling();
+      }
+    } catch(e) { console.error(e); }
+  });
+
+  // Проверка входящих звонков
+  setInterval(async function() {
+    if (currentCallId) return; // Уже в звонке
+    try {
+      var res = await fetch('/api/call/poll_incoming');
+      var data = await res.json();
+      if (data.ok && data.call_id) {
+        currentCallId = data.call_id;
+        callName.textContent = data.caller_name;
+        if (data.caller_avatar) { callAvatar.style.background = 'none'; callAvatar.innerHTML = '<img src="' + data.caller_avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">'; }
+        else { callAvatar.textContent = data.caller_name[0].toUpperCase(); }
+        callStatus.textContent = 'Входящий звонок...';
+        callOverlay.classList.add('show');
+        
+        document.getElementById('callActions').innerHTML = 
+          '<button class="call-btn reject" onclick="rejectCall()">✕</button>' +
+          '<button class="call-btn accept" onclick="acceptCall()">📞</button>';
+      }
+    } catch(e) {}
+  }, 3000);
+
+  window.rejectCall = async function() {
+    if (!currentCallId) return;
+    await fetch('/api/call/reject/' + currentCallId, { method: 'POST' });
+    cleanupCall();
+  };
+
+  window.acceptCall = async function() {
+    if (!currentCallId) return;
+    await fetch('/api/call/answer/' + currentCallId, { method: 'POST' });
+    callStatus.textContent = 'Соединение...';
+    document.getElementById('callActions').innerHTML = '<button class="call-btn end" onclick="endCall()">✕</button>';
+    await startWebRTC(false);
+    startCallPolling();
+  };
+
+  window.endCall = async function() {
+    if (!currentCallId) return;
+    await fetch('/api/call/end/' + currentCallId, { method: 'POST' });
+    cleanupCall();
+  };
+
+  function cleanupCall() {
+    if (callPollInterval) clearInterval(callPollInterval);
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
+    if (localStream) { localStream.getTracks().forEach(function(t){ t.stop(); }); localStream = null; }
+    callOverlay.classList.remove('show');
+    currentCallId = null;
+  }
+
+  async function startWebRTC(isCaller) {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+    
+    // Получаем микрофон
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(function(track) { peerConnection.addTrack(track, localStream); });
+
+    // Когда находим ICE кандидатов - отправляем их через сервер
+    peerConnection.onicecandidate = function(event) {
+      if (event.candidate) {
+        fetch('/api/call/signal/' + currentCallId, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ type: 'candidate', payload: event.candidate })
+        });
+      }
+    };
+
+    // Когда получаем аудиопоток от собеседника
+    peerConnection.ontrack = function(event) {
+      var remoteAudio = new Audio();
+      remoteAudio.srcObject = event.streams[0];
+      remoteAudio.play();
+      callStatus.textContent = 'В эфире';
+    };
+
+    if (isCaller) {
+      var offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      fetch('/api/call/signal/' + currentCallId, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ type: 'offer', payload: offer })
+      });
+    }
+  }
+
+  function startCallPolling() {
+    callPollInterval = setInterval(async function() {
+      if (!currentCallId) return;
+      try {
+        var res = await fetch('/api/call/signals/' + currentCallId);
+        var data = await res.json();
+        if (!data.ok) return;
+
+        if (data.call_status === 'ended' || data.call_status === 'rejected') {
+          callStatus.textContent = data.call_status === 'rejected' ? 'Отклонен' : 'Завершен';
+          setTimeout(cleanupCall, 1500);
+          return;
+        }
+
+        for (var i = 0; i < data.signals.length; i++) {
+          var sig = data.signals[i];
+          if (sig.type === 'offer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            var answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            fetch('/api/call/signal/' + currentCallId, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ type: 'answer', payload: answer })
+            });
+          } else if (sig.type === 'answer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
+          } else if (sig.type === 'candidate') {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(sig.payload));
+          }
+        }
+      } catch(e) { console.error('Call signal error:', e); }
+    }, 1000);
+  }
 
   pollMessages(); setInterval(pollMessages, 1000);
 })();
