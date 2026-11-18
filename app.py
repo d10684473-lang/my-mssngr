@@ -6,17 +6,29 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ramplez-super-secret-key-2026')
-# Добавлен таймаут для SQLite, чтобы избежать блокировок при частых запросах
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=20'
+
+# Оптимизация и защита SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ramplez.db?timeout=30'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # Лимит 25 МБ на файл
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-db = SQLAlchemy(app)
 
+# Включаем WAL-режим для предотвращения блокировок базы при частом поллинге
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
+
+db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -27,7 +39,6 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
-
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,10 +51,8 @@ class Message(db.Model):
     hidden_for = db.Column(db.String(50), default='')
     timestamp = db.Column(db.String(10), default='')
 
-
 with app.app_context():
     db.create_all()
-
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -75,7 +84,6 @@ def index():
             error = 'Неверный логин или пароль'
     return render_template('login.html', error=error)
 
-
 @app.route('/chat')
 def chat():
     if 'uid' not in session:
@@ -88,7 +96,6 @@ def chat():
     oid = request.args.get('u', type=int) or (users[0].id if users else 0)
     other = db.session.get(User, oid) if oid else None
     return render_template('chat.html', me=me, users=users, other=other)
-
 
 @app.route('/send', methods=['POST'])
 def send():
@@ -112,7 +119,6 @@ def send():
         me.typing_to = 0
     db.session.commit()
     return jsonify({'ok': True, 'id': msg.id})
-
 
 @app.route('/poll/<int:oid>')
 def poll(oid):
@@ -143,7 +149,6 @@ def poll(oid):
     is_typing = bool(other and other.typing_to == uid and (time.time() - (other.typing_at or 0)) < 3.5)
     return jsonify({'ok': True, 'messages': out, 'typing': is_typing})
 
-
 @app.route('/typing/<int:oid>', methods=['POST'])
 def typing(oid):
     if 'uid' not in session:
@@ -154,7 +159,6 @@ def typing(oid):
         me.typing_at = time.time()
         db.session.commit()
     return jsonify({'ok': True})
-
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
@@ -188,11 +192,9 @@ def upload_file():
     db.session.commit()
     return jsonify({'ok': True})
 
-
 @app.route('/uploads/<path:fn>')
 def uploaded_file(fn):
     return send_from_directory(app.config['UPLOAD_FOLDER'], fn)
-
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
@@ -211,7 +213,6 @@ def update_profile():
         db.session.commit()
     return jsonify({'ok': True})
 
-
 @app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_me(mid, u):
     if 'uid' not in session:
@@ -225,7 +226,6 @@ def del_me(mid, u):
         db.session.commit()
     return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
-
 @app.route('/del_all/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_all(mid, u):
     if 'uid' not in session:
@@ -235,7 +235,6 @@ def del_all(mid, u):
         db.session.delete(msg)
         db.session.commit()
     return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
-
 
 @app.route('/react_msg/<int:mid>/<int:u>/<emj>', methods=['GET', 'POST'])
 def react_msg(mid, u, emj):
@@ -247,14 +246,11 @@ def react_msg(mid, u, emj):
         db.session.commit()
     return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
-
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
