@@ -8,6 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&display=swap" rel="stylesheet">
+<script>
+  // Тема до отрисовки, чтобы не было вспышки белого
+  try {
+    if (localStorage.getItem('ramplez_theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+</script>
 <style>
   :root {
     --bg: #ffffff;
@@ -23,7 +31,7 @@
     --other-text: #111111;
     --card: #ffffff;
   }
-  body.dark {
+  :root.dark, body.dark {
     --bg: #17212b;
     --sidebar: #17212b;
     --chat-bg: #0e1621;
@@ -39,20 +47,30 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--text); height: 100dvh;
+         display: flex; overflow: hidden;
+         transition: background 0.2s, color 0.2s; }
 
   .sidebar { width: 320px; background: var(--sidebar);
              border-right: 1px solid var(--border);
-             display: flex; flex-direction: column; flex-shrink: 0; }
+             display: flex; flex-direction: column; flex-shrink: 0;
+             transition: background 0.2s; }
 
   .brand-head {
     padding: 16px 14px 8px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--text);              /* цвет логотипа = цвет темы */
   }
-  .logo { height: 38px; width: auto; display: block; }
+  .logo { height: 34px; width: auto; display: block; }
+  .logo text {
+    fill: var(--text);
+    font-family: 'Comfortaa', 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.5px;
+    transition: fill 0.2s;
+  }
 
-  .side-head { padding: 10px 14px; border-top: 1px solid var(--border);
+  .side-head { padding: 10px 14px;
+               border-top: 1px solid var(--border);
                border-bottom: 1px solid var(--border);
                display: flex; align-items: center;
                justify-content: space-between; gap: 8px; }
@@ -66,7 +84,8 @@
              overflow: hidden; text-overflow: ellipsis; }
   .icon-btn { background: none; border: none; color: var(--text);
               cursor: pointer; font-size: 18px; padding: 6px;
-              border-radius: 8px; text-decoration: none; }
+              border-radius: 8px; text-decoration: none;
+              display: inline-flex; align-items: center; justify-content: center; }
   .icon-btn:hover { background: var(--hover); }
 
   .search-box { padding: 8px 12px; border-bottom: 1px solid var(--border); }
@@ -88,7 +107,8 @@
               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .main { flex: 1; display: flex; flex-direction: column;
-          background: var(--chat-bg); min-width: 0; }
+          background: var(--chat-bg); min-width: 0;
+          transition: background 0.2s; }
   .chat-head { padding: 10px 16px; background: var(--bg);
                border-bottom: 1px solid var(--border);
                display: flex; align-items: center; gap: 12px; }
@@ -175,11 +195,9 @@
 
 <div class="sidebar" id="sidebarPanel">
   <div class="brand-head">
-    <svg class="logo" viewBox="0 0 240 60" xmlns="http://www.w3.org/2000/svg" aria-label="Ramplez" role="img">
-      <text x="120" y="43" text-anchor="middle"
-            font-family="'Comfortaa','Varela Round',sans-serif"
-            font-size="44" font-weight="700"
-            fill="currentColor" letter-spacing="-1">ramplez</text>
+    <svg class="logo" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg"
+         aria-label="ramplez" role="img">
+      <text x="100" y="30" text-anchor="middle" font-size="28" font-weight="700">ramplez</text>
     </svg>
   </div>
   <div class="side-head">
@@ -192,7 +210,7 @@
       <div class="me-name">{{ me.name }}</div>
     </div>
     <div>
-      <button class="icon-btn" id="themeBtn" title="Тема">🌓</button>
+      <button type="button" class="icon-btn" id="themeBtn" title="Тема">🌓</button>
       <a class="icon-btn" href="/logout" title="Выйти">🚪</a>
     </div>
   </div>
@@ -235,15 +253,15 @@
 
   <div class="reply-bar" id="replyBar">
     <span id="replyPreview"></span>
-    <button class="icon-btn" id="cancelReplyBtn">✕</button>
+    <button type="button" class="icon-btn" id="cancelReplyBtn">✕</button>
   </div>
 
   <div class="composer">
     <input type="file" id="fileInput" hidden>
-    <button class="icon-btn" id="attachBtn" title="Прикрепить файл">📎</button>
-    <button class="icon-btn" id="micBtn" title="Голосовое сообщение">🎤</button>
+    <button type="button" class="icon-btn" id="attachBtn" title="Прикрепить файл">📎</button>
+    <button type="button" class="icon-btn" id="micBtn" title="Голосовое сообщение">🎤</button>
     <input type="text" id="msgInput" placeholder="Сообщение..." autocomplete="off">
-    <button class="send-btn" id="sendBtn" title="Отправить">➤</button>
+    <button type="button" class="send-btn" id="sendBtn" title="Отправить">➤</button>
   </div>
   {% else %}
   <div class="empty-state">Выберите чат слева, чтобы начать общение в Ramplez</div>
@@ -262,8 +280,8 @@
     </div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Ваше имя">
     <textarea id="profBio" rows="2" placeholder="О себе (био)">{{ me.bio }}</textarea>
-    <button class="btn-primary" id="saveProfileBtn">Сохранить</button>
-    <button class="btn-secondary" id="closeProfileBtn" style="text-align:center;">Отмена</button>
+    <button type="button" class="btn-primary" id="saveProfileBtn">Сохранить</button>
+    <button type="button" class="btn-secondary" id="closeProfileBtn" style="text-align:center;">Отмена</button>
   </div>
 </div>
 
@@ -276,162 +294,187 @@
       <span data-emj="😮">😮</span>
       <span data-emj="🔥">🔥</span>
     </div>
-    <button class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
-    <button class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
-    <button class="btn-secondary" id="actDelAllBtn" style="color:#ff3b30;">🗑️ Удалить у всех</button>
-    <button class="btn-secondary" id="closeMsgModalBtn" style="text-align:center;">Закрыть</button>
+    <button type="button" class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
+    <button type="button" class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
+    <button type="button" class="btn-secondary" id="actDelAllBtn" style="color:#ff3b30;">🗑️ Удалить у всех</button>
+    <button type="button" class="btn-secondary" id="closeMsgModalBtn" style="text-align:center;">Закрыть</button>
   </div>
 </div>
 
 <script>
-const ME_ID = {{ me.id }};
-const OTHER_ID = {{ other.id if other else 0 }};
-const OTHER_BIO = {{ (other.bio or ('@' + other.username))|tojson if other else '""' }};
-
-// Тема
-if (localStorage.getItem('ramplez_theme') === 'dark') {
-  document.body.classList.add('dark');
-}
-document.getElementById('themeBtn').addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('ramplez_theme',
-    document.body.classList.contains('dark') ? 'dark' : 'light');
-});
-
-// Поиск
-document.getElementById('userSearch').addEventListener('input', (e) => {
-  const q = e.target.value.toLowerCase().trim();
-  document.querySelectorAll('.chat-item').forEach((item) => {
-    item.style.display = item.dataset.name.includes(q) ? 'flex' : 'none';
+/* ============ ТЕМА (bulletproof, вне основного скрипта) ============ */
+(function () {
+  var root = document.documentElement;
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('#themeBtn') : null;
+    if (!btn) return;
+    e.preventDefault();
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark');
+      document.body.classList.remove('dark');
+      try { localStorage.setItem('ramplez_theme', 'light'); } catch (err) {}
+    } else {
+      root.classList.add('dark');
+      document.body.classList.add('dark');
+      try { localStorage.setItem('ramplez_theme', 'dark'); } catch (err) {}
+    }
   });
-});
+  if (root.classList.contains('dark')) document.body.classList.add('dark');
+})();
+</script>
 
-// Профиль
-let compressedAvatarBase64 = '';
-const profileModal = document.getElementById('profileModal');
-document.getElementById('openProfileBtn').addEventListener('click', () => {
-  profileModal.style.display = 'flex';
-});
-function closeProfile() {
-  profileModal.style.display = 'none';
-  compressedAvatarBase64 = '';
-  document.getElementById('avatarInput').value = '';
-}
-document.getElementById('closeProfileBtn').addEventListener('click', closeProfile);
-profileModal.addEventListener('click', (e) => {
-  if (e.target === profileModal) closeProfile();
-});
+<script>
+/* ============ ОСНОВНАЯ ЛОГИКА ПРИЛОЖЕНИЯ ============ */
+(function () {
+  'use strict';
 
-document.getElementById('avatarInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const img = new Image();
-    img.onload = () => {
-      const max = 200;
-      let w = img.width, h = img.height;
-      if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
-      else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      compressedAvatarBase64 = canvas.toDataURL('image/jpeg', 0.82);
-      const prev = document.getElementById('avatarPreview');
-      prev.src = compressedAvatarBase64;
-      prev.style.display = 'block';
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
+  var ME_ID = {{ me.id }};
+  var OTHER_ID = {{ other.id if other else 0 }};
+  var OTHER_BIO = {{ ((other.bio or ('@' + other.username)) if other else '')|tojson }};
 
-document.getElementById('saveProfileBtn').addEventListener('click', async () => {
-  const name = document.getElementById('profName').value.trim();
-  const bio = document.getElementById('profBio').value.trim();
-  await fetch('/update_profile', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, bio, avatar: compressedAvatarBase64 })
-  });
-  location.reload();
-});
+  /* Поиск */
+  var searchEl = document.getElementById('userSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', function (e) {
+      var q = e.target.value.toLowerCase().trim();
+      document.querySelectorAll('.chat-item').forEach(function (item) {
+        item.style.display = item.dataset.name.indexOf(q) !== -1 ? 'flex' : 'none';
+      });
+    });
+  }
 
-// Переписка
-if (OTHER_ID) {
-  const messagesBox = document.getElementById('messagesBox');
-  const msgInput = document.getElementById('msgInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const replyBar = document.getElementById('replyBar');
-  const replyPreview = document.getElementById('replyPreview');
-  const msgModal = document.getElementById('msgModal');
+  /* Профиль */
+  var compressedAvatarBase64 = '';
+  var profileModal = document.getElementById('profileModal');
+  var openProfileBtn = document.getElementById('openProfileBtn');
+  var closeProfileBtn = document.getElementById('closeProfileBtn');
+  var saveProfileBtn = document.getElementById('saveProfileBtn');
+  var avatarInput = document.getElementById('avatarInput');
 
-  let replyText = '';
-  let selectedMsg = null;
-  let lastRenderHash = '';
-  let lastTypingSent = 0;
+  function closeProfile() {
+    if (profileModal) profileModal.style.display = 'none';
+    compressedAvatarBase64 = '';
+    if (avatarInput) avatarInput.value = '';
+  }
+
+  if (openProfileBtn && profileModal) {
+    openProfileBtn.addEventListener('click', function () {
+      profileModal.style.display = 'flex';
+    });
+  }
+  if (closeProfileBtn) closeProfileBtn.addEventListener('click', closeProfile);
+  if (profileModal) {
+    profileModal.addEventListener('click', function (e) {
+      if (e.target === profileModal) closeProfile();
+    });
+  }
+
+  if (avatarInput) {
+    avatarInput.addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          var max = 200;
+          var w = img.width, h = img.height;
+          if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
+          else if (h >= w && h > max) { w = Math.round(w * max / h); h = max; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          compressedAvatarBase64 = canvas.toDataURL('image/jpeg', 0.82);
+          var prev = document.getElementById('avatarPreview');
+          prev.src = compressedAvatarBase64;
+          prev.style.display = 'block';
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', async function () {
+      var name = document.getElementById('profName').value.trim();
+      var bio = document.getElementById('profBio').value.trim();
+      try {
+        await fetch('/update_profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, bio: bio, avatar: compressedAvatarBase64 })
+        });
+        location.reload();
+      } catch (err) { console.error('Profile save error:', err); }
+    });
+  }
+
+  /* Переписка */
+  if (!OTHER_ID) return;
+
+  var messagesBox = document.getElementById('messagesBox');
+  var msgInput = document.getElementById('msgInput');
+  var sendBtn = document.getElementById('sendBtn');
+  var replyBar = document.getElementById('replyBar');
+  var replyPreview = document.getElementById('replyPreview');
+  var msgModal = document.getElementById('msgModal');
+
+  var replyText = '';
+  var selectedMsg = null;
+  var lastRenderHash = '';
+  var lastTypingSent = 0;
 
   function escapeHtml(str) {
-    const d = document.createElement('div');
+    var d = document.createElement('div');
     d.textContent = String(str);
     return d.innerHTML;
   }
 
   function formatBody(m) {
-    if (m.msg_type === 'image') {
-      return `<img src="${escapeHtml(m.content)}" alt="photo">`;
-    }
-    if (m.msg_type === 'audio') {
-      return `<audio controls src="${escapeHtml(m.content)}"></audio>`;
-    }
-    if (m.msg_type === 'file') {
-      return `<a class="file-link" href="${escapeHtml(m.content)}" download>📄 ${escapeHtml(m.file_name || 'Файл')}</a>`;
-    }
-    const text = m.content;
-    if (text.startsWith('↪ ')) {
-      const idx = text.indexOf('\n');
+    if (m.msg_type === 'image') return '<img src="' + escapeHtml(m.content) + '" alt="photo">';
+    if (m.msg_type === 'audio') return '<audio controls src="' + escapeHtml(m.content) + '"></audio>';
+    if (m.msg_type === 'file') return '<a class="file-link" href="' + escapeHtml(m.content) + '" download>📄 ' + escapeHtml(m.file_name || 'Файл') + '</a>';
+    var text = m.content;
+    if (text.indexOf('↪ ') === 0) {
+      var idx = text.indexOf('\n');
       if (idx !== -1) {
-        const quote = escapeHtml(text.slice(2, idx));
-        const body = escapeHtml(text.slice(idx + 1)).replace(/\n/g, '<br>');
-        return `<div class="reply-quote">${quote}</div><div>${body}</div>`;
+        var quote = escapeHtml(text.slice(2, idx));
+        var body = escapeHtml(text.slice(idx + 1)).replace(/\n/g, '<br>');
+        return '<div class="reply-quote">' + quote + '</div><div>' + body + '</div>';
       }
     }
-    return `<div>${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+    return '<div>' + escapeHtml(text).replace(/\n/g, '<br>') + '</div>';
   }
 
   async function pollMessages() {
     try {
-      const res = await fetch(`/poll/${OTHER_ID}`);
+      var res = await fetch('/poll/' + OTHER_ID);
       if (res.status === 401) { window.location.href = '/'; return; }
-      const data = await res.json();
+      var data = await res.json();
       if (!data.ok) return;
 
-      const statusEl = document.getElementById('typingStatus');
-      statusEl.textContent = data.typing ? 'печатает...' : OTHER_BIO;
+      var statusEl = document.getElementById('typingStatus');
+      if (statusEl) statusEl.textContent = data.typing ? 'печатает...' : OTHER_BIO;
 
-      const hash = JSON.stringify(data.messages);
+      var hash = JSON.stringify(data.messages);
       if (hash === lastRenderHash) return;
-      const atBottom = messagesBox.scrollHeight - messagesBox.scrollTop
-                       - messagesBox.clientHeight < 80;
+      var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80;
       lastRenderHash = hash;
 
       messagesBox.innerHTML = '';
-      data.messages.forEach((m) => {
-        const isMine = m.sender_id === ME_ID;
-        const row = document.createElement('div');
-        row.className = `msg-row ${isMine ? 'mine' : 'theirs'}`;
-        row.innerHTML = `
-          <div class="bubble">
-            ${formatBody(m)}
-            <div class="msg-foot"><span>${escapeHtml(m.timestamp)}</span></div>
-          </div>
-          ${m.reaction ? `<div class="reaction-badge">${escapeHtml(m.reaction)}</div>` : ''}
-        `;
-        row.addEventListener('click', () => {
+      data.messages.forEach(function (m) {
+        var isMine = m.sender_id === ME_ID;
+        var row = document.createElement('div');
+        row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
+        row.innerHTML =
+          '<div class="bubble">' + formatBody(m) +
+          '<div class="msg-foot"><span>' + escapeHtml(m.timestamp) + '</span></div></div>' +
+          (m.reaction ? '<div class="reaction-badge">' + escapeHtml(m.reaction) + '</div>' : '');
+        row.addEventListener('click', function () {
           selectedMsg = m;
-          document.getElementById('actDelAllBtn').style.display =
-            isMine ? 'block' : 'none';
+          document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
           msgModal.style.display = 'flex';
         });
         messagesBox.appendChild(row);
@@ -446,153 +489,162 @@ if (OTHER_ID) {
   }
 
   async function sendMessage() {
-    const raw = msgInput.value.trim();
+    var raw = msgInput.value.trim();
     if (!raw) return;
-    const content = replyText ? `↪ ${replyText}\n${raw}` : raw;
+    var content = replyText ? '↪ ' + replyText + '\n' + raw : raw;
     msgInput.value = '';
     replyText = '';
     replyBar.style.display = 'none';
-
     try {
       await fetch('/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oid: OTHER_ID, content })
+        body: JSON.stringify({ oid: OTHER_ID, content: content })
       });
       await pollMessages();
       messagesBox.scrollTop = messagesBox.scrollHeight;
-    } catch (err) {
-      console.error('Send error:', err);
-    }
+    } catch (err) { console.error('Send error:', err); }
   }
 
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
+  if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+  if (msgInput) {
+    msgInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    msgInput.addEventListener('input', function () {
+      var now = Date.now();
+      if (now - lastTypingSent > 2000) {
+        lastTypingSent = now;
+        fetch('/typing/' + OTHER_ID, { method: 'POST' }).catch(function () {});
+      }
+    });
+  }
 
-  msgInput.addEventListener('input', () => {
-    const now = Date.now();
-    if (now - lastTypingSent > 2000) {
-      lastTypingSent = now;
-      fetch(`/typing/${OTHER_ID}`, { method: 'POST' }).catch(() => {});
-    }
-  });
+  var actReplyBtn = document.getElementById('actReplyBtn');
+  if (actReplyBtn) {
+    actReplyBtn.addEventListener('click', function () {
+      if (!selectedMsg) return;
+      var preview = selectedMsg.msg_type === 'text'
+        ? selectedMsg.content.replace(/\n/g, ' ').slice(0, 60)
+        : '[' + selectedMsg.msg_type + ']';
+      replyText = preview;
+      replyPreview.textContent = 'Ответ: ' + preview;
+      replyBar.style.display = 'flex';
+      msgModal.style.display = 'none';
+      msgInput.focus();
+    });
+  }
 
-  document.getElementById('actReplyBtn').addEventListener('click', () => {
-    if (!selectedMsg) return;
-    const preview = selectedMsg.msg_type === 'text'
-      ? selectedMsg.content.replace(/\n/g, ' ').slice(0, 60)
-      : `[${selectedMsg.msg_type}]`;
-    replyText = preview;
-    replyPreview.textContent = `Ответ: ${preview}`;
-    replyBar.style.display = 'flex';
-    msgModal.style.display = 'none';
-    msgInput.focus();
-  });
+  var cancelReplyBtn = document.getElementById('cancelReplyBtn');
+  if (cancelReplyBtn) {
+    cancelReplyBtn.addEventListener('click', function () {
+      replyText = '';
+      replyBar.style.display = 'none';
+    });
+  }
 
-  document.getElementById('cancelReplyBtn').addEventListener('click', () => {
-    replyText = '';
-    replyBar.style.display = 'none';
-  });
+  var actDelMeBtn = document.getElementById('actDelMeBtn');
+  if (actDelMeBtn) {
+    actDelMeBtn.addEventListener('click', async function () {
+      if (!selectedMsg) return;
+      await fetch('/del_me/' + selectedMsg.id + '/' + OTHER_ID, { method: 'POST' });
+      msgModal.style.display = 'none';
+      pollMessages();
+    });
+  }
 
-  document.getElementById('actDelMeBtn').addEventListener('click', async () => {
-    if (!selectedMsg) return;
-    await fetch(`/del_me/${selectedMsg.id}/${OTHER_ID}`, { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
+  var actDelAllBtn = document.getElementById('actDelAllBtn');
+  if (actDelAllBtn) {
+    actDelAllBtn.addEventListener('click', async function () {
+      if (!selectedMsg) return;
+      await fetch('/del_all/' + selectedMsg.id + '/' + OTHER_ID, { method: 'POST' });
+      msgModal.style.display = 'none';
+      pollMessages();
+    });
+  }
 
-  document.getElementById('actDelAllBtn').addEventListener('click', async () => {
-    if (!selectedMsg) return;
-    await fetch(`/del_all/${selectedMsg.id}/${OTHER_ID}`, { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
+  var emojiPicker = document.getElementById('emojiPicker');
+  if (emojiPicker) {
+    emojiPicker.addEventListener('click', async function (e) {
+      var emj = e.target.dataset.emj;
+      if (!emj || !selectedMsg) return;
+      await fetch('/react_msg/' + selectedMsg.id + '/' + OTHER_ID + '/' + encodeURIComponent(emj), { method: 'POST' });
+      msgModal.style.display = 'none';
+      pollMessages();
+    });
+  }
 
-  document.getElementById('emojiPicker').addEventListener('click', async (e) => {
-    const emj = e.target.dataset.emj;
-    if (!emj || !selectedMsg) return;
-    await fetch(`/react_msg/${selectedMsg.id}/${OTHER_ID}/${encodeURIComponent(emj)}`,
-                { method: 'POST' });
-    msgModal.style.display = 'none';
-    pollMessages();
-  });
+  var closeMsgModalBtn = document.getElementById('closeMsgModalBtn');
+  if (closeMsgModalBtn) {
+    closeMsgModalBtn.addEventListener('click', function () {
+      msgModal.style.display = 'none';
+    });
+  }
+  if (msgModal) {
+    msgModal.addEventListener('click', function (e) {
+      if (e.target === msgModal) msgModal.style.display = 'none';
+    });
+  }
 
-  document.getElementById('closeMsgModalBtn').addEventListener('click', () => {
-    msgModal.style.display = 'none';
-  });
-  msgModal.addEventListener('click', (e) => {
-    if (e.target === msgModal) msgModal.style.display = 'none';
-  });
+  var fileInput = document.getElementById('fileInput');
+  var attachBtn = document.getElementById('attachBtn');
+  if (attachBtn && fileInput) {
+    attachBtn.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', async function () {
+      var file = fileInput.files[0];
+      if (!file) return;
+      var fd = new FormData();
+      fd.append('oid', OTHER_ID);
+      fd.append('file', file);
+      fileInput.value = '';
+      try {
+        await fetch('/upload_file', { method: 'POST', body: fd });
+        await pollMessages();
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+      } catch (err) { console.error('File upload error:', err); }
+    });
+  }
 
-  const fileInput = document.getElementById('fileInput');
-  document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('oid', OTHER_ID);
-    fd.append('file', file);
-    fileInput.value = '';
-    try {
-      await fetch('/upload_file', { method: 'POST', body: fd });
-      await pollMessages();
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-    } catch (err) {
-      console.error('File upload error:', err);
-    }
-  });
-
-  let mediaRecorder = null;
-  let audioChunks = [];
-  const micBtn = document.getElementById('micBtn');
-
-  micBtn.addEventListener('click', async () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      micBtn.classList.remove('rec-active');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
-      const ext = mime === 'audio/mp4' ? 'm4a' : 'webm';
-      mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime })
-                           : new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunks.push(e.data);
-      };
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(audioChunks, { type: mime || 'audio/webm' });
-        const fd = new FormData();
-        fd.append('oid', OTHER_ID);
-        fd.append('file', blob, `voice.${ext}`);
-        try {
-          await fetch('/upload_file', { method: 'POST', body: fd });
-          await pollMessages();
-          messagesBox.scrollTop = messagesBox.scrollHeight;
-        } catch (err) {
-          console.error('Voice upload error:', err);
-        }
-      };
-      mediaRecorder.start();
-      micBtn.classList.add('rec-active');
-    } catch (err) {
-      alert('Нет доступа к микрофону');
-    }
-  });
+  var mediaRecorder = null;
+  var audioChunks = [];
+  var micBtn = document.getElementById('micBtn');
+  if (micBtn) {
+    micBtn.addEventListener('click', async function () {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        micBtn.classList.remove('rec-active');
+        return;
+      }
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        var mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm'))
+          ? 'audio/webm'
+          : ((window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4')) ? 'audio/mp4' : '');
+        var ext = mime === 'audio/mp4' ? 'm4a' : 'webm';
+        mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = function (e) { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = async function () {
+          stream.getTracks().forEach(function (t) { t.stop(); });
+          var blob = new Blob(audioChunks, { type: mime || 'audio/webm' });
+          var fd = new FormData();
+          fd.append('oid', OTHER_ID);
+          fd.append('file', blob, 'voice.' + ext);
+          try {
+            await fetch('/upload_file', { method: 'POST', body: fd });
+            await pollMessages();
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+          } catch (err) { console.error('Voice upload error:', err); }
+        };
+        mediaRecorder.start();
+        micBtn.classList.add('rec-active');
+      } catch (err) { alert('Нет доступа к микрофону'); }
+    });
+  }
 
   pollMessages();
   setInterval(pollMessages, 1000);
-}
+})();
 </script>
 </body>
 </html>
