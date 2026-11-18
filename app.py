@@ -28,6 +28,7 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
     try:
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA busy_timeout=5000")
         cur.execute("PRAGMA foreign_keys=ON")
     finally:
         cur.close()
@@ -47,7 +48,6 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
-    # НОВОЕ:
     invited_by = db.Column(db.Integer, default=0)
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
@@ -63,12 +63,10 @@ class Message(db.Model):
     reaction = db.Column(db.String(20), default='')
     hidden_for = db.Column(db.String(50), default='')
     timestamp = db.Column(db.String(10), default='')
-    # НОВОЕ:
     expires_at = db.Column(db.Float, default=0.0)
 
 
 class Chat(db.Model):
-    """Групповой чат. Личные чаты тут НЕ хранятся (они через User.id)."""
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     owner_id = db.Column(db.Integer, nullable=False)
@@ -118,7 +116,6 @@ ensure_schema()
 # ===================== ХЕЛПЕРЫ =====================
 
 def parse_reactions(raw):
-    """'👍' → {'👍': []}; '{"👍":[1,3]}' → {'👍':[1,3]}."""
     if not raw:
         return {}
     try:
@@ -216,7 +213,6 @@ def chat():
         session.clear()
         return redirect(url_for('index'))
 
-    # Обновляем last_seen
     me.last_seen = time.time()
     db.session.commit()
 
@@ -226,7 +222,6 @@ def chat():
                  .filter(ChatMember.user_id == me.id)
                  .all())
 
-    # --- Определяем текущий чат ---
     gid = request.args.get('g', type=int)
     oid = request.args.get('u', type=int)
 
@@ -244,7 +239,6 @@ def chat():
         group = my_groups[0]
         mode = 'group'
 
-    # --- Собираем объединённый список «бесед» для сайдбара ---
     conversations = []
     for u in users:
         conversations.append({
@@ -261,10 +255,12 @@ def chat():
             'active': (mode == 'group' and group and group.id == g.id)
         })
 
+    # ⬇⬇⬇ ГЛАВНОЕ ИСПРАВЛЕНИЕ — добавлен now=time.time() ⬇⬇⬇
     return render_template('chat.html',
                            me=me, users=users, other=other, group=group,
                            mode=mode, conversations=conversations,
-                           my_groups=my_groups)
+                           my_groups=my_groups,
+                           now=time.time())
 
 
 # ===================== SEND / POLL (PERSONAL) =====================
@@ -313,7 +309,6 @@ def poll(oid):
         ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
         ((Message.sender_id == oid) & (Message.receiver_id == uid))
     )
-    # Исчезающие — фильтруем в SQL
     msgs = q.order_by(Message.id.asc()).all()
 
     out = []
@@ -398,7 +393,7 @@ def send_group():
 
     msg = Message(
         sender_id=session['uid'],
-        receiver_id=-gid,  # ← группы = отрицательный ID
+        receiver_id=-gid,
         msg_type='text',
         content=content,
         timestamp=datetime.now().strftime('%H:%M'),
@@ -448,7 +443,6 @@ def poll_group(gid):
             'expires_at': m.expires_at or 0
         })
 
-    # typing — если кто-то из группы печатает нам
     typing_users = []
     members = ChatMember.query.filter_by(chat_id=gid).all()
     for mb in members:
@@ -586,11 +580,10 @@ def react_msg(mid, u, emj):
     msg = db.session.get(Message, mid)
     if msg:
         reactions = parse_reactions(msg.reaction)
-        # убрать мой голос из всех реакций
         for k, v in reactions.items():
             if session['uid'] in v:
                 v.remove(session['uid'])
-        # если этот эмодзи НЕ был моим — добавить
+
         was_mine = False
         try:
             old = json.loads(msg.reaction or '{}')
@@ -601,7 +594,6 @@ def react_msg(mid, u, emj):
                 was_mine = True
         if not was_mine:
             reactions.setdefault(emj, []).append(session['uid'])
-        # чистим пустые
         reactions = {k: v for k, v in reactions.items() if v}
         msg.reaction = dump_reactions(reactions)
         db.session.commit()
