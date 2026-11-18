@@ -1,5 +1,6 @@
 # app.py
 import os
+import json
 import time
 from datetime import datetime
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -7,7 +8,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
@@ -27,12 +28,15 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
     try:
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA foreign_keys=ON")
     finally:
         cur.close()
 
 
 db = SQLAlchemy(app)
 
+
+# ===================== МОДЕЛИ =====================
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -43,6 +47,10 @@ class User(db.Model):
     avatar = db.Column(db.Text, default='')
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
+    # НОВОЕ:
+    invited_by = db.Column(db.Integer, default=0)
+    last_seen = db.Column(db.Float, default=0.0)
+    onboarded = db.Column(db.Integer, default=0)
 
 
 class Message(db.Model):
@@ -55,16 +63,111 @@ class Message(db.Model):
     reaction = db.Column(db.String(20), default='')
     hidden_for = db.Column(db.String(50), default='')
     timestamp = db.Column(db.String(10), default='')
+    # НОВОЕ:
+    expires_at = db.Column(db.Float, default=0.0)
 
 
-with app.app_context():
-    db.create_all()
+class Chat(db.Model):
+    """Групповой чат. Личные чаты тут НЕ хранятся (они через User.id)."""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    owner_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.Float, default=0.0)
 
+
+class ChatMember(db.Model):
+    chat_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, primary_key=True)
+
+
+# ===================== АВТО-МИГРАЦИЯ =====================
+
+def ensure_schema():
+    """Безопасно создаёт/дополняет схему. Идемпотентно."""
+    with app.app_context():
+        db.create_all()
+        try:
+            insp = inspect(db.engine)
+            if not db.engine.url.drivername.startswith('sqlite'):
+                return
+            tables = set(insp.get_table_names())
+
+            if 'user' in tables:
+                cols = {c['name'] for c in insp.get_columns('user')}
+                if 'invited_by' not in cols:
+                    db.session.execute(text('ALTER TABLE user ADD COLUMN invited_by INTEGER DEFAULT 0'))
+                if 'last_seen' not in cols:
+                    db.session.execute(text('ALTER TABLE user ADD COLUMN last_seen FLOAT DEFAULT 0.0'))
+                if 'onboarded' not in cols:
+                    db.session.execute(text('ALTER TABLE user ADD COLUMN onboarded INTEGER DEFAULT 0'))
+
+            if 'message' in tables:
+                cols = {c['name'] for c in insp.get_columns('message')}
+                if 'expires_at' not in cols:
+                    db.session.execute(text('ALTER TABLE message ADD COLUMN expires_at FLOAT DEFAULT 0.0'))
+
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f'[migrate] warning: {e}')
+
+
+ensure_schema()
+
+
+# ===================== ХЕЛПЕРЫ =====================
+
+def parse_reactions(raw):
+    """'👍' → {'👍': []}; '{"👍":[1,3]}' → {'👍':[1,3]}."""
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return {k: list(v) for k, v in data.items() if isinstance(v, list)}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return {raw: []}
+
+
+def dump_reactions(d):
+    return json.dumps(d, ensure_ascii=False)
+
+
+def is_online(u):
+    return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
+
+
+def last_seen_label(u):
+    if not u or not u.last_seen:
+        return 'не в сети'
+    diff = int(time.time() - u.last_seen)
+    if diff < 30:
+        return 'в сети'
+    if diff < 60:
+        return 'был(а) только что'
+    if diff < 3600:
+        return f'был(а) {diff // 60} мин назад'
+    if diff < 86400:
+        return f'был(а) {diff // 3600} ч назад'
+    return 'был(а) давно'
+
+
+def is_member(uid, gid):
+    return ChatMember.query.filter_by(chat_id=gid, user_id=uid).first() is not None
+
+
+# ===================== AUTH =====================
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'uid' in session:
         return redirect(url_for('chat'))
+
+    ref = request.args.get('ref', type=int)
+    if ref:
+        session['pending_ref'] = ref
+
     error = None
     if request.method == 'POST':
         action = request.form.get('action', 'login')
@@ -78,11 +181,14 @@ def index():
             if User.query.filter_by(username=username).first():
                 error = 'Этот логин уже занят'
             else:
+                invited_by = session.get('pending_ref') or 0
                 u = User(username=username, name=name,
-                         password=generate_password_hash(password))
+                         password=generate_password_hash(password),
+                         invited_by=invited_by if invited_by else 0)
                 db.session.add(u)
                 db.session.commit()
                 session['uid'] = u.id
+                session.pop('pending_ref', None)
                 return redirect(url_for('chat'))
         else:
             u = User.query.filter_by(username=username).first()
@@ -93,6 +199,14 @@ def index():
     return render_template('login.html', error=error)
 
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+
+# ===================== CHAT =====================
+
 @app.route('/chat')
 def chat():
     if 'uid' not in session:
@@ -101,11 +215,59 @@ def chat():
     if not me:
         session.clear()
         return redirect(url_for('index'))
-    users = User.query.filter(User.id != me.id).all()
-    oid = request.args.get('u', type=int) or (users[0].id if users else 0)
-    other = db.session.get(User, oid) if oid else None
-    return render_template('chat.html', me=me, users=users, other=other)
 
+    # Обновляем last_seen
+    me.last_seen = time.time()
+    db.session.commit()
+
+    users = User.query.filter(User.id != me.id).all()
+    my_groups = (db.session.query(Chat)
+                 .join(ChatMember, ChatMember.chat_id == Chat.id)
+                 .filter(ChatMember.user_id == me.id)
+                 .all())
+
+    # --- Определяем текущий чат ---
+    gid = request.args.get('g', type=int)
+    oid = request.args.get('u', type=int)
+
+    mode, other, group = None, None, None
+    if gid and is_member(me.id, gid):
+        group = db.session.get(Chat, gid)
+        mode = 'group'
+    elif oid:
+        other = db.session.get(User, oid)
+        mode = 'personal' if other and other.id != me.id else None
+    elif users:
+        other = users[0]
+        mode = 'personal'
+    elif my_groups:
+        group = my_groups[0]
+        mode = 'group'
+
+    # --- Собираем объединённый список «бесед» для сайдбара ---
+    conversations = []
+    for u in users:
+        conversations.append({
+            'type': 'user', 'id': u.id, 'title': u.name,
+            'avatar': u.avatar, 'sub': u.bio or ('@' + u.username),
+            'online': is_online(u),
+            'active': (mode == 'personal' and other and other.id == u.id)
+        })
+    for g in my_groups:
+        conversations.append({
+            'type': 'group', 'id': g.id, 'title': g.title,
+            'avatar': '', 'sub': 'Групповой чат',
+            'online': False,
+            'active': (mode == 'group' and group and group.id == g.id)
+        })
+
+    return render_template('chat.html',
+                           me=me, users=users, other=other, group=group,
+                           mode=mode, conversations=conversations,
+                           my_groups=my_groups)
+
+
+# ===================== SEND / POLL (PERSONAL) =====================
 
 @app.route('/send', methods=['POST'])
 def send():
@@ -116,17 +278,21 @@ def send():
     content = str(data.get('content', '')).strip()
     if not oid or not content:
         return jsonify({'ok': False}), 400
+    expires_in = float(data.get('expires_in', 0) or 0)
+
     msg = Message(
         sender_id=session['uid'],
         receiver_id=oid,
         msg_type='text',
         content=content,
-        timestamp=datetime.now().strftime('%H:%M')
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0
     )
     db.session.add(msg)
     me = db.session.get(User, session['uid'])
     if me:
         me.typing_to = 0
+        me.last_seen = time.time()
     db.session.commit()
     return jsonify({'ok': True, 'id': msg.id})
 
@@ -136,13 +302,24 @@ def poll(oid):
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
     uid = session['uid']
-    msgs = Message.query.filter(
+    now = time.time()
+
+    me = db.session.get(User, uid)
+    if me:
+        me.last_seen = now
+        db.session.commit()
+
+    q = Message.query.filter(
         ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
         ((Message.sender_id == oid) & (Message.receiver_id == uid))
-    ).order_by(Message.id.asc()).all()
+    )
+    # Исчезающие — фильтруем в SQL
+    msgs = q.order_by(Message.id.asc()).all()
 
     out = []
     for m in msgs:
+        if m.expires_at and m.expires_at < now:
+            continue
         hidden = m.hidden_for.split(',') if m.hidden_for else []
         if str(uid) in hidden:
             continue
@@ -152,14 +329,20 @@ def poll(oid):
             'msg_type': m.msg_type,
             'content': m.content,
             'file_name': m.file_name,
-            'reaction': m.reaction,
-            'timestamp': m.timestamp
+            'reaction': m.reaction or '',
+            'timestamp': m.timestamp,
+            'expires_at': m.expires_at or 0
         })
 
     other = db.session.get(User, oid)
     is_typing = bool(other and other.typing_to == uid
                      and (time.time() - (other.typing_at or 0)) < 3.5)
-    return jsonify({'ok': True, 'messages': out, 'typing': is_typing})
+
+    return jsonify({
+        'ok': True, 'messages': out, 'typing': is_typing,
+        'other_online': is_online(other),
+        'other_last_seen': last_seen_label(other)
+    })
 
 
 @app.route('/typing/<int:oid>', methods=['POST'])
@@ -174,14 +357,138 @@ def typing(oid):
     return jsonify({'ok': True})
 
 
+# ===================== GROUPS =====================
+
+@app.route('/create_group', methods=['POST'])
+def create_group():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    title = str(data.get('title', '')).strip()
+    ids = data.get('member_ids') or []
+    if not title or not isinstance(ids, list):
+        return jsonify({'ok': False, 'error': 'bad'}), 400
+    try:
+        ids = [int(x) for x in ids if int(x) != session['uid']]
+    except (ValueError, TypeError):
+        return jsonify({'ok': False, 'error': 'bad_ids'}), 400
+    if not ids:
+        return jsonify({'ok': False, 'error': 'no_members'}), 400
+
+    g = Chat(title=title[:100], owner_id=session['uid'], created_at=time.time())
+    db.session.add(g)
+    db.session.commit()
+
+    for uid_ in set(ids + [session['uid']]):
+        db.session.add(ChatMember(chat_id=g.id, user_id=uid_))
+    db.session.commit()
+    return jsonify({'ok': True, 'gid': g.id})
+
+
+@app.route('/send_group', methods=['POST'])
+def send_group():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    gid = int(data.get('gid', 0))
+    content = str(data.get('content', '')).strip()
+    if not gid or not content or not is_member(session['uid'], gid):
+        return jsonify({'ok': False}), 400
+    expires_in = float(data.get('expires_in', 0) or 0)
+
+    msg = Message(
+        sender_id=session['uid'],
+        receiver_id=-gid,  # ← группы = отрицательный ID
+        msg_type='text',
+        content=content,
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0
+    )
+    db.session.add(msg)
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.last_seen = time.time()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': msg.id})
+
+
+@app.route('/poll_group/<int:gid>')
+def poll_group(gid):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    if not is_member(session['uid'], gid):
+        return jsonify({'ok': False}), 403
+
+    now = time.time()
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.last_seen = now
+        db.session.commit()
+
+    msgs = (Message.query
+            .filter(Message.receiver_id == -gid)
+            .order_by(Message.id.asc())
+            .all())
+
+    out = []
+    for m in msgs:
+        if m.expires_at and m.expires_at < now:
+            continue
+        hidden = m.hidden_for.split(',') if m.hidden_for else []
+        if str(me.id) in hidden:
+            continue
+        out.append({
+            'id': m.id,
+            'sender_id': m.sender_id,
+            'msg_type': m.msg_type,
+            'content': m.content,
+            'file_name': m.file_name,
+            'reaction': m.reaction or '',
+            'timestamp': m.timestamp,
+            'expires_at': m.expires_at or 0
+        })
+
+    # typing — если кто-то из группы печатает нам
+    typing_users = []
+    members = ChatMember.query.filter_by(chat_id=gid).all()
+    for mb in members:
+        if mb.user_id == me.id:
+            continue
+        u = db.session.get(User, mb.user_id)
+        if u and u.typing_to == me.id and (now - (u.typing_at or 0)) < 3.5:
+            typing_users.append(u.name)
+
+    return jsonify({
+        'ok': True, 'messages': out, 'typing': bool(typing_users),
+        'typing_names': typing_users
+    })
+
+
+@app.route('/leave_group/<int:gid>', methods=['POST'])
+def leave_group(gid):
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+# ===================== UPLOAD / FILES =====================
+
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
     if 'uid' not in session:
         return jsonify({'ok': False}), 401
     oid = request.form.get('oid', type=int)
+    gid = request.form.get('gid', type=int)
     f = request.files.get('file')
-    if not oid or not f or not f.filename:
+    if not f or not f.filename:
         return jsonify({'ok': False}), 400
+    if gid and not is_member(session['uid'], gid):
+        return jsonify({'ok': False}), 403
+    if not oid and not gid:
+        return jsonify({'ok': False}), 400
+
     orig_name = secure_filename(f.filename) or 'file'
     saved_name = f"{int(time.time() * 1000)}_{orig_name}"
     f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
@@ -194,13 +501,15 @@ def upload_file():
     else:
         mtype = 'file'
 
+    expires_in = float(request.form.get('expires_in', 0) or 0)
     msg = Message(
         sender_id=session['uid'],
-        receiver_id=oid,
+        receiver_id=(-gid if gid else oid),
         msg_type=mtype,
         content=url_for('uploaded_file', fn=saved_name),
         file_name=f.filename,
-        timestamp=datetime.now().strftime('%H:%M')
+        timestamp=datetime.now().strftime('%H:%M'),
+        expires_at=(time.time() + expires_in) if expires_in > 0 else 0.0
     )
     db.session.add(msg)
     db.session.commit()
@@ -211,6 +520,8 @@ def upload_file():
 def uploaded_file(fn):
     return send_from_directory(app.config['UPLOAD_FOLDER'], fn)
 
+
+# ===================== PROFILE =====================
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
@@ -229,6 +540,19 @@ def update_profile():
         db.session.commit()
     return jsonify({'ok': True})
 
+
+@app.route('/complete_onboarding', methods=['POST'])
+def complete_onboarding():
+    if 'uid' not in session:
+        return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me:
+        me.onboarded = 1
+        db.session.commit()
+    return jsonify({'ok': True})
+
+
+# ===================== ACTIONS ON MESSAGES =====================
 
 @app.route('/del_me/<int:mid>/<int:u>', methods=['GET', 'POST'])
 def del_me(mid, u):
@@ -261,14 +585,32 @@ def react_msg(mid, u, emj):
         return jsonify({'ok': False}), 401
     msg = db.session.get(Message, mid)
     if msg:
-        msg.reaction = '' if msg.reaction == emj else emj
+        reactions = parse_reactions(msg.reaction)
+        # убрать мой голос из всех реакций
+        for k, v in reactions.items():
+            if session['uid'] in v:
+                v.remove(session['uid'])
+        # если этот эмодзи НЕ был моим — добавить
+        was_mine = False
+        try:
+            old = json.loads(msg.reaction or '{}')
+            if isinstance(old, dict) and session['uid'] in old.get(emj, []):
+                was_mine = True
+        except Exception:
+            if msg.reaction == emj:
+                was_mine = True
+        if not was_mine:
+            reactions.setdefault(emj, []).append(session['uid'])
+        # чистим пустые
+        reactions = {k: v for k, v in reactions.items() if v}
+        msg.reaction = dump_reactions(reactions)
         db.session.commit()
     return jsonify({'ok': True}) if request.method == 'POST' else redirect(url_for('chat', u=u))
 
 
-@app.route('/logout')
-def logout():
-    session.clear()
+@app.route('/join/<int:uid>')
+def join(uid):
+    session['pending_ref'] = uid
     return redirect(url_for('index'))
 
 
