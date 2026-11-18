@@ -661,13 +661,20 @@ function switchProfileTab(tabName) {
   var localStream = null;
   var currentCallId = null;
   var callPollInterval = null;
+  var pendingCandidates = [];
+  var isRemoteDescriptionSet = false;
+
   var callOverlay = document.getElementById('callOverlay');
   var callStatus = document.getElementById('callStatus');
   var callName = document.getElementById('callName');
   var callAvatar = document.getElementById('callAvatar');
 
-  // Настройки STUN сервера (Google бесплатный)
-  var rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  var rtcConfig = { 
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ] 
+  };
 
   document.getElementById('startCallBtn').addEventListener('click', async function() {
     if (MODE !== 'personal') return;
@@ -682,19 +689,16 @@ function switchProfileTab(tabName) {
         callStatus.textContent = 'Вызов...';
         callOverlay.classList.add('show');
         
-        // Показываем кнопку отмены
         document.getElementById('callActions').innerHTML = '<button class="call-btn end" onclick="endCall()">✕</button>';
         
-        // Начинаем звонить (создаем оффер)
         await startWebRTC(true);
         startCallPolling();
       }
     } catch(e) { console.error(e); }
   });
 
-  // Проверка входящих звонков
   setInterval(async function() {
-    if (currentCallId) return; // Уже в звонке
+    if (currentCallId) return; 
     try {
       var res = await fetch('/api/call/poll_incoming');
       var data = await res.json();
@@ -740,27 +744,35 @@ function switchProfileTab(tabName) {
     if (localStream) { localStream.getTracks().forEach(function(t){ t.stop(); }); localStream = null; }
     callOverlay.classList.remove('show');
     currentCallId = null;
+    pendingCandidates = [];
+    isRemoteDescriptionSet = false;
+  }
+
+  async function flushPendingCandidates() {
+    if (!peerConnection) return;
+    for (var i = 0; i < pendingCandidates.length; i++) {
+      try {
+        await peerConnection.addIceCandidate(pendingCandidates[i]);
+      } catch (e) { console.warn('ICE error:', e); }
+    }
+    pendingCandidates = [];
   }
 
   async function startWebRTC(isCaller) {
     peerConnection = new RTCPeerConnection(rtcConfig);
-    
-    // Получаем микрофон
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStream.getTracks().forEach(function(track) { peerConnection.addTrack(track, localStream); });
+    isRemoteDescriptionSet = false;
+    pendingCandidates = [];
 
-    // Когда находим ICE кандидатов - отправляем их через сервер
     peerConnection.onicecandidate = function(event) {
-      if (event.candidate) {
+      if (event.candidate && currentCallId) {
         fetch('/api/call/signal/' + currentCallId, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ type: 'candidate', payload: event.candidate })
-        });
+        }).catch(function(){});
       }
     };
 
-    // Когда получаем аудиопоток от собеседника
     peerConnection.ontrack = function(event) {
       var remoteAudio = new Audio();
       remoteAudio.srcObject = event.streams[0];
@@ -768,9 +780,24 @@ function switchProfileTab(tabName) {
       callStatus.textContent = 'В эфире';
     };
 
+    peerConnection.onconnectionstatechange = function() {
+      if (peerConnection.connectionState === 'connected') {
+        callStatus.textContent = 'В эфире';
+      } else if (peerConnection.connectionState === 'failed') {
+        callStatus.textContent = 'Соединение не удалось';
+        setTimeout(cleanupCall, 3000);
+      }
+    };
+
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(function(track) { 
+      peerConnection.addTrack(track, localStream); 
+    });
+
     if (isCaller) {
       var offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
+      // НЕ ставим isRemoteDescriptionSet = true! Ждем answer от собеседника.
       fetch('/api/call/signal/' + currentCallId, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -795,8 +822,12 @@ function switchProfileTab(tabName) {
 
         for (var i = 0; i < data.signals.length; i++) {
           var sig = data.signals[i];
+          
           if (sig.type === 'offer') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            isRemoteDescriptionSet = true;
+            await flushPendingCandidates();
+            
             var answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             fetch('/api/call/signal/' + currentCallId, {
@@ -804,13 +835,23 @@ function switchProfileTab(tabName) {
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ type: 'answer', payload: answer })
             });
+            
           } else if (sig.type === 'answer') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            isRemoteDescriptionSet = true;
+            await flushPendingCandidates();
+            
           } else if (sig.type === 'candidate') {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(sig.payload));
+            var candidate = new RTCIceCandidate(sig.payload);
+            if (isRemoteDescriptionSet) {
+              try { await peerConnection.addIceCandidate(candidate); } 
+              catch(e) { console.warn('Не удалось добавить кандидата:', e); }
+            } else {
+              pendingCandidates.push(candidate);
+            }
           }
         }
-      } catch(e) { console.error('Call signal error:', e); }
+      } catch(e) { console.error('Ошибка сигналинга:', e); }
     }, 1000);
   }
 
