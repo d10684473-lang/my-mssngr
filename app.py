@@ -12,7 +12,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import event, inspect, text
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
@@ -20,7 +20,8 @@ app = Flask(__name__)
 # ===================== КОНФИГ =====================
 app.secret_key = os.environ.get('SECRET_KEY', 'final-billion-dollar-secret-2026')
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
-if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+if _db_url.startswith('postgres://'): 
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -120,30 +121,6 @@ class MessageRead(db.Model):
     message_id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
-
-# ===================== АВТО-МИГРАЦИЯ =====================
-def ensure_schema():
-    with app.app_context():
-        try:
-            # Принудительно откатываем любые возможные «зависшие» транзакции
-            db.session.rollback()
-            
-            # Создаём таблицы
-            db.create_all()
-            db.session.commit()
-            
-            # Дальнейшие проверки колонок (только для SQLite)
-            insp = inspect(db.engine)
-            if not db.engine.url.drivername.startswith('sqlite'):
-                return
-                
-            # ... остальные ALTER TABLE для message, если они есть ...
-            # (оставь их как было, но после каждого execute делай commit)
-            
-        except Exception as e:
-            # Если что-то пошло не так — откатываем транзакцию
-            db.session.rollback()
-            print(f"Schema check skipped (non-critical): {e}")
 
 # ===================== CSRF =====================
 @app.before_request
@@ -346,10 +323,14 @@ def upload_file():
     orig_name = secure_filename(f.filename) or 'file'
     ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
     if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'file type not allowed'}), 400
+    
+    # ВНИМАНИЕ: Если ты добавишь Cloudinary, замени этот блок на загрузку в облако!
     saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
     f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
+    file_url = url_for('uploaded_file', fn=saved_name)
+    
     mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
-    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=file_url, file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg); db.session.commit()
     me = db.session.get(User, session['uid'])
     msg_data = serialize_msg(msg, me.name if me else "")
@@ -544,6 +525,15 @@ def leave_group(gid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete(); db.session.commit()
     return jsonify({'ok': True})
+
+# ===================== ИНИЦИАЛИЗАЦИЯ БАЗЫ =====================
+# Безопасное создание таблиц при старте. Никаких сырых SQL-запросов.
+with app.app_context():
+    try:
+        db.create_all()
+        print("Database tables created/verified successfully.")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
