@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
 <title>Ramplez</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%233b82f6'/%3E%3Cpath d='M30 40 Q30 30 40 30 L60 30 Q70 30 70 40 L70 50 Q70 60 60 60 L50 60 L35 75 L35 60 Q30 60 30 50 Z' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -128,6 +129,24 @@ try {
   .legal-content p { margin-bottom: 8px; color: var(--muted); }
   .legal-content ul { margin-left: 20px; margin-bottom: 8px; color: var(--muted); }
 
+  /* ЗВОНКИ (CALL OVERLAY) */
+  .call-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 10000; flex-direction: column; align-items: center; justify-content: center; }
+  .call-overlay.show { display: flex; }
+  .call-video-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; }
+  #remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+  #localVideo { position: absolute; bottom: 120px; right: 20px; width: 120px; height: 160px; object-fit: cover; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); z-index: 10; }
+  .call-info { position: absolute; top: 40px; left: 0; right: 0; text-align: center; color: #fff; z-index: 10; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+  .call-info h2 { font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+  .call-info p { font-size: 16px; opacity: 0.8; }
+  .call-controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 10; }
+  .call-btn { width: 64px; height: 64px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform 0.2s, background 0.2s; color: #fff; }
+  .call-btn:hover { transform: scale(1.1); }
+  .btn-mute { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
+  .btn-mute.active { background: #ef4444; }
+  .btn-end { background: #ef4444; width: 72px; height: 72px; font-size: 28px; box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
+  .btn-video { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
+  .btn-video.active { background: #ef4444; }
+
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
     .main { display: {{ 'flex' if mode else 'none' }}; }
@@ -195,6 +214,10 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
           <div class="status-line" id="typingStatus">{{ other.bio or ('@' + other.username) }}</div>
         </div>
       </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="icon-btn" id="audioCallBtn" title="Аудиозвонок">📞</button>
+        <button type="button" class="icon-btn" id="videoCallBtn" title="Видеозвонок">📹</button>
+      </div>
     {% elif mode == 'group' and group %}
       <div style="display:flex;align-items:center;gap:12px;flex:1;">
         <div class="avatar">👥</div>
@@ -221,6 +244,23 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   {% else %}
   <div class="empty-state">Выбери чат слева</div>
   {% endif %}
+</div>
+
+<!-- Оверлей для звонка -->
+<div class="call-overlay" id="callOverlay">
+  <div class="call-video-container">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay playsinline muted></video>
+  </div>
+  <div class="call-info">
+    <h2 id="callPeerName">Собеседник</h2>
+    <p id="callStatus">Звонок...</p>
+  </div>
+  <div class="call-controls">
+    <button type="button" class="call-btn btn-mute" id="muteBtn">🎤</button>
+    <button type="button" class="call-btn btn-end" id="endCallBtn">📞</button>
+    <button type="button" class="call-btn btn-video" id="toggleVideoBtn">📹</button>
+  </div>
 </div>
 
 <!-- Действия с сообщением -->
@@ -396,7 +436,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
       var isActive = (MODE === 'personal' && c.type === 'user' && c.id === CHAT_ID) || (MODE === 'group' && c.type === 'group' && c.id === CHAT_ID);
       var href = (c.type === 'group' ? '/chat?g=' : '/chat?u=') + c.id;
       
-      // ФИКС: Если чат активен, счетчик непрочитанных скрываем
       var unread = isActive ? 0 : c.unread;
       
       html += '<a class="chat-item ' + (isActive ? 'active' : '') + '" href="' + href + '">';
@@ -524,7 +563,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     
     var time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
     
-    // ФИКС ГАЛОЧЕК: если прочитано (read_at > 0) - две зеленые, иначе одна белая
     var status = '';
     if (isMine) {
       if (m.read_at > 0) {
@@ -777,7 +815,167 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     forwardModal.classList.remove('show');
   });
 
-  // ===== 6. SSE =====
+  // ===== 6. WEBRTC ЗВОНКИ =====
+  var callOverlay = document.getElementById('callOverlay');
+  var localVideo = document.getElementById('localVideo');
+  var remoteVideo = document.getElementById('remoteVideo');
+  var callPeerName = document.getElementById('callPeerName');
+  var callStatus = document.getElementById('callStatus');
+  var muteBtn = document.getElementById('muteBtn');
+  var endCallBtn = document.getElementById('endCallBtn');
+  var toggleVideoBtn = document.getElementById('toggleVideoBtn');
+
+  var pc = null;
+  var localStream = null;
+  var isCaller = false;
+  var callTargetId = null;
+  var pendingCandidates = [];
+  var isMuted = false;
+  var isVideoOff = false;
+
+  var rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+
+  function sendCallSignal(type, payload) {
+    fetch('/call_signal', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ target_id: callTargetId, type: type, payload: payload })
+    });
+  }
+
+  async function startCall(video) {
+    if (!CHAT_ID || MODE !== 'personal') return alert('Звонки доступны только в личных чатах');
+    isCaller = true;
+    callTargetId = CHAT_ID;
+    callPeerName.textContent = OTHER_NAME;
+    callStatus.textContent = 'Вызов...';
+    callOverlay.classList.add('show');
+    toggleVideoBtn.style.display = video ? 'flex' : 'none';
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
+      localVideo.srcObject = localStream;
+      
+      pc = new RTCPeerConnection(rtcConfig);
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) sendCallSignal('ice', event.candidate);
+      };
+      
+      pc.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+        callStatus.textContent = 'Соединено';
+      };
+
+      var offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendCallSignal('offer', offer);
+      
+    } catch (err) {
+      console.error(err);
+      alert('Не удалось получить доступ к микрофону/камере');
+      endCall();
+    }
+  }
+
+  async function handleOffer(payload, senderId) {
+    if (pc) return alert('Вы уже в звонке');
+    isCaller = false;
+    callTargetId = senderId;
+    callPeerName.textContent = OTHER_NAME;
+    callStatus.textContent = 'Входящий звонок...';
+    callOverlay.classList.add('show');
+    
+    // Здесь можно добавить звук входящего вызова
+    if (!confirm('Входящий звонок от ' + OTHER_NAME + '. Принять?')) {
+      sendCallSignal('reject', {});
+      callOverlay.classList.remove('show');
+      return;
+    }
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: payload.sdp.indexOf('m=video') !== -1 });
+      localVideo.srcObject = localStream;
+
+      pc = new RTCPeerConnection(rtcConfig);
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) sendCallSignal('ice', event.candidate);
+      };
+
+      pc.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+        callStatus.textContent = 'Соединено';
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      
+      pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)));
+      pendingCandidates = [];
+
+      var answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      sendCallSignal('answer', answer);
+      
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при принятии звонка');
+      endCall();
+    }
+  }
+
+  async function handleAnswer(payload) {
+    if (!pc) return;
+    await pc.setRemoteDescription(new RTCSessionDescription(payload));
+    pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)));
+    pendingCandidates = [];
+    callStatus.textContent = 'Соединено';
+  }
+
+  async function handleIce(payload) {
+    if (pc && pc.remoteDescription) {
+      await pc.addIceCandidate(new RTCIceCandidate(payload));
+    } else {
+      pendingCandidates.push(payload);
+    }
+  }
+
+  function endCall() {
+    if (pc) { pc.close(); pc = null; }
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    if (callTargetId && isCaller) sendCallSignal('end', {});
+    callOverlay.classList.remove('show');
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    pendingCandidates = [];
+    isMuted = false; isVideoOff = false;
+    muteBtn.classList.remove('active');
+    toggleVideoBtn.classList.remove('active');
+  }
+
+  // UI controls
+  document.getElementById('audioCallBtn').addEventListener('click', () => startCall(false));
+  document.getElementById('videoCallBtn').addEventListener('click', () => startCall(true));
+  endCallBtn.addEventListener('click', endCall);
+  
+  muteBtn.addEventListener('click', () => {
+    if (localStream) {
+      isMuted = !isMuted;
+      localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+      muteBtn.classList.toggle('active', isMuted);
+    }
+  });
+
+  toggleVideoBtn.addEventListener('click', () => {
+    if (localStream) {
+      isVideoOff = !isVideoOff;
+      localStream.getVideoTracks().forEach(t => t.enabled = !isVideoOff);
+      toggleVideoBtn.classList.toggle('active', isVideoOff);
+    }
+  });
+
+  // ===== 7. SSE =====
   var es = new EventSource('/stream');
   es.addEventListener('new_message', function(e) {
     var m = JSON.parse(e.data);
@@ -792,6 +990,17 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   es.addEventListener('edit', () => pollMessages());
   es.addEventListener('delete', () => pollMessages());
   es.addEventListener('pin', () => pollMessages());
+  
+  es.addEventListener('call_signal', function(e) {
+    var d = JSON.parse(e.data);
+    if (d.type === 'offer') handleOffer(d.payload, d.from);
+    else if (d.type === 'answer') handleAnswer(d.payload);
+    else if (d.type === 'ice') handleIce(d.payload);
+    else if (d.type === 'end' || d.type === 'reject') {
+      endCall();
+      if (d.type === 'reject') alert('Звонок отклонен');
+    }
+  });
 
   pollMessages();
   setInterval(pollMessages, 5000);
