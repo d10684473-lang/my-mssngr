@@ -281,6 +281,24 @@ def api_search_users():
     users = User.query.filter(User.username.ilike(f'{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
     return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
 
+# ===================== WEBRTC SIGNALING =====================
+@app.route('/call_signal', methods=['POST'])
+def call_signal():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    target_id = int(data.get('target_id', 0))
+    signal_type = data.get('type')
+    payload = data.get('payload')
+    
+    if not target_id or not signal_type: return jsonify({'ok': False}), 400
+    
+    sse_publish([target_id], 'call_signal', {
+        'from': session['uid'],
+        'type': signal_type,
+        'payload': payload
+    })
+    return jsonify({'ok': True})
+
 # ===================== SEND / POLL =====================
 @app.route('/send', methods=['POST'])
 def send():
@@ -377,7 +395,6 @@ def poll(oid):
     me = db.session.get(User, uid)
     if me: me.last_seen = now; db.session.commit()
 
-    # Помечаем сообщения как прочитанные
     Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).update({'read_at': now})
     db.session.commit()
 
