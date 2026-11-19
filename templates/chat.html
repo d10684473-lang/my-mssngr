@@ -83,8 +83,9 @@ try {
   .theirs .bubble { background: var(--other-msg); color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
   
   .msg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; margin-top: 6px; opacity: 0.8; }
-  .read-status { color: #10b981; font-weight: 700; letter-spacing: -2px; }
-  .read-status.unread { color: #fff; opacity: 0.6; }
+  .read-status { font-weight: 700; margin-left: 4px; }
+  .read-status.read { color: #10b981; letter-spacing: -2px; } /* Две галочки */
+  .read-status.unread { color: #fff; opacity: 0.7; }       /* Одна галочка */
 
   .reply-quote { border-left: 3px solid currentColor; padding-left: 8px; margin-bottom: 6px; font-size: 12px; opacity: 0.8; white-space: pre-line; }
   .msg-reaction { position: absolute; bottom: -12px; right: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 2px 6px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; z-index: 2; }
@@ -121,6 +122,11 @@ try {
   .emoji-row { display: flex; justify-content: space-between; font-size: 24px; padding: 8px 0; }
   .emoji-row span { cursor: pointer; transition: transform 0.1s; }
   .emoji-row span:hover { transform: scale(1.2); }
+
+  .legal-content { font-size: 14px; line-height: 1.6; color: var(--text); max-height: 60vh; overflow-y: auto; padding-right: 8px; }
+  .legal-content h4 { margin: 16px 0 8px; color: var(--active); }
+  .legal-content p { margin-bottom: 8px; color: var(--muted); }
+  .legal-content ul { margin-left: 20px; margin-bottom: 8px; color: var(--muted); }
 
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
@@ -171,6 +177,10 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   </div>
 
   <div class="chat-list" id="chatList"></div>
+  
+  <div style="padding: 12px 16px; text-align: center; border-top: 1px solid var(--border);">
+    <button class="btn-secondary" id="openLegalBtn" style="width: 100%; font-size: 13px; padding: 8px;">📄 Правила и Конфиденциальность</button>
+  </div>
 </div>
 
 <div class="main" id="mainPanel">
@@ -252,7 +262,35 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
     <button type="button" class="btn-primary" id="saveProfileBtn">Сохранить</button>
+    <button type="button" class="btn-secondary" id="openLegalFromProfileBtn">📄 Правила</button>
     <button type="button" class="btn-secondary" id="closeProfileBtn">Отмена</button>
+  </div>
+</div>
+
+<!-- Правила и Конфиденциальность -->
+<div class="modal" id="legalModal">
+  <div class="modal-card" style="max-width: 600px;">
+    <h3>Правила и Конфиденциальность</h3>
+    <div class="legal-content">
+      <h4>1. Пользовательское соглашение</h4>
+      <p>Используя Ramplez, вы соглашаетесь с тем, что несете полную ответственность за содержание отправляемых вами сообщений. Запрещено использование сервиса для распространения спама, вредоносного ПО, экстремистских материалов и любого контента, нарушающего законодательство.</p>
+      
+      <h4>2. Политика конфиденциальности</h4>
+      <p>Мы ценим вашу приватность. Ramplez собирает минимально необходимые данные для работы сервиса (логин, хэш пароля, имя). Мы <b>не передаем</b> ваши данные третьим лицам и <b>не используем</b> их для рекламы. Ваши переписки хранятся на наших серверах в зашифрованном виде (при использовании HTTPS).</p>
+      
+      <h4>3. Правила сообщества</h4>
+      <ul>
+        <li>Уважайте других пользователей.</li>
+        <li>Не отправляйте нежелательные сообщения (спам).</li>
+        <li>Не публикуйте материалы 18+ без согласия собеседника.</li>
+        <li>Запрещена пропаганда насилия и ненависти.</li>
+      </ul>
+      <p>Нарушение правил может привести к блокировке аккаунта без предупреждения.</p>
+      
+      <h4>4. Удаление данных</h4>
+      <p>Вы можете удалить свои сообщения в любое время (у себя или у всех). Для полного удаления аккаунта свяжитесь с администрацией.</p>
+    </div>
+    <button type="button" class="btn-primary" id="closeLegalBtn">Понятно</button>
   </div>
 </div>
 
@@ -336,7 +374,13 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     });
   }
 
-  // ===== 3. САЙДБАР =====
+  // ===== 3. ПРАВИЛА =====
+  var legalModal = document.getElementById('legalModal');
+  document.getElementById('openLegalBtn').addEventListener('click', function(){ legalModal.classList.add('show'); });
+  document.getElementById('openLegalFromProfileBtn').addEventListener('click', function(){ document.getElementById('profileModal').classList.remove('show'); legalModal.classList.add('show'); });
+  document.getElementById('closeLegalBtn').addEventListener('click', function(){ legalModal.classList.remove('show'); });
+
+  // ===== 4. САЙДБАР =====
   var chatList = document.getElementById('chatList');
   var searchEl = document.getElementById('userSearch');
   var searchUserResults = document.getElementById('searchUserResults');
@@ -450,7 +494,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     if (data.ok) window.location.href = '/chat?g=' + data.gid;
   });
 
-  // ===== 4. ЧАТ =====
+  // ===== 5. ЧАТ =====
   if (!CHAT_ID || !MODE) return;
 
   var messagesBox = document.getElementById('messagesBox');
@@ -479,7 +523,16 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
     
     var time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
-    var status = isMine ? '<span class="read-status ' + (m.read_at > 0 ? '' : 'unread') + '">✓✓</span>' : '';
+    
+    // ФИКС ГАЛОЧЕК: если прочитано (read_at > 0) - две зеленые, иначе одна белая
+    var status = '';
+    if (isMine) {
+      if (m.read_at > 0) {
+        status = '<span class="read-status read">✓✓</span>';
+      } else {
+        status = '<span class="read-status unread">✓</span>';
+      }
+    }
     
     var contentHtml = '';
     if (m.forwarded_from) contentHtml += '<div style="font-size:11px;opacity:.7;margin-bottom:4px;">➡️ Переслано от ' + escapeHtml(m.forwarded_from) + '</div>';
@@ -724,7 +777,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     forwardModal.classList.remove('show');
   });
 
-  // ===== 5. SSE =====
+  // ===== 6. SSE =====
   var es = new EventSource('/stream');
   es.addEventListener('new_message', function(e) {
     var m = JSON.parse(e.data);
