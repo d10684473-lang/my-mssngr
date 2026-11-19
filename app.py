@@ -512,11 +512,17 @@ def leave_group(gid):
 
 # ===================== ИНИЦИАЛИЗАЦИЯ БАЗЫ =====================
 # Безопасное создание таблиц при старте. Никаких сырых SQL-запросов.
+# ===================== ИНИЦИАЛИЗАЦИЯ БАЗЫ =====================
 with app.app_context():
     try:
+        # Принудительно откатываем любые возможные «зависшие» транзакции
+        db.session.rollback()
+        
         db.create_all()
+        db.session.commit()
         print("Database tables created/verified successfully.")
     except Exception as e:
+        db.session.rollback()
         print(f"Database initialization error: {e}")
 
 if __name__ == '__main__':
