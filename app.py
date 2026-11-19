@@ -128,26 +128,20 @@ def ensure_schema():
             # Принудительно откатываем любые возможные «зависшие» транзакции
             db.session.rollback()
             
-            # Создаём таблицы (checkfirst=True встроен в create_all)
+            # Создаём таблицы
             db.create_all()
             db.session.commit()
             
-            # Дальнейшие проверки колонок (только для SQLite, как было)
+            # Дальнейшие проверки колонок (только для SQLite)
             insp = inspect(db.engine)
             if not db.engine.url.drivername.startswith('sqlite'):
                 return
                 
-            tables = set(insp.get_table_names())
-            if 'user' in tables:
-                cols = {c['name'] for c in insp.get_columns('user')}
-                if 'theme' not in cols:
-                    db.session.execute(text('ALTER TABLE user ADD COLUMN theme VARCHAR(20) DEFAULT "dark"'))
-                    db.session.commit()
             # ... остальные ALTER TABLE для message, если они есть ...
             # (оставь их как было, но после каждого execute делай commit)
             
         except Exception as e:
-            # Если что-то пошло не так — откатываем транзакцию, чтобы не ловить InFailedSqlTransaction
+            # Если что-то пошло не так — откатываем транзакцию
             db.session.rollback()
             print(f"Schema check skipped (non-critical): {e}")
 
