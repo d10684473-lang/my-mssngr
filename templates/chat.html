@@ -36,7 +36,6 @@ try {
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-  /* САЙДБАР */
   .sidebar { width: 320px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; transition: background 0.3s; }
   .side-head { padding: 16px; display: flex; align-items: center; justify-content: space-between; }
   .logo { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; text-decoration: none; }
@@ -61,7 +60,6 @@ try {
   .chat-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .unread-badge { background: var(--active); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
 
-  /* ГЛАВНАЯ */
   .main { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: background 0.3s; }
   .chat-head { padding: 12px 20px; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; z-index: 5; position: sticky; top: 0; transition: background 0.3s; }
   .chat-head .avatar { width: 40px; height: 40px; }
@@ -71,7 +69,6 @@ try {
   .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
   .messages-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 8px; }
 
-  /* СООБЩЕНИЯ */
   .msg-row { display: flex; flex-direction: column; max-width: 75%; animation: slideUp 0.2s ease-out; position: relative; }
   .msg-row.mine { align-self: flex-end; align-items: flex-end; }
   .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
@@ -85,8 +82,8 @@ try {
   
   .msg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; margin-top: 6px; opacity: 0.8; }
   .read-status { font-weight: 700; margin-left: 4px; }
-  .read-status.read { color: #10b981; letter-spacing: -2px; } /* Две галочки */
-  .read-status.unread { color: #fff; opacity: 0.7; }       /* Одна галочка */
+  .read-status.read { color: #10b981; letter-spacing: -2px; }
+  .read-status.unread { color: #fff; opacity: 0.7; }
 
   .reply-quote { border-left: 3px solid currentColor; padding-left: 8px; margin-bottom: 6px; font-size: 12px; opacity: 0.8; white-space: pre-line; }
   .msg-reaction { position: absolute; bottom: -12px; right: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 2px 6px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; z-index: 2; }
@@ -94,7 +91,6 @@ try {
   .bubble img { max-width: 250px; max-height: 250px; border-radius: 10px; display: block; margin-bottom: 5px; cursor: pointer; }
   .bubble audio { max-width: 220px; height: 36px; display: block; margin-bottom: 5px; }
 
-  /* ВВОД */
   .composer { padding: 16px 20px; background: var(--sidebar); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; z-index: 5; transition: background 0.3s; }
   .composer-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 24px; padding: 6px 12px; transition: border 0.2s; }
   .composer-inner:focus-within { border-color: var(--active); }
@@ -104,7 +100,6 @@ try {
   .send-btn { background: var(--active); color: #fff; border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: transform 0.1s; }
   .send-btn:active { transform: scale(0.9); }
 
-  /* МОДАЛКИ */
   .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; opacity: 0; transition: opacity 0.2s; }
   .modal.show { display: flex; opacity: 1; }
   .modal-card { background: var(--sidebar); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); transform: scale(0.95); transition: transform 0.2s; }
@@ -129,7 +124,7 @@ try {
   .legal-content p { margin-bottom: 8px; color: var(--muted); }
   .legal-content ul { margin-left: 20px; margin-bottom: 8px; color: var(--muted); }
 
-  /* ЗВОНКИ (CALL OVERLAY) */
+  /* ЗВОНКИ */
   .call-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 10000; flex-direction: column; align-items: center; justify-content: center; }
   .call-overlay.show { display: flex; }
   .call-video-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; }
@@ -146,6 +141,9 @@ try {
   .btn-end { background: #ef4444; width: 72px; height: 72px; font-size: 28px; box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
   .btn-video { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
   .btn-video.active { background: #ef4444; }
+
+  @keyframes ring { 0%, 100% { transform: rotate(-15deg); } 50% { transform: rotate(15deg); } }
+  .ringing-icon { animation: ring 0.6s infinite; }
 
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
@@ -246,7 +244,20 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   {% endif %}
 </div>
 
-<!-- Оверлей для звонка -->
+<!-- Входящий звонок -->
+<div class="modal" id="incomingCallModal">
+  <div class="modal-card" style="text-align:center;">
+    <div class="ringing-icon" style="font-size:64px;margin-bottom:16px;">📞</div>
+    <h3 id="incomingCallName">Собеседник</h3>
+    <p style="color:var(--muted);" id="incomingCallType">Аудиозвонок</p>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:16px;">
+      <button class="call-btn" id="declineCallBtn" style="background:#ef4444;width:60px;height:60px;font-size:24px;">❌</button>
+      <button class="call-btn" id="acceptCallBtn" style="background:#10b981;width:60px;height:60px;font-size:24px;">📞</button>
+    </div>
+  </div>
+</div>
+
+<!-- Активный звонок -->
 <div class="call-overlay" id="callOverlay">
   <div class="call-video-container">
     <video id="remoteVideo" autoplay playsinline></video>
@@ -291,7 +302,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   </div>
 </div>
 
-<!-- Мой профиль -->
+<!-- Профиль -->
 <div class="modal" id="profileModal">
   <div class="modal-card">
     <h3>Мой профиль</h3>
@@ -307,17 +318,15 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   </div>
 </div>
 
-<!-- Правила и Конфиденциальность -->
+<!-- Правила -->
 <div class="modal" id="legalModal">
   <div class="modal-card" style="max-width: 600px;">
     <h3>Правила и Конфиденциальность</h3>
     <div class="legal-content">
       <h4>1. Пользовательское соглашение</h4>
       <p>Используя Ramplez, вы соглашаетесь с тем, что несете полную ответственность за содержание отправляемых вами сообщений. Запрещено использование сервиса для распространения спама, вредоносного ПО, экстремистских материалов и любого контента, нарушающего законодательство.</p>
-      
       <h4>2. Политика конфиденциальности</h4>
-      <p>Мы ценим вашу приватность. Ramplez собирает минимально необходимые данные для работы сервиса (логин, хэш пароля, имя). Мы <b>не передаем</b> ваши данные третьим лицам и <b>не используем</b> их для рекламы. Ваши переписки хранятся на наших серверах в зашифрованном виде (при использовании HTTPS).</p>
-      
+      <p>Мы ценим вашу приватность. Ramplez собирает минимально необходимые данные для работы сервиса (логин, хэш пароля, имя). Мы <b>не передаем</b> ваши данные третьим лицам и <b>не используем</b> их для рекламы.</p>
       <h4>3. Правила сообщества</h4>
       <ul>
         <li>Уважайте других пользователей.</li>
@@ -325,10 +334,10 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
         <li>Не публикуйте материалы 18+ без согласия собеседника.</li>
         <li>Запрещена пропаганда насилия и ненависти.</li>
       </ul>
-      <p>Нарушение правил может привести к блокировке аккаунта без предупреждения.</p>
-      
-      <h4>4. Удаление данных</h4>
-      <p>Вы можете удалить свои сообщения в любое время (у себя или у всех). Для полного удаления аккаунта свяжитесь с администрацией.</p>
+      <h4>4. Звонки</h4>
+      <p>Звонки передаются напрямую между пользователями (P2P) через WebRTC. Сервер не записывает и не хранит аудио/видео.</p>
+      <h4>5. Удаление данных</h4>
+      <p>Вы можете удалить свои сообщения в любое время. Для полного удаления аккаунта свяжитесь с администрацией.</p>
     </div>
     <button type="button" class="btn-primary" id="closeLegalBtn">Понятно</button>
   </div>
@@ -376,7 +385,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
 {% endif %}
 
 <script>
-// ================== ОСНОВНОЙ КОД ==================
 (function(){
   'use strict';
 
@@ -388,7 +396,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
 
   function escapeHtml(s){ var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
 
-  // ===== 1. СМЕНА ТЕМЫ =====
+  // ============ ТЕМА ============
   document.getElementById('themeBtn').addEventListener('click', function(){
     var root = document.documentElement;
     var isDark = root.classList.contains('dark');
@@ -398,7 +406,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     fetch('/update_profile', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ theme: newTheme }) });
   });
 
-  // ===== 2. ОНБОРДИНГ =====
+  // ============ ОНБОРДИНГ ============
   var onboardModal = document.getElementById('onboardModal');
   if (onboardModal) {
     var steps = onboardModal.querySelectorAll('.onboard-step');
@@ -414,13 +422,13 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     });
   }
 
-  // ===== 3. ПРАВИЛА =====
+  // ============ ПРАВИЛА ============
   var legalModal = document.getElementById('legalModal');
-  document.getElementById('openLegalBtn').addEventListener('click', function(){ legalModal.classList.add('show'); });
+  document.getElementById('openLegalBtn').addEventListener('click', () => legalModal.classList.add('show'));
   document.getElementById('openLegalFromProfileBtn').addEventListener('click', function(){ document.getElementById('profileModal').classList.remove('show'); legalModal.classList.add('show'); });
-  document.getElementById('closeLegalBtn').addEventListener('click', function(){ legalModal.classList.remove('show'); });
+  document.getElementById('closeLegalBtn').addEventListener('click', () => legalModal.classList.remove('show'));
 
-  // ===== 4. САЙДБАР =====
+  // ============ САЙДБАР ============
   var chatList = document.getElementById('chatList');
   var searchEl = document.getElementById('userSearch');
   var searchUserResults = document.getElementById('searchUserResults');
@@ -435,9 +443,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     convs.forEach(function(c){
       var isActive = (MODE === 'personal' && c.type === 'user' && c.id === CHAT_ID) || (MODE === 'group' && c.type === 'group' && c.id === CHAT_ID);
       var href = (c.type === 'group' ? '/chat?g=' : '/chat?u=') + c.id;
-      
       var unread = isActive ? 0 : c.unread;
-      
       html += '<a class="chat-item ' + (isActive ? 'active' : '') + '" href="' + href + '">';
       if (c.avatar) html += '<img src="' + c.avatar + '" class="avatar" alt="avatar">';
       else html += '<div class="avatar ' + (c.online ? 'online' : '') + '">' + escapeHtml((c.title || '?')[0].toUpperCase()) + '</div>';
@@ -460,7 +466,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   }
   setInterval(fetchConversations, 10000);
 
-  // Поиск юзеров
   var searchUserTimer = null;
   searchEl.addEventListener('input', function(){
     var q = searchEl.value.trim();
@@ -487,11 +492,10 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     }, 300);
   });
 
-  // Мой профиль
   var profileModal = document.getElementById('profileModal');
   var compressedAvatar = '';
-  document.getElementById('openProfileBtn').addEventListener('click', function(){ profileModal.classList.add('show'); });
-  document.getElementById('closeProfileBtn').addEventListener('click', function(){ profileModal.classList.remove('show'); });
+  document.getElementById('openProfileBtn').addEventListener('click', () => profileModal.classList.add('show'));
+  document.getElementById('closeProfileBtn').addEventListener('click', () => profileModal.classList.remove('show'));
   document.getElementById('avatarInput').addEventListener('change', function(e){
     var file = e.target.files[0]; if (!file) return;
     var reader = new FileReader();
@@ -516,10 +520,9 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     location.reload();
   });
 
-  // Новая группа
   var groupModal = document.getElementById('groupModal');
-  document.getElementById('newGroupBtn').addEventListener('click', function(){ groupModal.classList.add('show'); });
-  document.getElementById('closeGroupModalBtn').addEventListener('click', function(){ groupModal.classList.remove('show'); });
+  document.getElementById('newGroupBtn').addEventListener('click', () => groupModal.classList.add('show'));
+  document.getElementById('closeGroupModalBtn').addEventListener('click', () => groupModal.classList.remove('show'));
   document.querySelectorAll('.chip').forEach(function(ch){
     ch.addEventListener('click', function(){ ch.classList.toggle('active'); ch.style.background = ch.classList.contains('active') ? 'var(--active)' : 'var(--hover)'; ch.style.color = ch.classList.contains('active') ? '#fff' : 'var(--text)'; });
   });
@@ -533,289 +536,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     if (data.ok) window.location.href = '/chat?g=' + data.gid;
   });
 
-  // ===== 5. ЧАТ =====
-  if (!CHAT_ID || !MODE) return;
-
-  var messagesBox = document.getElementById('messagesBox');
-  var messagesInner = document.getElementById('messagesInner');
-  var msgInput = document.getElementById('msgInput');
-  var sendBtn = document.getElementById('sendBtn');
-  var pendingMsgs = {};
-  var renderedIds = new Set();
-  var lastMsgId = 0;
-  var lastDateStr = null;
-  var replyToMsg = null;
-  var selectedMsg = null;
-
-  function formatDate(ts) {
-    var d = new Date(ts * 1000), today = new Date(), yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return 'Сегодня';
-    if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  }
-
-  function buildRow(m) {
-    var isMine = m.sender_id === ME_ID;
-    var row = document.createElement('div');
-    row.id = 'msg-' + m.id;
-    row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
-    
-    var time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
-    
-    var status = '';
-    if (isMine) {
-      if (m.read_at > 0) {
-        status = '<span class="read-status read">✓✓</span>';
-      } else {
-        status = '<span class="read-status unread">✓</span>';
-      }
-    }
-    
-    var contentHtml = '';
-    if (m.forwarded_from) contentHtml += '<div style="font-size:11px;opacity:.7;margin-bottom:4px;">➡️ Переслано от ' + escapeHtml(m.forwarded_from) + '</div>';
-    
-    if (m.msg_type === 'image') contentHtml += '<img src="' + m.content + '" onclick="window.open(\'' + m.content + '\')">';
-    else if (m.msg_type === 'audio') contentHtml += '<audio controls src="' + m.content + '"></audio>';
-    else if (m.msg_type === 'file') contentHtml += '<a href="' + m.content + '" download style="color:inherit;text-decoration:underline;">📄 ' + escapeHtml(m.file_name) + '</a>';
-    else contentHtml += escapeHtml(m.content).replace(/\n/g, '<br>');
-    
-    var reactionHtml = m.reaction ? '<div class="msg-reaction">' + m.reaction + '</div>' : '';
-
-    row.innerHTML = '<div class="bubble">' + contentHtml + 
-      '<div class="msg-foot"><span>' + time + '</span>' + status + '</div></div>' + reactionHtml;
-      
-    var clickTimer = null;
-    row.addEventListener('click', function(e) {
-      if (clickTimer) {
-        clearTimeout(clickTimer); clickTimer = null;
-        fetch('/react_msg/' + m.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: '❤️' }) });
-        pollMessages();
-      } else {
-        clickTimer = setTimeout(function(){
-          clickTimer = null;
-          selectedMsg = m;
-          document.getElementById('actEditBtn').style.display = (isMine && m.msg_type === 'text') ? 'block' : 'none';
-          document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
-          document.getElementById('msgModal').classList.add('show');
-        }, 250);
-      }
-    });
-    return row;
-  }
-
-  function appendMessage(m) {
-    if (renderedIds.has(m.id)) return;
-    renderedIds.add(m.id);
-    
-    var msgDate = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
-    if (msgDate && msgDate !== lastDateStr) {
-      var sep = document.createElement('div');
-      sep.className = 'date-separator';
-      sep.textContent = formatDate(m.created_at);
-      messagesInner.appendChild(sep);
-      lastDateStr = msgDate;
-    }
-    
-    var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
-    messagesInner.appendChild(buildRow(m));
-    if (atBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
-  }
-
-  window.reactToMsg = async function(mid, currentEmj) {
-    var newEmj = currentEmj === '❤️' ? '' : '❤️';
-    await fetch('/react_msg/' + mid, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: newEmj }) });
-    pollMessages();
-  };
-
-  async function pollMessages() {
-    try {
-      var url = MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID;
-      var res = await fetch(url);
-      if (res.status === 401) return window.location.href = '/';
-      var data = await res.json();
-      if (!data.ok) return;
-
-      var statusEl = document.getElementById('typingStatus');
-      if (statusEl) {
-        if (data.typing) {
-          statusEl.textContent = data.typing_names ? data.typing_names.join(', ') + ' печатает...' : 'печатает...';
-          statusEl.classList.remove('online');
-        } else if (MODE === 'personal') {
-          statusEl.textContent = data.other_online ? 'в сети' : (OTHER_NAME ? '@' + OTHER_NAME.toLowerCase() : '');
-          statusEl.classList.toggle('online', !!data.other_online);
-        }
-      }
-
-      data.messages.forEach(function(m) {
-        if (!renderedIds.has(m.id)) appendMessage(m);
-        if (m.id > lastMsgId) lastMsgId = m.id;
-      });
-
-      Object.keys(pendingMsgs).forEach(function(tempId) {
-        var p = pendingMsgs[tempId];
-        if (data.messages.find(m => m.sender_id === ME_ID && m.content === p.content)) {
-          var el = document.getElementById('msg-' + tempId);
-          if (el) el.remove();
-          delete pendingMsgs[tempId];
-        }
-      });
-    } catch (err) {}
-  }
-
-  // ОТПРАВКА ТЕКСТА
-  msgInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    var now = Date.now();
-    if (now - (window.lastTypingSent || 0) > 2000) {
-      window.lastTypingSent = now;
-      fetch(MODE === 'group' ? '/typing_group/' + CHAT_ID : '/typing/' + CHAT_ID, { method: 'POST' }).catch(()=>{});
-    }
-  });
-
-  async function sendMessage() {
-    var raw = msgInput.value.trim();
-    if (!raw) return;
-
-    var tempId = 'tmp_' + Date.now();
-    var tempMsg = { id: tempId, sender_id: ME_ID, msg_type: 'text', content: raw, timestamp: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}), created_at: Date.now() / 1000 };
-    pendingMsgs[tempId] = tempMsg;
-    var row = buildRow(tempMsg);
-    row.style.opacity = '0.6';
-    messagesInner.appendChild(row);
-    messagesBox.scrollTop = messagesBox.scrollHeight;
-
-    msgInput.value = '';
-    msgInput.style.height = 'auto';
-
-    var payload = { content: raw };
-    if (MODE === 'group') payload.gid = CHAT_ID; else payload.oid = CHAT_ID;
-    
-    try {
-      var res = await fetch(MODE === 'group' ? '/send_group' : '/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-      var d = await res.json();
-      if (d.ok && d.message) {
-        var el = document.getElementById('msg-' + tempId);
-        if (el) el.remove();
-        appendMessage(d.message);
-      }
-    } catch(e){}
-  }
-
-  sendBtn.addEventListener('click', sendMessage);
-  msgInput.addEventListener('keydown', function(e){
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-
-  // ОТПРАВКА ФАЙЛОВ
-  var fileInput = document.getElementById('fileInput');
-  document.getElementById('attachBtn').addEventListener('click', function(){ fileInput.click(); });
-  fileInput.addEventListener('change', async function(){
-    var f = fileInput.files[0]; if (!f) return;
-    var fd = new FormData();
-    if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
-    fd.append('file', f);
-    fileInput.value = '';
-    try {
-      var res = await fetch('/upload_file', { method: 'POST', body: fd });
-      var d = await res.json();
-      if (d.ok && d.message) appendMessage(d.message);
-    } catch(e){ alert('Ошибка загрузки'); }
-  });
-
-  // ГОЛОСОВЫЕ
-  var mediaRecorder = null, audioChunks = [];
-  var micBtn = document.getElementById('micBtn');
-  micBtn.addEventListener('click', async function(){
-    if (!window.MediaRecorder) return alert('Нет поддержки');
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop(); micBtn.style.color = ''; return;
-    }
-    try {
-      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-      mediaRecorder.onstop = async function(){
-        stream.getTracks().forEach(t => t.stop());
-        var blob = new Blob(audioChunks, { type: 'audio/webm' });
-        var fd = new FormData();
-        if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
-        fd.append('file', blob, 'voice.webm');
-        try {
-          var res = await fetch('/upload_file', { method: 'POST', body: fd });
-          var d = await res.json();
-          if (d.ok && d.message) appendMessage(d.message);
-        } catch(e){}
-      };
-      mediaRecorder.start();
-      micBtn.style.color = '#ef4444';
-    } catch(e){ alert('Нет доступа к микрофону'); }
-  });
-
-  // МЕНЮ СООБЩЕНИЯ
-  var msgModal = document.getElementById('msgModal');
-  document.getElementById('closeMsgModalBtn').addEventListener('click', () => msgModal.classList.remove('show'));
-  document.getElementById('emojiPicker').addEventListener('click', async function(e){
-    var emj = e.target.dataset.emj; if (!emj || !selectedMsg) return;
-    await fetch('/react_msg/' + selectedMsg.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: emj }) });
-    msgModal.classList.remove('show'); pollMessages();
-  });
-  document.getElementById('actDelMeBtn').addEventListener('click', async function(){
-    if (selectedMsg) { await fetch('/del_me/' + selectedMsg.id + '/' + CHAT_ID, { method: 'POST' }); msgModal.classList.remove('show'); pollMessages(); }
-  });
-  document.getElementById('actDelAllBtn').addEventListener('click', async function(){
-    if (selectedMsg) { await fetch('/del_all/' + selectedMsg.id + '/' + CHAT_ID, { method: 'POST' }); msgModal.classList.remove('show'); pollMessages(); }
-  });
-  document.getElementById('actEditBtn').addEventListener('click', async function(){
-    if (!selectedMsg) return;
-    var newText = prompt('Редактировать:', selectedMsg.content);
-    if (newText && newText !== selectedMsg.content) {
-      await fetch('/edit_msg/' + selectedMsg.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ content: newText }) });
-      msgModal.classList.remove('show'); pollMessages();
-    }
-  });
-  document.getElementById('actReplyBtn').addEventListener('click', function(){
-    if (!selectedMsg) return;
-    replyToMsg = selectedMsg;
-    msgInput.value = '@' + selectedMsg.sender_name + ', ' + msgInput.value;
-    msgInput.focus(); msgModal.classList.remove('show');
-  });
-  document.getElementById('actPinBtn').addEventListener('click', async function(){
-    if (!selectedMsg) return;
-    await fetch('/pin_msg/' + selectedMsg.id, { method: 'POST' });
-    msgModal.classList.remove('show'); pollMessages();
-  });
-
-  // ПЕРЕСЫЛКА
-  var forwardModal = document.getElementById('forwardModal');
-  document.getElementById('actForwardBtn').addEventListener('click', function(){
-    if (!selectedMsg) return;
-    var box = document.getElementById('forwardTargets');
-    box.innerHTML = '';
-    conversationsData.forEach(function(c){
-      var lbl = document.createElement('label');
-      lbl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;';
-      lbl.innerHTML = '<input type="checkbox" class="fwd-check" data-type="' + c.type + '" data-id="' + c.id + '" style="width:auto;">' +
-        '<span>' + (c.type === 'group' ? '👥 ' : '👤 ') + escapeHtml(c.title) + '</span>';
-      box.appendChild(lbl);
-    });
-    forwardModal.classList.add('show');
-    msgModal.classList.remove('show');
-  });
-  document.getElementById('closeForwardBtn').addEventListener('click', () => forwardModal.classList.remove('show'));
-  document.getElementById('doForwardBtn').addEventListener('click', async function(){
-    var targets = [];
-    document.querySelectorAll('.fwd-check:checked').forEach(function(cb){
-      targets.push({type: cb.dataset.type, id: parseInt(cb.dataset.id)});
-    });
-    if (!targets.length || !selectedMsg) return;
-    await fetch('/forward_msg', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mid: selectedMsg.id, targets: targets }) });
-    forwardModal.classList.remove('show');
-  });
-
-  // ============ WEBRTC (ИСПРАВЛЕННЫЙ) ============
+  // ============ WEBRTC ============
   var callOverlay = document.getElementById('callOverlay');
   var incomingCallModal = document.getElementById('incomingCallModal');
   var localVideo = document.getElementById('localVideo');
@@ -838,7 +559,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   var ringtoneInterval = null;
   var callTimeout = null;
   var incomingTimeout = null;
-  var isProcessingSignal = false; // Защита от дублирования
+  var isProcessingSignal = false;
 
   var rtcConfig = {
     iceServers: [
@@ -904,7 +625,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     if (reason) alert(reason);
   }
 
-  // --- Исходящий звонок ---
   async function startCall(video) {
     if (callState !== 'idle') return alert('Вы уже в звонке');
     if (!CHAT_ID || MODE !== 'personal') return alert('Звонки доступны только в личных чатах');
@@ -912,7 +632,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     callState = 'outgoing';
     callTargetId = CHAT_ID;
     callIsVideo = video;
-    isProcessingSignal = true; // Блокируем входящие сигналы
+    isProcessingSignal = true;
 
     callPeerName.textContent = OTHER_NAME;
     callStatus.textContent = 'Вызов...';
@@ -923,12 +643,22 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
       localVideo.srcObject = localStream;
+      localVideo.play().catch(e => console.warn("Local video play error:", e));
 
       pc = new RTCPeerConnection(rtcConfig);
       localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
       pc.onicecandidate = (e) => { if (e.candidate) sendCallSignal('ice', e.candidate); };
-      pc.ontrack = (e) => { remoteVideo.srcObject = e.streams[0]; callStatus.textContent = 'Соединено'; };
+      pc.ontrack = (e) => { 
+          if (e.streams && e.streams[0]) {
+              remoteVideo.srcObject = e.streams[0];
+          } else {
+              if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+              remoteVideo.srcObject.addTrack(e.track);
+          }
+          remoteVideo.play().catch(err => console.warn("Remote video play error:", err));
+          callStatus.textContent = 'Соединено'; 
+      };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') endCall('Соединение потеряно');
       };
@@ -937,7 +667,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
       await pc.setLocalDescription(offer);
       
       sendCallSignal('offer', offer);
-      isProcessingSignal = false; // Разблокируем после отправки
+      isProcessingSignal = false;
 
       callTimeout = setTimeout(() => {
         if (callState === 'outgoing') endCall('Нет ответа');
@@ -948,9 +678,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     }
   }
 
-  // --- Входящий звонок ---
   async function handleOffer(payload, senderId, senderName) {
-    // Если уже в звонке или обрабатываем другой сигнал — отбой
     if (callState !== 'idle' || isProcessingSignal) {
         var prev = callTargetId;
         callTargetId = senderId;
@@ -990,27 +718,34 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     callStatus.textContent = 'Соединение...';
 
     try {
-      // ВАЖНО: Сначала получаем поток, потом создаем pc
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callIsVideo });
       localVideo.srcObject = localStream;
+      localVideo.play().catch(e => console.warn("Local video play error:", e));
 
       pc = new RTCPeerConnection(rtcConfig);
       localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
       pc.onicecandidate = (e) => { if (e.candidate) sendCallSignal('ice', e.candidate); };
-      pc.ontrack = (e) => { remoteVideo.srcObject = e.streams[0]; callStatus.textContent = 'Соединено'; };
+      pc.ontrack = (e) => { 
+          if (e.streams && e.streams[0]) {
+              remoteVideo.srcObject = e.streams[0];
+          } else {
+              if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
+              remoteVideo.srcObject.addTrack(e.track);
+          }
+          remoteVideo.play().catch(err => console.warn("Remote video play error:", err));
+          callStatus.textContent = 'Соединено'; 
+      };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') endCall('Соединение потеряно');
       };
 
-      // Проверяем состояние перед установкой
       if (pc.signalingState !== 'stable') {
           throw new Error('Неверное состояние соединения: ' + pc.signalingState);
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
       
-      // Добавляем ICE-кандидаты, которые пришли пока ждали getUserMedia
       for (var i = 0; i < pendingCandidates.length; i++) {
         try { await pc.addIceCandidate(new RTCIceCandidate(pendingCandidates[i])); } catch(e){}
       }
@@ -1044,10 +779,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   }
 
   async function handleAnswer(payload) {
-    if (!pc || pc.signalingState !== 'have-local-offer') {
-        console.warn('Игнорируем answer: неверное состояние', pc ? pc.signalingState : 'pc=null');
-        return;
-    }
+    if (!pc || pc.signalingState !== 'have-local-offer') return;
     if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
     
     try {
@@ -1081,7 +813,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     else if (d.type === 'busy') { if (callState === 'outgoing') { cleanupCall(); alert('Собеседник занят'); } }
   }
 
-  // --- UI ---
   var audioCallBtn = document.getElementById('audioCallBtn');
   var videoCallBtn = document.getElementById('videoCallBtn');
   if (audioCallBtn) audioCallBtn.addEventListener('click', () => startCall(false));
@@ -1109,159 +840,11 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     }
   });
 
-  var pc = null;
-  var localStream = null;
-  var isCaller = false;
-  var callTargetId = null;
-  var pendingCandidates = [];
-  var isMuted = false;
-  var isVideoOff = false;
-
-  var rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
-
-  function sendCallSignal(type, payload) {
-    fetch('/call_signal', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ target_id: callTargetId, type: type, payload: payload })
-    });
-  }
-
-  async function startCall(video) {
-    if (!CHAT_ID || MODE !== 'personal') return alert('Звонки доступны только в личных чатах');
-    isCaller = true;
-    callTargetId = CHAT_ID;
-    callPeerName.textContent = OTHER_NAME;
-    callStatus.textContent = 'Вызов...';
-    callOverlay.classList.add('show');
-    toggleVideoBtn.style.display = video ? 'flex' : 'none';
-
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
-      localVideo.srcObject = localStream;
-      
-      pc = new RTCPeerConnection(rtcConfig);
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      
-      pc.onicecandidate = (event) => {
-        if (event.candidate) sendCallSignal('ice', event.candidate);
-      };
-      
-      pc.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-        callStatus.textContent = 'Соединено';
-      };
-
-      var offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      sendCallSignal('offer', offer);
-      
-    } catch (err) {
-      console.error(err);
-      alert('Не удалось получить доступ к микрофону/камере');
-      endCall();
-    }
-  }
-
-  async function handleOffer(payload, senderId) {
-    if (pc) return alert('Вы уже в звонке');
-    isCaller = false;
-    callTargetId = senderId;
-    callPeerName.textContent = OTHER_NAME;
-    callStatus.textContent = 'Входящий звонок...';
-    callOverlay.classList.add('show');
-    
-    // Здесь можно добавить звук входящего вызова
-    if (!confirm('Входящий звонок от ' + OTHER_NAME + '. Принять?')) {
-      sendCallSignal('reject', {});
-      callOverlay.classList.remove('show');
-      return;
-    }
-
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: payload.sdp.indexOf('m=video') !== -1 });
-      localVideo.srcObject = localStream;
-
-      pc = new RTCPeerConnection(rtcConfig);
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) sendCallSignal('ice', event.candidate);
-      };
-
-      pc.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-        callStatus.textContent = 'Соединено';
-      };
-
-      await pc.setRemoteDescription(new RTCSessionDescription(payload));
-      
-      pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)));
-      pendingCandidates = [];
-
-      var answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      sendCallSignal('answer', answer);
-      
-    } catch (err) {
-      console.error(err);
-      alert('Ошибка при принятии звонка');
-      endCall();
-    }
-  }
-
-  async function handleAnswer(payload) {
-    if (!pc) return;
-    await pc.setRemoteDescription(new RTCSessionDescription(payload));
-    pendingCandidates.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)));
-    pendingCandidates = [];
-    callStatus.textContent = 'Соединено';
-  }
-
-  async function handleIce(payload) {
-    if (pc && pc.remoteDescription) {
-      await pc.addIceCandidate(new RTCIceCandidate(payload));
-    } else {
-      pendingCandidates.push(payload);
-    }
-  }
-
-  function endCall() {
-    if (pc) { pc.close(); pc = null; }
-    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-    if (callTargetId && isCaller) sendCallSignal('end', {});
-    callOverlay.classList.remove('show');
-    localVideo.srcObject = null;
-    remoteVideo.srcObject = null;
-    pendingCandidates = [];
-    isMuted = false; isVideoOff = false;
-    muteBtn.classList.remove('active');
-    toggleVideoBtn.classList.remove('active');
-  }
-
-  // UI controls
-  document.getElementById('audioCallBtn').addEventListener('click', () => startCall(false));
-  document.getElementById('videoCallBtn').addEventListener('click', () => startCall(true));
-  endCallBtn.addEventListener('click', endCall);
-  
-  muteBtn.addEventListener('click', () => {
-    if (localStream) {
-      isMuted = !isMuted;
-      localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-      muteBtn.classList.toggle('active', isMuted);
-    }
-  });
-
-  toggleVideoBtn.addEventListener('click', () => {
-    if (localStream) {
-      isVideoOff = !isVideoOff;
-      localStream.getVideoTracks().forEach(t => t.enabled = !isVideoOff);
-      toggleVideoBtn.classList.toggle('active', isVideoOff);
-    }
-  });
-
-  // ===== 7. SSE =====
+  // ============ SSE (глобально) ============
   var es = new EventSource('/stream');
+
   es.addEventListener('new_message', function(e) {
+    if (!CHAT_ID || !MODE) { fetchConversations(); return; }
     var m = JSON.parse(e.data);
     if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
       appendMessage(m);
@@ -1269,21 +852,264 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
       fetchConversations();
     }
   });
-  es.addEventListener('typing', () => pollMessages());
-  es.addEventListener('react', () => pollMessages());
-  es.addEventListener('edit', () => pollMessages());
-  es.addEventListener('delete', () => pollMessages());
-  es.addEventListener('pin', () => pollMessages());
-  
+
   es.addEventListener('call_signal', function(e) {
     var d = JSON.parse(e.data);
-    if (d.type === 'offer') handleOffer(d.payload, d.from);
-    else if (d.type === 'answer') handleAnswer(d.payload);
-    else if (d.type === 'ice') handleIce(d.payload);
-    else if (d.type === 'end' || d.type === 'reject') {
-      endCall();
-      if (d.type === 'reject') alert('Звонок отклонен');
+    handleCallSignal(d);
+  });
+
+  es.addEventListener('typing', function(){ if (CHAT_ID && typeof pollMessages === 'function') pollMessages(); });
+  es.addEventListener('react', function(){ if (CHAT_ID && typeof pollMessages === 'function') pollMessages(); });
+  es.addEventListener('edit', function(){ if (CHAT_ID && typeof pollMessages === 'function') pollMessages(); });
+  es.addEventListener('delete', function(){ if (CHAT_ID && typeof pollMessages === 'function') pollMessages(); });
+  es.addEventListener('pin', function(){ if (CHAT_ID && typeof pollMessages === 'function') pollMessages(); });
+
+  // ============ ЧАТ ============
+  if (!CHAT_ID || !MODE) return;
+
+  var messagesBox = document.getElementById('messagesBox');
+  var messagesInner = document.getElementById('messagesInner');
+  var msgInput = document.getElementById('msgInput');
+  var sendBtn = document.getElementById('sendBtn');
+  var pendingMsgs = {};
+  var renderedIds = new Set();
+  var lastMsgId = 0;
+  var lastDateStr = null;
+  var replyToMsg = null;
+  var selectedMsg = null;
+
+  function formatDate(ts) {
+    var d = new Date(ts * 1000), today = new Date(), yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Сегодня';
+    if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  }
+
+  function buildRow(m) {
+    var isMine = m.sender_id === ME_ID;
+    var row = document.createElement('div');
+    row.id = 'msg-' + m.id;
+    row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
+    var time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+    var status = '';
+    if (isMine) status = m.read_at > 0 ? '<span class="read-status read">✓✓</span>' : '<span class="read-status unread">✓</span>';
+    var contentHtml = '';
+    if (m.forwarded_from) contentHtml += '<div style="font-size:11px;opacity:.7;margin-bottom:4px;">➡️ Переслано от ' + escapeHtml(m.forwarded_from) + '</div>';
+    if (m.msg_type === 'image') contentHtml += '<img src="' + m.content + '" onclick="window.open(\'' + m.content + '\')">';
+    else if (m.msg_type === 'audio') contentHtml += '<audio controls src="' + m.content + '"></audio>';
+    else if (m.msg_type === 'file') contentHtml += '<a href="' + m.content + '" download style="color:inherit;text-decoration:underline;">📄 ' + escapeHtml(m.file_name) + '</a>';
+    else contentHtml += escapeHtml(m.content).replace(/\n/g, '<br>');
+    var reactionHtml = m.reaction ? '<div class="msg-reaction">' + m.reaction + '</div>' : '';
+    row.innerHTML = '<div class="bubble">' + contentHtml + '<div class="msg-foot"><span>' + time + '</span>' + status + '</div></div>' + reactionHtml;
+    var clickTimer = null;
+    row.addEventListener('click', function(e) {
+      if (clickTimer) {
+        clearTimeout(clickTimer); clickTimer = null;
+        fetch('/react_msg/' + m.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: '❤️' }) });
+        pollMessages();
+      } else {
+        clickTimer = setTimeout(function(){
+          clickTimer = null;
+          selectedMsg = m;
+          document.getElementById('actEditBtn').style.display = (isMine && m.msg_type === 'text') ? 'block' : 'none';
+          document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
+          document.getElementById('msgModal').classList.add('show');
+        }, 250);
+      }
+    });
+    return row;
+  }
+
+  function appendMessage(m) {
+    if (renderedIds.has(m.id)) return;
+    renderedIds.add(m.id);
+    var msgDate = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
+    if (msgDate && msgDate !== lastDateStr) {
+      var sep = document.createElement('div');
+      sep.className = 'date-separator';
+      sep.textContent = formatDate(m.created_at);
+      messagesInner.appendChild(sep);
+      lastDateStr = msgDate;
     }
+    var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
+    messagesInner.appendChild(buildRow(m));
+    if (atBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
+
+  async function pollMessages() {
+    try {
+      var url = MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID;
+      var res = await fetch(url);
+      if (res.status === 401) return window.location.href = '/';
+      var data = await res.json();
+      if (!data.ok) return;
+      var statusEl = document.getElementById('typingStatus');
+      if (statusEl) {
+        if (data.typing) {
+          statusEl.textContent = data.typing_names ? data.typing_names.join(', ') + ' печатает...' : 'печатает...';
+          statusEl.classList.remove('online');
+        } else if (MODE === 'personal') {
+          statusEl.textContent = data.other_online ? 'в сети' : (OTHER_NAME ? '@' + OTHER_NAME.toLowerCase() : '');
+          statusEl.classList.toggle('online', !!data.other_online);
+        }
+      }
+      data.messages.forEach(function(m) {
+        if (!renderedIds.has(m.id)) appendMessage(m);
+        if (m.id > lastMsgId) lastMsgId = m.id;
+      });
+      Object.keys(pendingMsgs).forEach(function(tempId) {
+        var p = pendingMsgs[tempId];
+        if (data.messages.find(m => m.sender_id === ME_ID && m.content === p.content)) {
+          var el = document.getElementById('msg-' + tempId);
+          if (el) el.remove();
+          delete pendingMsgs[tempId];
+        }
+      });
+    } catch (err) {}
+  }
+
+  msgInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    var now = Date.now();
+    if (now - (window.lastTypingSent || 0) > 2000) {
+      window.lastTypingSent = now;
+      fetch(MODE === 'group' ? '/typing_group/' + CHAT_ID : '/typing/' + CHAT_ID, { method: 'POST' }).catch(()=>{});
+    }
+  });
+
+  async function sendMessage() {
+    var raw = msgInput.value.trim();
+    if (!raw) return;
+    var tempId = 'tmp_' + Date.now();
+    var tempMsg = { id: tempId, sender_id: ME_ID, msg_type: 'text', content: raw, timestamp: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}), created_at: Date.now() / 1000 };
+    pendingMsgs[tempId] = tempMsg;
+    var row = buildRow(tempMsg);
+    row.style.opacity = '0.6';
+    messagesInner.appendChild(row);
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+    msgInput.value = '';
+    msgInput.style.height = 'auto';
+    var payload = { content: raw };
+    if (MODE === 'group') payload.gid = CHAT_ID; else payload.oid = CHAT_ID;
+    try {
+      var res = await fetch(MODE === 'group' ? '/send_group' : '/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+      var d = await res.json();
+      if (d.ok && d.message) {
+        var el = document.getElementById('msg-' + tempId);
+        if (el) el.remove();
+        appendMessage(d.message);
+      }
+    } catch(e){}
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  msgInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  var fileInput = document.getElementById('fileInput');
+  document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async function(){
+    var f = fileInput.files[0]; if (!f) return;
+    var fd = new FormData();
+    if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
+    fd.append('file', f);
+    fileInput.value = '';
+    try {
+      var res = await fetch('/upload_file', { method: 'POST', body: fd });
+      var d = await res.json();
+      if (d.ok && d.message) appendMessage(d.message);
+    } catch(e){ alert('Ошибка загрузки'); }
+  });
+
+  var mediaRecorder = null, audioChunks = [];
+  var micBtn = document.getElementById('micBtn');
+  micBtn.addEventListener('click', async function(){
+    if (!window.MediaRecorder) return alert('Нет поддержки');
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop(); micBtn.style.color = ''; return;
+    }
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = async function(){
+        stream.getTracks().forEach(t => t.stop());
+        var blob = new Blob(audioChunks, { type: 'audio/webm' });
+        var fd = new FormData();
+        if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
+        fd.append('file', blob, 'voice.webm');
+        try {
+          var res = await fetch('/upload_file', { method: 'POST', body: fd });
+          var d = await res.json();
+          if (d.ok && d.message) appendMessage(d.message);
+        } catch(e){}
+      };
+      mediaRecorder.start();
+      micBtn.style.color = '#ef4444';
+    } catch(e){ alert('Нет доступа к микрофону'); }
+  });
+
+  var msgModal = document.getElementById('msgModal');
+  document.getElementById('closeMsgModalBtn').addEventListener('click', () => msgModal.classList.remove('show'));
+  document.getElementById('emojiPicker').addEventListener('click', async function(e){
+    var emj = e.target.dataset.emj; if (!emj || !selectedMsg) return;
+    await fetch('/react_msg/' + selectedMsg.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: emj }) });
+    msgModal.classList.remove('show'); pollMessages();
+  });
+  document.getElementById('actDelMeBtn').addEventListener('click', async function(){
+    if (selectedMsg) { await fetch('/del_me/' + selectedMsg.id + '/' + CHAT_ID, { method: 'POST' }); msgModal.classList.remove('show'); pollMessages(); }
+  });
+  document.getElementById('actDelAllBtn').addEventListener('click', async function(){
+    if (selectedMsg) { await fetch('/del_all/' + selectedMsg.id + '/' + CHAT_ID, { method: 'POST' }); msgModal.classList.remove('show'); pollMessages(); }
+  });
+  document.getElementById('actEditBtn').addEventListener('click', async function(){
+    if (!selectedMsg) return;
+    var newText = prompt('Редактировать:', selectedMsg.content);
+    if (newText && newText !== selectedMsg.content) {
+      await fetch('/edit_msg/' + selectedMsg.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ content: newText }) });
+      msgModal.classList.remove('show'); pollMessages();
+    }
+  });
+  document.getElementById('actReplyBtn').addEventListener('click', function(){
+    if (!selectedMsg) return;
+    replyToMsg = selectedMsg;
+    msgInput.value = '@' + selectedMsg.sender_name + ', ' + msgInput.value;
+    msgInput.focus(); msgModal.classList.remove('show');
+  });
+  document.getElementById('actPinBtn').addEventListener('click', async function(){
+    if (!selectedMsg) return;
+    await fetch('/pin_msg/' + selectedMsg.id, { method: 'POST' });
+    msgModal.classList.remove('show'); pollMessages();
+  });
+
+  var forwardModal = document.getElementById('forwardModal');
+  document.getElementById('actForwardBtn').addEventListener('click', function(){
+    if (!selectedMsg) return;
+    var box = document.getElementById('forwardTargets');
+    box.innerHTML = '';
+    conversationsData.forEach(function(c){
+      var lbl = document.createElement('label');
+      lbl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;';
+      lbl.innerHTML = '<input type="checkbox" class="fwd-check" data-type="' + c.type + '" data-id="' + c.id + '" style="width:auto;">' +
+        '<span>' + (c.type === 'group' ? '👥 ' : '👤 ') + escapeHtml(c.title) + '</span>';
+      box.appendChild(lbl);
+    });
+    forwardModal.classList.add('show');
+    msgModal.classList.remove('show');
+  });
+  document.getElementById('closeForwardBtn').addEventListener('click', () => forwardModal.classList.remove('show'));
+  document.getElementById('doForwardBtn').addEventListener('click', async function(){
+    var targets = [];
+    document.querySelectorAll('.fwd-check:checked').forEach(function(cb){
+      targets.push({type: cb.dataset.type, id: parseInt(cb.dataset.id)});
+    });
+    if (!targets.length || !selectedMsg) return;
+    await fetch('/forward_msg', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mid: selectedMsg.id, targets: targets }) });
+    forwardModal.classList.remove('show');
   });
 
   pollMessages();
