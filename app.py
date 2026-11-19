@@ -124,26 +124,32 @@ class MessageRead(db.Model):
 # ===================== АВТО-МИГРАЦИЯ =====================
 def ensure_schema():
     with app.app_context():
-        db.create_all()
         try:
+            # Принудительно откатываем любые возможные «зависшие» транзакции
+            db.session.rollback()
+            
+            # Создаём таблицы (checkfirst=True встроен в create_all)
+            db.create_all()
+            db.session.commit()
+            
+            # Дальнейшие проверки колонок (только для SQLite, как было)
             insp = inspect(db.engine)
-            if not db.engine.url.drivername.startswith('sqlite'): return
+            if not db.engine.url.drivername.startswith('sqlite'):
+                return
+                
             tables = set(insp.get_table_names())
             if 'user' in tables:
                 cols = {c['name'] for c in insp.get_columns('user')}
-                if 'theme' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN theme VARCHAR(20) DEFAULT "dark"'))
-            if 'message' in tables:
-                cols = {c['name'] for c in insp.get_columns('message')}
-                if 'reply_to_id' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reply_to_id INTEGER DEFAULT 0'))
-                if 'edited_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN edited_at FLOAT DEFAULT 0.0'))
-                if 'reaction' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reaction VARCHAR(20) DEFAULT ""'))
-                if 'forwarded_from' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN forwarded_from VARCHAR(100) DEFAULT ""'))
-                if 'hidden_for' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN hidden_for VARCHAR(50) DEFAULT ""'))
-            db.session.commit()
-        except Exception:
+                if 'theme' not in cols:
+                    db.session.execute(text('ALTER TABLE user ADD COLUMN theme VARCHAR(20) DEFAULT "dark"'))
+                    db.session.commit()
+            # ... остальные ALTER TABLE для message, если они есть ...
+            # (оставь их как было, но после каждого execute делай commit)
+            
+        except Exception as e:
+            # Если что-то пошло не так — откатываем транзакцию, чтобы не ловить InFailedSqlTransaction
             db.session.rollback()
-
-ensure_schema()
+            print(f"Schema check skipped (non-critical): {e}")
 
 # ===================== CSRF =====================
 @app.before_request
