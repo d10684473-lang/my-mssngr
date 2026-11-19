@@ -1,4 +1,3 @@
-# app.py
 import os
 import json
 import time
@@ -17,11 +16,10 @@ from sqlalchemy import event, inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import Engine
 
-# ===================== КОНФИГ =====================
 app = Flask(__name__)
 
-_sk = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod-12345')
-app.secret_key = _sk
+# ===================== КОНФИГ =====================
+app.secret_key = os.environ.get('SECRET_KEY', 'billion-dollar-secret-key-2026')
 
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
 if _db_url.startswith('postgres://'):
@@ -30,14 +28,14 @@ if _db_url.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-SAFE_INLINE_EXTS = {'png','jpg','jpeg','gif','webp','bmp','mp3','wav','ogg','webm','m4a','mp4'}
-DANGEROUS_EXTS = {'php','phtml','exe','dll','bat','cmd','js','html','htm','svg','xml','apk'}
+SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
+DANGEROUS_EXTS = {'php', 'phtml', 'exe', 'dll', 'bat', 'cmd', 'js', 'html', 'htm', 'svg', 'xml', 'apk'}
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, connection_record):
@@ -53,7 +51,7 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
 db = SQLAlchemy(app)
 
 # ===================== SSE HUB =====================
-_sse_subscribers = {}   # uid -> list[queue.Queue]
+_sse_subscribers = {}
 _sse_lock = threading.Lock()
 
 def sse_publish(user_ids, event_type, data):
@@ -67,7 +65,7 @@ def sse_publish(user_ids, event_type, data):
                     pass
 
 def sse_subscribe(uid):
-    q = queue.Queue(maxsize=100)
+    q = queue.Queue(maxsize=200)
     with _sse_lock:
         _sse_subscribers.setdefault(uid, []).append(q)
     return q
@@ -93,6 +91,7 @@ class User(db.Model):
     last_seen = db.Column(db.Float, default=0.0)
     onboarded = db.Column(db.Integer, default=0)
     is_bot = db.Column(db.Integer, default=0)
+    theme = db.Column(db.String(20), default='dark')
 
 class Message(db.Model):
     __tablename__ = 'message'
@@ -105,9 +104,11 @@ class Message(db.Model):
     timestamp = db.Column(db.String(10), default='')
     created_at = db.Column(db.Float, default=0.0, index=True)
     read_at = db.Column(db.Float, default=0.0)
+    reaction = db.Column(db.String(20), default='')
     pinned = db.Column(db.Integer, default=0)
     reply_to_id = db.Column(db.Integer, default=0)
     edited_at = db.Column(db.Float, default=0.0)
+    hidden_for = db.Column(db.String(50), default='')
 
 class Chat(db.Model):
     __tablename__ = 'chat'
@@ -135,12 +136,17 @@ def ensure_schema():
             insp = inspect(db.engine)
             if not db.engine.url.drivername.startswith('sqlite'): return
             tables = set(insp.get_table_names())
+            if 'user' in tables:
+                cols = {c['name'] for c in insp.get_columns('user')}
+                if 'theme' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN theme VARCHAR(20) DEFAULT "dark"'))
             if 'message' in tables:
                 cols = {c['name'] for c in insp.get_columns('message')}
                 if 'reply_to_id' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reply_to_id INTEGER DEFAULT 0'))
                 if 'edited_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN edited_at FLOAT DEFAULT 0.0'))
+                if 'reaction' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reaction VARCHAR(20) DEFAULT ""'))
+                if 'hidden_for' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN hidden_for VARCHAR(50) DEFAULT ""'))
             db.session.commit()
-        except Exception as e:
+        except Exception:
             db.session.rollback()
 
 ensure_schema()
@@ -168,7 +174,7 @@ def get_or_create_bot():
     bot = User.query.filter_by(username='ramplez').first()
     if not bot:
         bot = User(username='ramplez', name='Ramplez', password=generate_password_hash(secrets.token_hex(16)),
-                   bio='Официальный бот Ramplez 👋', onboarded=1, is_bot=1)
+                   bio='Официальный бот 👋', onboarded=1, is_bot=1)
         db.session.add(bot); db.session.commit()
     return bot
 
@@ -177,15 +183,12 @@ def get_my_contacts(me_id):
     received = {r[0] for r in db.session.query(Message.sender_id).filter(Message.receiver_id == me_id).distinct()}
     return list(sent | received)
 
-def user_brief(u):
-    return {'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u), 'bio': u.bio or ''}
-
 def serialize_msg(m, sender_name=""):
     return {
         'id': m.id, 'sender_id': m.sender_id, 'receiver_id': m.receiver_id, 'msg_type': m.msg_type,
         'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
-        'created_at': m.created_at, 'read_at': m.read_at, 'pinned': m.pinned,
-        'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
+        'created_at': m.created_at, 'read_at': m.read_at, 'reaction': m.reaction,
+        'pinned': m.pinned, 'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
         'sender_name': sender_name
     }
 
@@ -211,7 +214,6 @@ def stream():
     resp = Response(gen(), mimetype='text/event-stream')
     resp.headers['Cache-Control'] = 'no-cache'
     resp.headers['X-Accel-Buffering'] = 'no'
-    resp.headers['Connection'] = 'keep-alive'
     return resp
 
 # ===================== AUTH =====================
@@ -239,7 +241,6 @@ def index():
                 db.session.add(u); db.session.commit()
                 session['uid'] = u.id; session.pop('pending_ref', None)
                 
-                # Приветствие от бота
                 bot = get_or_create_bot()
                 if bot.id != u.id:
                     welcome = Message(sender_id=bot.id, receiver_id=u.id, msg_type='text',
@@ -304,13 +305,12 @@ def chat():
     contact_ids = get_my_contacts(me.id)
     users_for_group = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
 
-    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
+    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time(), theme=me.theme or 'dark')
 
 @app.route('/api/conversations')
 def api_conversations():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     me = db.session.get(User, session['uid'])
-    if not me: return jsonify({'ok': False}), 401
     return jsonify({'ok': True, 'conversations': _build_conversations(me)})
 
 @app.route('/api/search_users')
@@ -318,17 +318,15 @@ def api_search_users():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     q = (request.args.get('q') or '').strip().lower()
     if not q or len(q) < 2: return jsonify({'ok': True, 'users': []})
-    
     users = User.query.filter(User.username.ilike(f'{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
-    return jsonify({'ok': True, 'users': [user_brief(u) for u in users]})
+    return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
 
 @app.route('/api/profile/<int:uid>')
 def api_profile(uid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     user = db.session.get(User, uid)
     if not user: return jsonify({'ok': False}), 404
-    return jsonify({'ok': True, 'id': user.id, 'name': user.name, 'username': user.username,
-                    'bio': user.bio, 'avatar': user.avatar, 'online': is_online(user)})
+    return jsonify({'ok': True, 'id': user.id, 'name': user.name, 'username': user.username, 'bio': user.bio, 'avatar': user.avatar, 'online': is_online(user)})
 
 # ===================== SEND / POLL =====================
 @app.route('/send', methods=['POST'])
@@ -351,9 +349,8 @@ def send():
     db.session.commit()
 
     msg_data = serialize_msg(msg, me.name if me else "")
-    # Мгновенная доставка полного сообщения
     sse_publish([oid, session['uid']], 'new_message', msg_data)
-    return jsonify({'ok': True, 'id': msg.id, 'message': msg_data})
+    return jsonify({'ok': True, 'message': msg_data})
 
 @app.route('/send_group', methods=['POST'])
 def send_group():
@@ -374,7 +371,52 @@ def send_group():
     recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
     msg_data = serialize_msg(msg, me.name if me else "")
     sse_publish(recipients, 'new_message', msg_data)
-    return jsonify({'ok': True, 'id': msg.id, 'message': msg_data})
+    return jsonify({'ok': True, 'message': msg_data})
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    oid = request.form.get('oid', type=int)
+    gid = request.form.get('gid', type=int)
+    f = request.files.get('file')
+    if not f or not f.filename: return jsonify({'ok': False}), 400
+    if gid and not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
+
+    orig_name = secure_filename(f.filename) or 'file'
+    ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
+    if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'file type not allowed'}), 400
+
+    saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
+    f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
+
+    mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
+    
+    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype,
+                  content=url_for('uploaded_file', fn=saved_name), file_name=f.filename,
+                  timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+    db.session.add(msg); db.session.commit()
+
+    me = db.session.get(User, session['uid'])
+    msg_data = serialize_msg(msg, me.name if me else "")
+    
+    if gid:
+        recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
+        sse_publish(recipients, 'new_message', msg_data)
+    else:
+        sse_publish([oid, session['uid']], 'new_message', msg_data)
+    return jsonify({'ok': True, 'message': msg_data})
+
+@app.route('/uploads/<path:fn>')
+def uploaded_file(fn):
+    base = os.path.abspath(app.config['UPLOAD_FOLDER'])
+    target = os.path.abspath(os.path.join(base, fn))
+    if not target.startswith(base + os.sep): abort(403)
+    resp = send_from_directory(base, fn)
+    ext = fn.rsplit('.', 1)[-1].lower() if '.' in fn else ''
+    if ext not in SAFE_INLINE_EXTS:
+        resp.headers['Content-Disposition'] = f'attachment; filename="{os.path.basename(fn)}"'
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    return resp
 
 @app.route('/poll/<int:oid>')
 def poll(oid):
@@ -395,7 +437,7 @@ def poll(oid):
         ((Message.sender_id == oid) & (Message.receiver_id == uid))
     ).order_by(Message.id.asc()).all()
 
-    out = [serialize_msg(m, other.name if m.sender_id == oid else "Вы") for m in msgs]
+    out = [serialize_msg(m, other.name if m.sender_id == oid else "Вы") for m in msgs if str(uid) not in (m.hidden_for or '')]
     return jsonify({'ok': True, 'messages': out, 'typing': bool(other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other)})
 
 @app.route('/poll_group/<int:gid>')
@@ -407,7 +449,6 @@ def poll_group(gid):
     if me: me.last_seen = now; db.session.commit()
 
     msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
-    
     member_users = User.query.filter(User.id.in_([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()])).all()
     users_map = {u.id: u.name for u in member_users}
     members_data = [{'id': u.id, 'name': u.name, 'username': u.username} for u in member_users]
@@ -417,9 +458,8 @@ def poll_group(gid):
             db.session.add(MessageRead(message_id=m.id, user_id=uid, read_at=now))
     db.session.commit()
 
-    out = [serialize_msg(m, users_map.get(m.sender_id, 'Аноним')) for m in msgs]
+    out = [serialize_msg(m, users_map.get(m.sender_id, 'Аноним')) for m in msgs if str(uid) not in (m.hidden_for or '')]
     typing_users = [u.name for u in member_users if u.id != uid and u.typing_to == -gid and (now - (u.typing_at or 0)) < 3.5]
-
     return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data})
 
 @app.route('/typing/<int:oid>', methods=['POST'])
@@ -441,6 +481,94 @@ def typing_group(gid):
         sse_publish(recipients, 'typing_group', {'gid': gid, 'from': me.id})
     return jsonify({'ok': True})
 
+@app.route('/react_msg/<int:mid>', methods=['POST'])
+def react_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    emj = str(data.get('emoji', '')).strip()[:20]
+    if not emj: return jsonify({'ok': False}), 400
+    msg = db.session.get(Message, mid)
+    if not msg: return jsonify({'ok': False}), 404
+    
+    msg.reaction = emj if msg.reaction != emj else ''
+    db.session.commit()
+    
+    if msg.receiver_id >= 0:
+        sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
+    else:
+        recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()]
+        sse_publish(recipients, 'react', {'mid': mid})
+    return jsonify({'ok': True})
+
+@app.route('/edit_msg/<int:mid>', methods=['POST'])
+def edit_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    new_content = str(data.get('content', '')).strip()
+    msg = db.session.get(Message, mid)
+    if msg and msg.sender_id == session['uid']:
+        msg.content = new_content
+        msg.edited_at = time.time()
+        db.session.commit()
+        sse_publish([msg.sender_id, msg.receiver_id], 'edit', {'mid': mid})
+    return jsonify({'ok': True})
+
+@app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
+def del_me(mid, u):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
+        hidden.add(str(session['uid']))
+        msg.hidden_for = ','.join(hidden)
+        db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
+def del_all(mid, u):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg and msg.sender_id == session['uid']:
+        recv = msg.receiver_id
+        db.session.delete(msg); db.session.commit()
+        sse_publish([recv], 'delete', {'mid': mid})
+    return jsonify({'ok': True})
+
+@app.route('/pin_msg/<int:mid>', methods=['POST'])
+def pin_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    msg = db.session.get(Message, mid)
+    if msg:
+        msg.pinned = 1 if msg.pinned == 0 else 0
+        db.session.commit()
+        if msg.receiver_id >= 0:
+            sse_publish([msg.sender_id, msg.receiver_id], 'pin', {'mid': mid})
+        else:
+            recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()]
+            sse_publish(recipients, 'pin', {'mid': mid})
+    return jsonify({'ok': True})
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    me = db.session.get(User, session['uid'])
+    if me:
+        if data.get('name'): me.name = str(data.get('name')).strip()[:80]
+        me.bio = str(data.get('bio', '')).strip()[:200]
+        if data.get('theme'): me.theme = str(data.get('theme'))
+        av = data.get('avatar')
+        if av and str(av).startswith('data:image/'): me.avatar = av
+        db.session.commit()
+    return jsonify({'ok': True})
+
+@app.route('/complete_onboarding', methods=['POST'])
+def complete_onboarding():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me: me.onboarded = 1; db.session.commit()
+    return jsonify({'ok': True})
+
 @app.route('/create_group', methods=['POST'])
 def create_group():
     if 'uid' not in session: return jsonify({'ok': False}), 401
@@ -455,7 +583,6 @@ def create_group():
     db.session.add(g); db.session.commit()
     for uid_ in set(ids + [session['uid']]): db.session.add(ChatMember(chat_id=g.id, user_id=uid_))
     db.session.commit()
-    
     for uid_ in set(ids): sse_publish([uid_], 'new_group', {'gid': g.id})
     return jsonify({'ok': True, 'gid': g.id})
 
@@ -465,31 +592,5 @@ def leave_group(gid):
     ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete(); db.session.commit()
     return jsonify({'ok': True})
 
-@app.route('/complete_onboarding', methods=['POST'])
-def complete_onboarding():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    me = db.session.get(User, session['uid'])
-    if me: me.onboarded = 1; db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/update_profile', methods=['POST'])
-def update_profile():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    me = db.session.get(User, session['uid'])
-    if me:
-        if data.get('name'): me.name = str(data.get('name')).strip()[:80]
-        me.bio = str(data.get('bio', '')).strip()[:200]
-        av = data.get('avatar')
-        if av and str(av).startswith('data:image/'): me.avatar = av
-        db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/join/<int:uid>')
-def join(uid):
-    session['pending_ref'] = uid
-    return redirect(url_for('index'))
-
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, threaded=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
