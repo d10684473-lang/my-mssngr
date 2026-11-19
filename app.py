@@ -12,23 +12,38 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
 
 # ===================== КОНФИГ =====================
-# ===================== КОНФИГ =====================
-# ... (остальные настройки)
+app.secret_key = os.environ.get('SECRET_KEY', 'final-billion-dollar-secret-2026')
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
+if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Добавляем pre_ping для проверки соединения
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    "pool_pre_ping": True,
-    "pool_recycle": 300, # Пересоздавать соединения каждые 5 минут
-}
-# ... (остальные настройки)
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
+DANGEROUS_EXTS = {'php', 'phtml', 'exe', 'dll', 'bat', 'cmd', 'js', 'html', 'htm', 'svg', 'xml', 'apk'}
+
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    try:
+        cur = dbapi_connection.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.close()
+    except Exception: pass
+
+db = SQLAlchemy(app)
 
 # ===================== SSE HUB =====================
 _sse_subscribers = {}
@@ -105,6 +120,30 @@ class MessageRead(db.Model):
     message_id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
+
+# ===================== АВТО-МИГРАЦИЯ =====================
+def ensure_schema():
+    with app.app_context():
+        db.create_all()
+        try:
+            insp = inspect(db.engine)
+            if not db.engine.url.drivername.startswith('sqlite'): return
+            tables = set(insp.get_table_names())
+            if 'user' in tables:
+                cols = {c['name'] for c in insp.get_columns('user')}
+                if 'theme' not in cols: db.session.execute(text('ALTER TABLE user ADD COLUMN theme VARCHAR(20) DEFAULT "dark"'))
+            if 'message' in tables:
+                cols = {c['name'] for c in insp.get_columns('message')}
+                if 'reply_to_id' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reply_to_id INTEGER DEFAULT 0'))
+                if 'edited_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN edited_at FLOAT DEFAULT 0.0'))
+                if 'reaction' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reaction VARCHAR(20) DEFAULT ""'))
+                if 'forwarded_from' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN forwarded_from VARCHAR(100) DEFAULT ""'))
+                if 'hidden_for' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN hidden_for VARCHAR(50) DEFAULT ""'))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+ensure_schema()
 
 # ===================== CSRF =====================
 @app.before_request
@@ -307,14 +346,10 @@ def upload_file():
     orig_name = secure_filename(f.filename) or 'file'
     ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
     if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'file type not allowed'}), 400
-    
-    # ВНИМАНИЕ: Если ты добавишь Cloudinary, замени этот блок на загрузку в облако!
     saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
     f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
-    file_url = url_for('uploaded_file', fn=saved_name)
-    
     mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
-    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=file_url, file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg); db.session.commit()
     me = db.session.get(User, session['uid'])
     msg_data = serialize_msg(msg, me.name if me else "")
@@ -509,21 +544,6 @@ def leave_group(gid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete(); db.session.commit()
     return jsonify({'ok': True})
-
-# ===================== ИНИЦИАЛИЗАЦИЯ БАЗЫ =====================
-# Безопасное создание таблиц при старте. Никаких сырых SQL-запросов.
-# ===================== ИНИЦИАЛИЗАЦИЯ БАЗЫ =====================
-with app.app_context():
-    try:
-        # Принудительно откатываем любые возможные «зависшие» транзакции
-        db.session.rollback()
-        
-        db.create_all()
-        db.session.commit()
-        print("Database tables created/verified successfully.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Database initialization error: {e}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
