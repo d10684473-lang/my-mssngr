@@ -120,6 +120,10 @@ def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) 
 def is_member(uid, gid): return ChatMember.query.filter_by(chat_id=gid, user_id=uid).first() is not None
 
 # ===================== AUTH =====================
+@app.route('/sw.js')
+def service_worker():
+    return app.send_static_file('sw.js')
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
