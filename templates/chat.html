@@ -549,9 +549,10 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
 
   var pc = null;
   var localStream = null;
+  var remoteStream = null; 
   var callTargetId = null;
   var callFromName = '';
-  var callState = 'idle'; // idle | outgoing | incoming | active
+  var callState = 'idle'; 
   var callIsVideo = false;
   var pendingCandidates = [];
   var pendingOffer = null;
@@ -568,7 +569,8 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
       { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
       { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
       { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-    ]
+    ],
+    bundlePolicy: 'max-bundle'
   };
 
   function sendCallSignal(type, payload) {
@@ -588,46 +590,84 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     stopRingtone();
     if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
     if (incomingTimeout) { clearTimeout(incomingTimeout); incomingTimeout = null; }
-    
-    if (pc) { 
-        try { pc.close(); } catch(e){} 
-        pc = null; 
-    }
-    if (localStream) { 
-        localStream.getTracks().forEach(t => t.stop()); 
-        localStream = null; 
-    }
-    
+    if (pc) { try { pc.close(); } catch(e){} pc = null; }
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+    remoteStream = null;
     callOverlay.classList.remove('show');
     incomingCallModal.classList.remove('show');
-    
     if (localVideo) localVideo.srcObject = null;
     if (remoteVideo) remoteVideo.srcObject = null;
-    
     pendingCandidates = [];
     pendingOffer = null;
     isMuted = false; isVideoOff = false;
     isProcessingSignal = false;
-    
     if (muteBtn) muteBtn.classList.remove('active');
     if (toggleVideoBtn) toggleVideoBtn.classList.remove('active');
-    
     callState = 'idle';
     callTargetId = null;
     callFromName = '';
   }
 
   function endCall(reason) {
-    if (callTargetId && (callState === 'active' || callState === 'outgoing')) {
-      sendCallSignal('end', {});
-    }
+    if (callTargetId && (callState === 'active' || callState === 'outgoing')) sendCallSignal('end', {});
     cleanupCall();
     if (reason) alert(reason);
   }
 
+  function getMediaConstraints(video) {
+    return {
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: video ? {
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        frameRate: { ideal: 30, max: 30 },
+        facingMode: 'user'
+      } : false
+    };
+  }
+
+  function setupPeerConnection() {
+    pc = new RTCPeerConnection(rtcConfig);
+    remoteStream = new MediaStream();
+
+    if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    setTimeout(function() {
+      if (!pc) return;
+      pc.getSenders().forEach(function(sender) {
+        if (sender.track && sender.track.kind === 'video') {
+          try {
+            var params = sender.getParameters();
+            if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 2500000;
+            params.encodings[0].maxFramerate = 30;
+            sender.setParameters(params).catch(e => console.warn("setParameters:", e));
+          } catch(e) { console.warn(e); }
+        }
+      });
+    }, 1000);
+
+    pc.onicecandidate = (e) => { if (e.candidate) sendCallSignal('ice', e.candidate); };
+
+    pc.ontrack = function(event) {
+      if (remoteStream.getTracks().indexOf(event.track) === -1) remoteStream.addTrack(event.track);
+      if (remoteVideo.srcObject !== remoteStream) {
+        remoteVideo.srcObject = remoteStream;
+        remoteVideo.muted = false;
+        remoteVideo.volume = 1.0;
+        remoteVideo.play().catch(err => console.warn("Remote play error:", err));
+      }
+      callStatus.textContent = 'Соединено';
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') endCall('Соединение потеряно');
+    };
+  }
+
   async function startCall(video) {
     if (callState !== 'idle') return alert('Вы уже в звонке');
-    if (!CHAT_ID || MODE !== 'personal') return alert('Звонки доступны только в личных чатах');
+    if (!CHAT_ID || MODE !== 'personal') return alert('Звонки только в личных чатах');
 
     callState = 'outgoing';
     callTargetId = CHAT_ID;
@@ -641,31 +681,20 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     localVideo.style.display = video ? 'block' : 'none';
 
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
+      localStream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(video));
+      
+      if (localStream.getAudioTracks().length === 0) {
+        alert('⚠️ Микрофон недоступен! Проверьте разрешения браузера.');
+      }
+
       localVideo.srcObject = localStream;
-      localVideo.play().catch(e => console.warn("Local video play error:", e));
+      localVideo.muted = true;
+      localVideo.play().catch(e => console.warn("Local play:", e));
 
-      pc = new RTCPeerConnection(rtcConfig);
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
-      pc.onicecandidate = (e) => { if (e.candidate) sendCallSignal('ice', e.candidate); };
-      pc.ontrack = (e) => { 
-          if (e.streams && e.streams[0]) {
-              remoteVideo.srcObject = e.streams[0];
-          } else {
-              if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
-              remoteVideo.srcObject.addTrack(e.track);
-          }
-          remoteVideo.play().catch(err => console.warn("Remote video play error:", err));
-          callStatus.textContent = 'Соединено'; 
-      };
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') endCall('Соединение потеряно');
-      };
+      setupPeerConnection();
 
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      
       sendCallSignal('offer', offer);
       isProcessingSignal = false;
 
@@ -673,18 +702,18 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
         if (callState === 'outgoing') endCall('Нет ответа');
       }, 60000);
     } catch (err) {
-      alert('Нет доступа к микрофону/камере: ' + err.message);
+      alert('Ошибка доступа к камере/микрофону:\n' + err.message);
       cleanupCall();
     }
   }
 
   async function handleOffer(payload, senderId, senderName) {
     if (callState !== 'idle' || isProcessingSignal) {
-        var prev = callTargetId;
-        callTargetId = senderId;
-        sendCallSignal('busy', {});
-        callTargetId = prev;
-        return;
+      var prev = callTargetId;
+      callTargetId = senderId;
+      sendCallSignal('busy', {});
+      callTargetId = prev;
+      return;
     }
     
     isProcessingSignal = true;
@@ -718,31 +747,17 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     callStatus.textContent = 'Соединение...';
 
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callIsVideo });
+      localStream = await navigator.mediaDevices.getUserMedia(getMediaConstraints(callIsVideo));
+      
+      if (localStream.getAudioTracks().length === 0) alert('⚠️ Микрофон недоступен!');
+
       localVideo.srcObject = localStream;
-      localVideo.play().catch(e => console.warn("Local video play error:", e));
+      localVideo.muted = true;
+      localVideo.play().catch(e => console.warn("Local play:", e));
 
-      pc = new RTCPeerConnection(rtcConfig);
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      setupPeerConnection();
 
-      pc.onicecandidate = (e) => { if (e.candidate) sendCallSignal('ice', e.candidate); };
-      pc.ontrack = (e) => { 
-          if (e.streams && e.streams[0]) {
-              remoteVideo.srcObject = e.streams[0];
-          } else {
-              if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream();
-              remoteVideo.srcObject.addTrack(e.track);
-          }
-          remoteVideo.play().catch(err => console.warn("Remote video play error:", err));
-          callStatus.textContent = 'Соединено'; 
-      };
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') endCall('Соединение потеряно');
-      };
-
-      if (pc.signalingState !== 'stable') {
-          throw new Error('Неверное состояние соединения: ' + pc.signalingState);
-      }
+      if (pc.signalingState !== 'stable') throw new Error('Неверное состояние: ' + pc.signalingState);
 
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer));
       
@@ -754,7 +769,6 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
 
       var answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      
       sendCallSignal('answer', answer);
       isProcessingSignal = false;
 
@@ -783,16 +797,16 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
     
     try {
-        await pc.setRemoteDescription(new RTCSessionDescription(payload));
-        for (var i = 0; i < pendingCandidates.length; i++) {
-            try { await pc.addIceCandidate(new RTCIceCandidate(pendingCandidates[i])); } catch(e){}
-        }
-        pendingCandidates = [];
-        callStatus.textContent = 'Соединено';
-        callState = 'active';
+      await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      for (var i = 0; i < pendingCandidates.length; i++) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(pendingCandidates[i])); } catch(e){}
+      }
+      pendingCandidates = [];
+      callStatus.textContent = 'Соединено';
+      callState = 'active';
     } catch(e) {
-        console.error('Ошибка handleAnswer:', e);
-        cleanupCall();
+      console.error('Ошибка handleAnswer:', e);
+      cleanupCall();
     }
   }
 
@@ -808,7 +822,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     if (d.type === 'offer') handleOffer(d.payload, d.from, d.from_name);
     else if (d.type === 'answer') handleAnswer(d.payload);
     else if (d.type === 'ice') handleIce(d.payload);
-    else if (d.type === 'end') { if (callState !== 'idle') { cleanupCall(); } }
+    else if (d.type === 'end') { if (callState !== 'idle') cleanupCall(); }
     else if (d.type === 'reject') { if (callState === 'outgoing' || callState === 'active') { cleanupCall(); alert('Звонок отклонен'); } }
     else if (d.type === 'busy') { if (callState === 'outgoing') { cleanupCall(); alert('Собеседник занят'); } }
   }
