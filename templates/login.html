@@ -1,106 +1,131 @@
-<!-- templates/login.html -->
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
 <title>Ramplez — Вход</title>
+
+<!-- ИКОНКА ВКЛАДКИ БРАУЗЕРА (FAVICON) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%233b82f6'/%3E%3Cpath d='M30 40 Q30 30 40 30 L60 30 Q70 30 70 40 L70 50 Q70 60 60 60 L50 60 L35 75 L35 60 Q30 60 30 50 Z' fill='white'/%3E%3C/svg%3E">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+try { 
+  if (localStorage.getItem('ramplez_theme')) document.documentElement.className = localStorage.getItem('ramplez_theme');
+} catch(e){}
+</script>
 <style>
-  :root {
-    --bg: #0e1621;
-    --card-bg: #17212b;
-    --text: #ffffff;
-    --muted: #7f91a4;
-    --border: #242f3d;
-    --accent: #3390ec;
-    --hover: #202b36;
+  :root, html.dark {
+    --bg: #0f172a; --sidebar: #1e293b; --chat-bg: #0f172a; --border: #334155;
+    --text: #f8fafc; --muted: #94a3b8; --hover: #334155; --active: #3b82f6;
+    --card: #1e293b;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; }
-  body {
-    background-color: var(--bg);
-    background-image: radial-gradient(circle at 10% 20%, rgba(51, 144, 236, 0.15) 0%, transparent 40%),
-                      radial-gradient(circle at 90% 80%, rgba(43, 125, 233, 0.15) 0%, transparent 40%);
-    color: var(--text);
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+  html.light {
+    --bg: #ffffff; --sidebar: #f8fafc; --chat-bg: #f1f5f9; --border: #e2e8f0;
+    --text: #0f172a; --muted: #64748b; --hover: #e2e8f0; --active: #3b82f6;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font); }
+  body { 
+    background: var(--bg); 
+    color: var(--text); 
+    height: 100dvh; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: background 0.3s, color 0.3s;
+    padding: 20px;
   }
   
-  .auth-container {
-    background: rgba(23, 33, 43, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     border-radius: 24px;
     padding: 40px 30px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
   }
   
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: none; }
   }
 
-  .logo {
-    font-family: 'Comfortaa', sans-serif;
-    font-size: 42px;
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 8px;
-    letter-spacing: -1px;
-    background: linear-gradient(135deg, #fff 0%, #3390ec 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  
-  .subtitle {
-    text-align: center;
-    color: var(--muted);
-    font-size: 14px;
+  .logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     margin-bottom: 30px;
   }
+  
+  .logo-icon {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+  }
 
-  .form-group { margin-bottom: 16px; position: relative; }
-  .form-group input {
-    width: 100%;
-    padding: 16px 16px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+  .logo-text {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
     color: var(--text);
-    font-size: 15px;
-    outline: none;
-    transition: all 0.2s;
   }
-  .form-group input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.2);
-  }
-  .form-group input::placeholder { color: var(--muted); }
 
-  .btn {
-    width: 100%;
-    padding: 16px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 10px;
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
   }
-  .btn:hover { background: #2b7de9; transform: translateY(-1px); }
-  .btn:active { transform: translateY(1px); }
+
+  .input-group {
+    margin-bottom: 16px;
+  }
+
+  .input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    font-size: 15px;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+
+  .input-group input:focus {
+    border-color: var(--active);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--active);
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .btn-primary:hover { background: #2563eb; }
+  .btn-primary:active { transform: scale(0.98); }
 
   .toggle-text {
     text-align: center;
@@ -108,103 +133,103 @@
     font-size: 14px;
     color: var(--muted);
   }
-  .toggle-text a {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 500;
+
+  .toggle-text span {
+    color: var(--active);
     cursor: pointer;
+    font-weight: 600;
+    transition: color 0.2s;
   }
-  .toggle-text a:hover { text-decoration: underline; }
 
-  .error {
-    background: rgba(255, 59, 48, 0.1);
-    color: #ff453a;
+  .toggle-text span:hover { color: #2563eb; }
+
+  .error-box {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
     padding: 12px;
-    border-radius: 10px;
-    font-size: 13px;
+    border-radius: 12px;
+    font-size: 14px;
+    margin-bottom: 16px;
     text-align: center;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 59, 48, 0.2);
-    animation: shake 0.4s;
-  }
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+    display: {{ 'block' if error else 'none' }};
   }
 
-  .hidden { display: none !important; }
+  /* Скрытые поля для режима регистрации */
+  .register-only { display: none; }
 </style>
 </head>
 <body>
 
-<div class="auth-container">
-  <div class="logo">ramplez</div>
-  <div class="subtitle" id="subtitle">Войдите в свой аккаунт</div>
+<form class="login-card" id="authForm" method="POST" action="/">
+  
+  <div class="logo-container">
+    <div class="logo-icon">
+      <!-- Иконка чата -->
+      <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M30 40 Q30 30 40 30 L60 30 Q70 30 70 40 L70 50 Q70 60 60 60 L50 60 L35 75 L35 60 Q30 60 30 50 Z" fill="white"/>
+      </svg>
+    </div>
+    <div class="logo-text">ramplez</div>
+    <div class="subtitle" id="subtitleText">Войдите в свой аккаунт</div>
+  </div>
 
   {% if error %}
-  <div class="error">{{ error }}</div>
+  <div class="error-box">{{ error }}</div>
   {% endif %}
 
-  <form method="POST" id="authForm">
-    <input type="hidden" name="action" id="actionInput" value="login">
-    
-    <div class="form-group hidden" id="nameGroup">
-      <input type="text" name="name" placeholder="Как вас зовут?" autocomplete="name">
-    </div>
-    
-    <div class="form-group">
-      <input type="text" name="username" placeholder="Логин (@username)" required autocomplete="username" style="text-transform: lowercase;">
-    </div>
-    
-    <div class="form-group">
-      <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
-    </div>
-    
-    <button type="submit" class="btn" id="submitBtn">Войти</button>
-  </form>
-
-  <div class="toggle-text" id="toggleContainer">
-    Нет аккаунта? <a id="toggleBtn">Зарегистрироваться</a>
+  <div class="input-group">
+    <input type="text" name="username" placeholder="Имя пользователя (username)" required autocomplete="off">
   </div>
-</div>
+
+  <div class="input-group register-only" id="nameField">
+    <input type="text" name="name" placeholder="Ваше имя (например: Иван)" autocomplete="off">
+  </div>
+
+  <div class="input-group">
+    <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
+  </div>
+
+  <!-- Скрытое поле для переключения действий -->
+  <input type="hidden" name="action" id="actionInput" value="login">
+
+  <button type="submit" class="btn-primary" id="submitBtn">Войти</button>
+
+  <div class="toggle-text">
+    <span id="toggleAuthText">Нет аккаунта? Зарегистрироваться</span>
+  </div>
+
+</form>
 
 <script>
-  const form = document.getElementById('authForm');
-  const actionInput = document.getElementById('actionInput');
-  const nameGroup = document.getElementById('nameGroup');
-  const submitBtn = document.getElementById('submitBtn');
-  const toggleBtn = document.getElementById('toggleBtn');
-  const subtitle = document.getElementById('subtitle');
-  const toggleContainer = document.getElementById('toggleContainer');
+  var isRegister = false;
+  var form = document.getElementById('authForm');
+  var actionInput = document.getElementById('actionInput');
+  var toggleBtn = document.getElementById('toggleAuthText');
+  var submitBtn = document.getElementById('submitBtn');
+  var subtitle = document.getElementById('subtitleText');
+  var nameField = document.getElementById('nameField');
+  var nameInput = document.querySelector('input[name="name"]');
 
-  let isLogin = true;
-
-  toggleBtn.addEventListener('click', () => {
-    isLogin = !isLogin;
-    
-    if (isLogin) {
+  toggleBtn.addEventListener('click', function() {
+    isRegister = !isRegister;
+    if (isRegister) {
+      actionInput.value = 'register';
+      submitBtn.textContent = 'Зарегистрироваться';
+      subtitle.textContent = 'Создайте новый аккаунт';
+      toggleBtn.textContent = 'Уже есть аккаунт? Войти';
+      nameField.style.display = 'block';
+      nameInput.required = true;
+    } else {
       actionInput.value = 'login';
-      nameGroup.classList.add('hidden');
       submitBtn.textContent = 'Войти';
       subtitle.textContent = 'Войдите в свой аккаунт';
-      toggleContainer.innerHTML = 'Нет аккаунта? <a id="toggleBtn">Зарегистрироваться</a>';
-    } else {
-      actionInput.value = 'register';
-      nameGroup.classList.remove('hidden');
-      nameGroup.querySelector('input').required = true;
-      submitBtn.textContent = 'Создать аккаунт';
-      subtitle.textContent = 'Присоединяйтесь к Ramplez';
-      toggleContainer.innerHTML = 'Уже есть аккаунт? <a id="toggleBtn">Войти</a>';
+      toggleBtn.textContent = 'Нет аккаунта? Зарегистрироваться';
+      nameField.style.display = 'none';
+      nameInput.required = false;
     }
-    
-    // Перепривязываем событие на новую ссылку
-    document.getElementById('toggleBtn').addEventListener('click', arguments.callee);
   });
 </script>
 
-</body>
-</html>
-    </script>
 </body>
 </html>
