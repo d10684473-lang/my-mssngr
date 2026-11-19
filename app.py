@@ -25,7 +25,7 @@ if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', '
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -169,13 +169,11 @@ def get_my_contacts(me_id):
     return list(sent | received)
 
 def serialize_msg(m, sender_name=""):
-    return {
-        'id': m.id, 'sender_id': m.sender_id, 'receiver_id': m.receiver_id, 'msg_type': m.msg_type,
-        'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
-        'created_at': m.created_at, 'read_at': m.read_at or 0.0, 'reaction': m.reaction,
-        'pinned': m.pinned, 'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
-        'forwarded_from': m.forwarded_from or '', 'sender_name': sender_name
-    }
+    return {'id': m.id, 'sender_id': m.sender_id, 'receiver_id': m.receiver_id, 'msg_type': m.msg_type,
+            'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
+            'created_at': m.created_at, 'read_at': m.read_at or 0.0, 'reaction': m.reaction,
+            'pinned': m.pinned, 'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
+            'forwarded_from': m.forwarded_from or '', 'sender_name': sender_name}
 
 # ===================== SSE =====================
 @app.route('/stream')
@@ -230,12 +228,10 @@ def index():
 @app.route('/logout')
 def logout(): session.clear(); return redirect(url_for('index'))
 
-# ===================== CHAT =====================
 def _build_conversations(me):
     contact_ids = get_my_contacts(me.id)
     users = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
     my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
-
     convs = []
     for u in users:
         unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, read_at=0).count()
@@ -257,14 +253,12 @@ def chat():
     gid = request.args.get('g', type=int)
     oid = request.args.get('u', type=int)
     mode, other, group = None, None, None
-
     if gid and is_member(me.id, gid): group = db.session.get(Chat, gid); mode = 'group'
     elif oid: other = db.session.get(User, oid); mode = 'personal' if other and other.id != me.id else None
 
     conversations = _build_conversations(me)
     contact_ids = get_my_contacts(me.id)
     users_for_group = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
-
     return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time(), theme=me.theme or 'dark')
 
 @app.route('/api/conversations')
@@ -289,11 +283,15 @@ def call_signal():
     target_id = int(data.get('target_id', 0))
     signal_type = data.get('type')
     payload = data.get('payload')
-    
+
     if not target_id or not signal_type: return jsonify({'ok': False}), 400
-    
+    me = db.session.get(User, session['uid'])
+    if not me: return jsonify({'ok': False}), 401
+
     sse_publish([target_id], 'call_signal', {
         'from': session['uid'],
+        'from_name': me.name,
+        'from_avatar': me.avatar or '',
         'type': signal_type,
         'payload': payload
     })
@@ -308,16 +306,13 @@ def send():
     content = str(data.get('content', '')).strip()
     reply_to_id = int(data.get('reply_to_id', 0)) or 0
     if not oid or not content: return jsonify({'ok': False}), 400
-
     other = db.session.get(User, oid)
     if not other: return jsonify({'ok': False}), 404
-
     msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
     db.session.add(msg)
     me = db.session.get(User, session['uid'])
     if me: me.typing_to = 0; me.last_seen = time.time()
     db.session.commit()
-
     msg_data = serialize_msg(msg, me.name if me else "")
     sse_publish([oid, session['uid']], 'new_message', msg_data)
     return jsonify({'ok': True, 'message': msg_data})
@@ -330,13 +325,11 @@ def send_group():
     content = str(data.get('content', '')).strip()
     reply_to_id = int(data.get('reply_to_id', 0)) or 0
     if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
-
     msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
     db.session.add(msg)
     me = db.session.get(User, session['uid'])
     if me: me.typing_to = 0; me.last_seen = time.time()
     db.session.commit()
-
     recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
     msg_data = serialize_msg(msg, me.name if me else "")
     sse_publish(recipients, 'new_message', msg_data)
@@ -350,22 +343,16 @@ def upload_file():
     f = request.files.get('file')
     if not f or not f.filename: return jsonify({'ok': False}), 400
     if gid and not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
-
     orig_name = secure_filename(f.filename) or 'file'
     ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
     if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'file type not allowed'}), 400
-
     saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
     f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
-
     mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
-    
     msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg); db.session.commit()
-
     me = db.session.get(User, session['uid'])
     msg_data = serialize_msg(msg, me.name if me else "")
-    
     if gid:
         recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
         sse_publish(recipients, 'new_message', msg_data)
@@ -390,19 +377,15 @@ def poll(oid):
     uid = session['uid']
     other = db.session.get(User, oid)
     if not other: return jsonify({'ok': False}), 404
-
     now = time.time()
     me = db.session.get(User, uid)
     if me: me.last_seen = now; db.session.commit()
-
     Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).update({'read_at': now})
     db.session.commit()
-
     msgs = Message.query.filter(
         ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
         ((Message.sender_id == oid) & (Message.receiver_id == uid))
     ).order_by(Message.id.asc()).all()
-
     out = [serialize_msg(m, other.name if m.sender_id == oid else "Вы") for m in msgs if str(uid) not in (m.hidden_for or '')]
     return jsonify({'ok': True, 'messages': out, 'typing': bool(other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other)})
 
@@ -413,17 +396,14 @@ def poll_group(gid):
     now = time.time()
     me = db.session.get(User, uid)
     if me: me.last_seen = now; db.session.commit()
-
     msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
     member_users = User.query.filter(User.id.in_([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()])).all()
     users_map = {u.id: u.name for u in member_users}
     members_data = [{'id': u.id, 'name': u.name, 'username': u.username} for u in member_users]
-
     for m in msgs:
         if m.sender_id != uid and not MessageRead.query.filter_by(message_id=m.id, user_id=uid).first():
             db.session.add(MessageRead(message_id=m.id, user_id=uid, read_at=now))
     db.session.commit()
-
     out = [serialize_msg(m, users_map.get(m.sender_id, 'Аноним')) for m in msgs if str(uid) not in (m.hidden_for or '')]
     typing_users = [u.name for u in member_users if u.id != uid and u.typing_to == -gid and (now - (u.typing_at or 0)) < 3.5]
     return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data})
@@ -455,10 +435,8 @@ def react_msg(mid):
     if not emj: return jsonify({'ok': False}), 400
     msg = db.session.get(Message, mid)
     if not msg: return jsonify({'ok': False}), 404
-    
     msg.reaction = emj if msg.reaction != emj else ''
     db.session.commit()
-    
     if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
     else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'react', {'mid': mid})
     return jsonify({'ok': True})
@@ -470,9 +448,7 @@ def edit_msg(mid):
     new_content = str(data.get('content', '')).strip()
     msg = db.session.get(Message, mid)
     if msg and msg.sender_id == session['uid']:
-        msg.content = new_content
-        msg.edited_at = time.time()
-        db.session.commit()
+        msg.content = new_content; msg.edited_at = time.time(); db.session.commit()
         sse_publish([msg.sender_id, msg.receiver_id], 'edit', {'mid': mid})
     return jsonify({'ok': True})
 
@@ -480,14 +456,11 @@ def edit_msg(mid):
 def forward_msg():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     data = request.get_json(silent=True) or {}
-    mid = int(data.get('mid', 0))
-    targets = data.get('targets') or []
+    mid = int(data.get('mid', 0)); targets = data.get('targets') or []
     src = db.session.get(Message, mid)
     if not src or not targets: return jsonify({'ok': False}), 400
-
     original_sender = db.session.get(User, src.sender_id)
     fwd_label = (original_sender.name if original_sender else 'Аноним')[:80]
-    
     for t in targets:
         tid = int(t.get('id', 0))
         if t.get('type') == 'user':
@@ -507,9 +480,7 @@ def del_me(mid, u):
     msg = db.session.get(Message, mid)
     if msg:
         hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
-        hidden.add(str(session['uid']))
-        msg.hidden_for = ','.join(hidden)
-        db.session.commit()
+        hidden.add(str(session['uid'])); msg.hidden_for = ','.join(hidden); db.session.commit()
     return jsonify({'ok': True})
 
 @app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
@@ -517,8 +488,7 @@ def del_all(mid, u):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     msg = db.session.get(Message, mid)
     if msg and msg.sender_id == session['uid']:
-        recv = msg.receiver_id
-        db.session.delete(msg); db.session.commit()
+        recv = msg.receiver_id; db.session.delete(msg); db.session.commit()
         sse_publish([recv], 'delete', {'mid': mid})
     return jsonify({'ok': True})
 
@@ -527,8 +497,7 @@ def pin_msg(mid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     msg = db.session.get(Message, mid)
     if msg:
-        msg.pinned = 1 if msg.pinned == 0 else 0
-        db.session.commit()
+        msg.pinned = 1 if msg.pinned == 0 else 0; db.session.commit()
         if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'pin', {'mid': mid})
         else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'pin', {'mid': mid})
     return jsonify({'ok': True})
@@ -563,7 +532,6 @@ def create_group():
     if not title or not isinstance(ids, list): return jsonify({'ok': False}), 400
     try: ids = [int(x) for x in ids if int(x) != session['uid']]
     except: return jsonify({'ok': False}), 400
-    
     g = Chat(title=title[:100], owner_id=session['uid'], created_at=time.time())
     db.session.add(g); db.session.commit()
     for uid_ in set(ids + [session['uid']]): db.session.add(ChatMember(chat_id=g.id, user_id=uid_))
