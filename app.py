@@ -18,33 +18,17 @@ from sqlalchemy.engine import Engine
 app = Flask(__name__)
 
 # ===================== КОНФИГ =====================
-app.secret_key = os.environ.get('SECRET_KEY', 'final-billion-dollar-secret-2026')
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
-if _db_url.startswith('postgres://'): 
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+# ===================== КОНФИГ =====================
+# ... (остальные настройки)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
-DANGEROUS_EXTS = {'php', 'phtml', 'exe', 'dll', 'bat', 'cmd', 'js', 'html', 'htm', 'svg', 'xml', 'apk'}
-
-@event.listens_for(Engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record):
-    try:
-        cur = dbapi_connection.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.execute("PRAGMA synchronous=NORMAL")
-        cur.execute("PRAGMA busy_timeout=5000")
-        cur.close()
-    except Exception: pass
-
-db = SQLAlchemy(app)
+# Добавляем pre_ping для проверки соединения
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300, # Пересоздавать соединения каждые 5 минут
+}
+# ... (остальные настройки)
 
 # ===================== SSE HUB =====================
 _sse_subscribers = {}
