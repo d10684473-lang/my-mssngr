@@ -10,9 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>
 try { 
-  if (localStorage.getItem('ramplez_theme')) {
-    document.documentElement.className = localStorage.getItem('ramplez_theme');
-  }
+  if (localStorage.getItem('ramplez_theme')) document.documentElement.className = localStorage.getItem('ramplez_theme');
+  if (localStorage.getItem('ramplez_font')) document.documentElement.style.setProperty('--font-size', localStorage.getItem('ramplez_font') + 'px');
 } catch(e){}
 </script>
 <style>
@@ -77,6 +76,8 @@ try {
   .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
   @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
+  .date-separator { align-self: center; background: var(--hover); color: var(--muted); font-size: 12px; padding: 4px 12px; border-radius: 12px; margin: 10px 0; font-weight: 600; }
+
   .bubble { padding: 10px 14px; border-radius: 16px; line-height: 1.5; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); word-break: break-word; min-width: 80px; }
   .mine .bubble { background: var(--my-msg); color: #fff; border-bottom-right-radius: 4px; }
   .theirs .bubble { background: var(--other-msg); color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
@@ -88,7 +89,7 @@ try {
   .reply-quote { border-left: 3px solid currentColor; padding-left: 8px; margin-bottom: 6px; font-size: 12px; opacity: 0.8; white-space: pre-line; }
   .msg-reaction { position: absolute; bottom: -12px; right: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 2px 6px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; z-index: 2; }
   
-  .bubble img { max-width: 250px; max-height: 250px; border-radius: 10px; display: block; margin-bottom: 5px; }
+  .bubble img { max-width: 250px; max-height: 250px; border-radius: 10px; display: block; margin-bottom: 5px; cursor: pointer; }
   .bubble audio { max-width: 220px; height: 36px; display: block; margin-bottom: 5px; }
 
   /* ВВОД */
@@ -220,11 +221,23 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     </div>
     <div class="msg-actions">
       <button type="button" class="btn-secondary" id="actReplyBtn">↩️ Ответить</button>
+      <button type="button" class="btn-secondary" id="actForwardBtn">➡️ Переслать</button>
       <button type="button" class="btn-secondary" id="actEditBtn" style="display:none;">✏️ Редактировать</button>
+      <button type="button" class="btn-secondary" id="actPinBtn">📌 Закрепить</button>
       <button type="button" class="btn-secondary" id="actDelMeBtn">🗑️ Удалить у себя</button>
       <button type="button" class="btn-secondary" id="actDelAllBtn" style="color:#ef4444;">🗑️ Удалить у всех</button>
       <button type="button" class="btn-secondary" id="closeMsgModalBtn">Закрыть</button>
     </div>
+  </div>
+</div>
+
+<!-- Пересылка -->
+<div class="modal" id="forwardModal">
+  <div class="modal-card">
+    <h3>Переслать в...</h3>
+    <div style="max-height:300px;overflow-y:auto;" id="forwardTargets"></div>
+    <button type="button" class="btn-primary" id="doForwardBtn">Переслать</button>
+    <button type="button" class="btn-secondary" id="closeForwardBtn">Отмена</button>
   </div>
 </div>
 
@@ -311,9 +324,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   var onboardModal = document.getElementById('onboardModal');
   if (onboardModal) {
     var steps = onboardModal.querySelectorAll('.onboard-step');
-    function showStep(n) {
-      steps.forEach(function(s){ s.style.display = (s.dataset.step === String(n)) ? 'block' : 'none'; });
-    }
+    function showStep(n) { steps.forEach(s => s.style.display = (s.dataset.step === String(n)) ? 'block' : 'none'); }
     onboardModal.addEventListener('click', function(e){
       var btn = e.target.closest('button');
       if (!btn) return;
@@ -340,11 +351,15 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     convs.forEach(function(c){
       var isActive = (MODE === 'personal' && c.type === 'user' && c.id === CHAT_ID) || (MODE === 'group' && c.type === 'group' && c.id === CHAT_ID);
       var href = (c.type === 'group' ? '/chat?g=' : '/chat?u=') + c.id;
+      
+      // ФИКС: Если чат активен, счетчик непрочитанных скрываем
+      var unread = isActive ? 0 : c.unread;
+      
       html += '<a class="chat-item ' + (isActive ? 'active' : '') + '" href="' + href + '">';
       if (c.avatar) html += '<img src="' + c.avatar + '" class="avatar" alt="avatar">';
       else html += '<div class="avatar ' + (c.online ? 'online' : '') + '">' + escapeHtml((c.title || '?')[0].toUpperCase()) + '</div>';
       html += '<div class="chat-meta"><div class="chat-title"><span>' + escapeHtml(c.title) + '</span>';
-      if (c.unread > 0) html += '<span class="unread-badge">' + c.unread + '</span>';
+      if (unread > 0) html += '<span class="unread-badge">' + unread + '</span>';
       html += '</div><div class="chat-sub">' + escapeHtml(c.sub) + '</div></div></a>';
     });
     if (convs.length === 0) html = '<div class="empty-state">Нет чатов. Найди друга.</div>';
@@ -445,8 +460,17 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   var pendingMsgs = {};
   var renderedIds = new Set();
   var lastMsgId = 0;
+  var lastDateStr = null;
   var replyToMsg = null;
   var selectedMsg = null;
+
+  function formatDate(ts) {
+    var d = new Date(ts * 1000), today = new Date(), yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Сегодня';
+    if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  }
 
   function buildRow(m) {
     var isMine = m.sender_id === ME_ID;
@@ -458,30 +482,50 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     var status = isMine ? '<span class="read-status ' + (m.read_at > 0 ? '' : 'unread') + '">✓✓</span>' : '';
     
     var contentHtml = '';
-    if (m.msg_type === 'image') contentHtml = '<img src="' + m.content + '" onclick="window.open(\'' + m.content + '\')">';
-    else if (m.msg_type === 'audio') contentHtml = '<audio controls src="' + m.content + '"></audio>';
-    else if (m.msg_type === 'file') contentHtml = '<a href="' + m.content + '" download style="color:inherit;text-decoration:underline;">📄 ' + escapeHtml(m.file_name) + '</a>';
-    else contentHtml = escapeHtml(m.content).replace(/\n/g, '<br>');
+    if (m.forwarded_from) contentHtml += '<div style="font-size:11px;opacity:.7;margin-bottom:4px;">➡️ Переслано от ' + escapeHtml(m.forwarded_from) + '</div>';
     
-    var reactionHtml = m.reaction ? '<div class="msg-reaction" onclick="window.reactToMsg(' + m.id + ', \'' + m.reaction + '\')">' + m.reaction + '</div>' : '';
+    if (m.msg_type === 'image') contentHtml += '<img src="' + m.content + '" onclick="window.open(\'' + m.content + '\')">';
+    else if (m.msg_type === 'audio') contentHtml += '<audio controls src="' + m.content + '"></audio>';
+    else if (m.msg_type === 'file') contentHtml += '<a href="' + m.content + '" download style="color:inherit;text-decoration:underline;">📄 ' + escapeHtml(m.file_name) + '</a>';
+    else contentHtml += escapeHtml(m.content).replace(/\n/g, '<br>');
+    
+    var reactionHtml = m.reaction ? '<div class="msg-reaction">' + m.reaction + '</div>' : '';
 
     row.innerHTML = '<div class="bubble">' + contentHtml + 
       '<div class="msg-foot"><span>' + time + '</span>' + status + '</div></div>' + reactionHtml;
       
+    var clickTimer = null;
     row.addEventListener('click', function(e) {
-      if (e.target.closest('.msg-reaction')) return;
-      selectedMsg = m;
-      document.getElementById('actEditBtn').style.display = (isMine && m.msg_type === 'text') ? 'block' : 'none';
-      document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
-      document.getElementById('msgModal').classList.add('show');
+      if (clickTimer) {
+        clearTimeout(clickTimer); clickTimer = null;
+        fetch('/react_msg/' + m.id, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ emoji: '❤️' }) });
+        pollMessages();
+      } else {
+        clickTimer = setTimeout(function(){
+          clickTimer = null;
+          selectedMsg = m;
+          document.getElementById('actEditBtn').style.display = (isMine && m.msg_type === 'text') ? 'block' : 'none';
+          document.getElementById('actDelAllBtn').style.display = isMine ? 'block' : 'none';
+          document.getElementById('msgModal').classList.add('show');
+        }, 250);
+      }
     });
-    
     return row;
   }
 
   function appendMessage(m) {
     if (renderedIds.has(m.id)) return;
     renderedIds.add(m.id);
+    
+    var msgDate = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
+    if (msgDate && msgDate !== lastDateStr) {
+      var sep = document.createElement('div');
+      sep.className = 'date-separator';
+      sep.textContent = formatDate(m.created_at);
+      messagesInner.appendChild(sep);
+      lastDateStr = msgDate;
+    }
+    
     var atBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
     messagesInner.appendChild(buildRow(m));
     if (atBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
@@ -615,7 +659,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
         } catch(e){}
       };
       mediaRecorder.start();
-      micBtn.style.color = '#ef4444'; // Красный при записи
+      micBtn.style.color = '#ef4444';
     } catch(e){ alert('Нет доступа к микрофону'); }
   });
 
@@ -647,6 +691,38 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
     msgInput.value = '@' + selectedMsg.sender_name + ', ' + msgInput.value;
     msgInput.focus(); msgModal.classList.remove('show');
   });
+  document.getElementById('actPinBtn').addEventListener('click', async function(){
+    if (!selectedMsg) return;
+    await fetch('/pin_msg/' + selectedMsg.id, { method: 'POST' });
+    msgModal.classList.remove('show'); pollMessages();
+  });
+
+  // ПЕРЕСЫЛКА
+  var forwardModal = document.getElementById('forwardModal');
+  document.getElementById('actForwardBtn').addEventListener('click', function(){
+    if (!selectedMsg) return;
+    var box = document.getElementById('forwardTargets');
+    box.innerHTML = '';
+    conversationsData.forEach(function(c){
+      var lbl = document.createElement('label');
+      lbl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;';
+      lbl.innerHTML = '<input type="checkbox" class="fwd-check" data-type="' + c.type + '" data-id="' + c.id + '" style="width:auto;">' +
+        '<span>' + (c.type === 'group' ? '👥 ' : '👤 ') + escapeHtml(c.title) + '</span>';
+      box.appendChild(lbl);
+    });
+    forwardModal.classList.add('show');
+    msgModal.classList.remove('show');
+  });
+  document.getElementById('closeForwardBtn').addEventListener('click', () => forwardModal.classList.remove('show'));
+  document.getElementById('doForwardBtn').addEventListener('click', async function(){
+    var targets = [];
+    document.querySelectorAll('.fwd-check:checked').forEach(function(cb){
+      targets.push({type: cb.dataset.type, id: parseInt(cb.dataset.id)});
+    });
+    if (!targets.length || !selectedMsg) return;
+    await fetch('/forward_msg', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mid: selectedMsg.id, targets: targets }) });
+    forwardModal.classList.remove('show');
+  });
 
   // ===== 5. SSE =====
   var es = new EventSource('/stream');
@@ -662,6 +738,7 @@ var CSRF_TOKEN = {{ session.get('csrf_token', '')|tojson }};
   es.addEventListener('react', () => pollMessages());
   es.addEventListener('edit', () => pollMessages());
   es.addEventListener('delete', () => pollMessages());
+  es.addEventListener('pin', () => pollMessages());
 
   pollMessages();
   setInterval(pollMessages, 5000);
