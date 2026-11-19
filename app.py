@@ -20,20 +20,17 @@ app = Flask(__name__)
 
 # ===================== КОНФИГ =====================
 app.secret_key = os.environ.get('SECRET_KEY', 'billion-dollar-secret-key-2026')
-
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
 SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
 DANGEROUS_EXTS = {'php', 'phtml', 'exe', 'dll', 'bat', 'cmd', 'js', 'html', 'htm', 'svg', 'xml', 'apk'}
 
@@ -45,8 +42,7 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
         cur.execute("PRAGMA synchronous=NORMAL")
         cur.execute("PRAGMA busy_timeout=5000")
         cur.close()
-    except Exception:
-        pass
+    except Exception: pass
 
 db = SQLAlchemy(app)
 
@@ -59,15 +55,12 @@ def sse_publish(user_ids, event_type, data):
     with _sse_lock:
         for uid in user_ids:
             for q in _sse_subscribers.get(uid, []):
-                try:
-                    q.put_nowait(payload)
-                except queue.Full:
-                    pass
+                try: q.put_nowait(payload)
+                except queue.Full: pass
 
 def sse_subscribe(uid):
     q = queue.Queue(maxsize=200)
-    with _sse_lock:
-        _sse_subscribers.setdefault(uid, []).append(q)
+    with _sse_lock: _sse_subscribers.setdefault(uid, []).append(q)
     return q
 
 def sse_unsubscribe(uid, q):
@@ -108,6 +101,7 @@ class Message(db.Model):
     pinned = db.Column(db.Integer, default=0)
     reply_to_id = db.Column(db.Integer, default=0)
     edited_at = db.Column(db.Float, default=0.0)
+    forwarded_from = db.Column(db.String(100), default='')
     hidden_for = db.Column(db.String(50), default='')
 
 class Chat(db.Model):
@@ -144,6 +138,7 @@ def ensure_schema():
                 if 'reply_to_id' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reply_to_id INTEGER DEFAULT 0'))
                 if 'edited_at' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN edited_at FLOAT DEFAULT 0.0'))
                 if 'reaction' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN reaction VARCHAR(20) DEFAULT ""'))
+                if 'forwarded_from' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN forwarded_from VARCHAR(100) DEFAULT ""'))
                 if 'hidden_for' not in cols: db.session.execute(text('ALTER TABLE message ADD COLUMN hidden_for VARCHAR(50) DEFAULT ""'))
             db.session.commit()
         except Exception:
@@ -154,8 +149,7 @@ ensure_schema()
 # ===================== CSRF =====================
 @app.before_request
 def _ensure_csrf():
-    if 'csrf_token' not in session:
-        session['csrf_token'] = secrets.token_urlsafe(32)
+    if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
 
 @app.before_request
 def _csrf_protect():
@@ -173,8 +167,7 @@ def is_member(uid, gid): return ChatMember.query.filter_by(chat_id=gid, user_id=
 def get_or_create_bot():
     bot = User.query.filter_by(username='ramplez').first()
     if not bot:
-        bot = User(username='ramplez', name='Ramplez', password=generate_password_hash(secrets.token_hex(16)),
-                   bio='Официальный бот 👋', onboarded=1, is_bot=1)
+        bot = User(username='ramplez', name='Ramplez', password=generate_password_hash(secrets.token_hex(16)), bio='Официальный бот 👋', onboarded=1, is_bot=1)
         db.session.add(bot); db.session.commit()
     return bot
 
@@ -189,7 +182,7 @@ def serialize_msg(m, sender_name=""):
         'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
         'created_at': m.created_at, 'read_at': m.read_at, 'reaction': m.reaction,
         'pinned': m.pinned, 'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
-        'sender_name': sender_name
+        'forwarded_from': m.forwarded_from or '', 'sender_name': sender_name
     }
 
 # ===================== SSE =====================
@@ -212,14 +205,10 @@ def stream():
         except GeneratorExit: pass
         finally: sse_unsubscribe(uid, q)
     resp = Response(gen(), mimetype='text/event-stream')
-    resp.headers['Cache-Control'] = 'no-cache'
-    resp.headers['X-Accel-Buffering'] = 'no'
+    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
     return resp
 
 # ===================== AUTH =====================
-@app.route('/sw.js')
-def service_worker(): return app.send_static_file('sw.js')
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'uid' in session: return redirect(url_for('chat'))
@@ -234,38 +223,31 @@ def index():
         if not username or not password: error = 'Заполните поля'
         elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов (a-z, 0-9, _)'
         elif action == 'register':
-            if username == 'ramplez' or User.query.filter_by(username=username).first():
-                error = 'Логин занят'
+            if username == 'ramplez' or User.query.filter_by(username=username).first(): error = 'Логин занят'
             else:
                 u = User(username=username, name=name, password=generate_password_hash(password), invited_by=session.get('pending_ref') or 0)
                 db.session.add(u); db.session.commit()
                 session['uid'] = u.id; session.pop('pending_ref', None)
-                
                 bot = get_or_create_bot()
                 if bot.id != u.id:
-                    welcome = Message(sender_id=bot.id, receiver_id=u.id, msg_type='text',
-                        content='Привет 👋 Добро пожаловать в Ramplez!\n\n• Найди друзей через 🔍\n• Создай группу ＋\n\nМы работаем в реальном времени ⚡',
-                        timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+                    welcome = Message(sender_id=bot.id, receiver_id=u.id, msg_type='text', content='Привет 👋 Добро пожаловать в Ramplez!\n\n• Найди друзей через 🔍\n• Создай группу ＋\n\nМы работаем в реальном времени ⚡', timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
                     db.session.add(welcome); db.session.commit()
                     return redirect(url_for('chat', u=bot.id))
                 return redirect(url_for('chat'))
         else:
             u = User.query.filter_by(username=username).first()
-            if u and check_password_hash(u.password, password):
-                session['uid'] = u.id; return redirect(url_for('chat'))
+            if u and check_password_hash(u.password, password): session['uid'] = u.id; return redirect(url_for('chat'))
             error = 'Неверный логин или пароль'
     return render_template('login.html', error=error)
 
 @app.route('/logout')
-def logout():
-    session.clear(); return redirect(url_for('index'))
+def logout(): session.clear(); return redirect(url_for('index'))
 
 # ===================== CHAT =====================
 def _build_conversations(me):
     contact_ids = get_my_contacts(me.id)
     users = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
     my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
-    
     if not any(u.is_bot for u in users):
         bot = User.query.filter_by(username='ramplez').first()
         if bot and bot.id != me.id: users.append(bot)
@@ -273,14 +255,11 @@ def _build_conversations(me):
     convs = []
     for u in users:
         unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, read_at=0).count()
-        convs.append({'type': 'user', 'id': u.id, 'title': u.name, 'avatar': u.avatar,
-            'sub': u.bio or ('@' + u.username), 'online': is_online(u), 'unread': unread, 'username': u.username})
-
+        convs.append({'type': 'user', 'id': u.id, 'title': u.name, 'avatar': u.avatar, 'sub': u.bio or ('@' + u.username), 'online': is_online(u), 'unread': unread, 'username': u.username})
     for g in my_groups:
         g_msgs = Message.query.filter_by(receiver_id=-g.id).order_by(Message.id.desc()).limit(100).all()
         unread_g = sum(1 for m in g_msgs if m.sender_id != me.id and not MessageRead.query.filter_by(message_id=m.id, user_id=me.id).first())
         convs.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g, 'username': ''})
-
     convs.sort(key=lambda c: (not c['online'], -c['unread'], c['title'].lower()))
     return convs
 
@@ -295,11 +274,8 @@ def chat():
     oid = request.args.get('u', type=int)
     mode, other, group = None, None, None
 
-    if gid and is_member(me.id, gid):
-        group = db.session.get(Chat, gid); mode = 'group'
-    elif oid:
-        other = db.session.get(User, oid)
-        mode = 'personal' if other and other.id != me.id else None
+    if gid and is_member(me.id, gid): group = db.session.get(Chat, gid); mode = 'group'
+    elif oid: other = db.session.get(User, oid); mode = 'personal' if other and other.id != me.id else None
 
     conversations = _build_conversations(me)
     contact_ids = get_my_contacts(me.id)
@@ -321,12 +297,14 @@ def api_search_users():
     users = User.query.filter(User.username.ilike(f'{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
     return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
 
-@app.route('/api/profile/<int:uid>')
-def api_profile(uid):
+@app.route('/api/search_messages')
+def api_search_messages():
     if 'uid' not in session: return jsonify({'ok': False}), 401
-    user = db.session.get(User, uid)
-    if not user: return jsonify({'ok': False}), 404
-    return jsonify({'ok': True, 'id': user.id, 'name': user.name, 'username': user.username, 'bio': user.bio, 'avatar': user.avatar, 'online': is_online(user)})
+    q = (request.args.get('q') or '').strip()
+    if not q or len(q) < 2: return jsonify({'ok': True, 'results': []})
+    like = f'%{q}%'
+    msgs = Message.query.filter(Message.content.ilike(like), Message.msg_type == 'text').order_by(Message.id.desc()).limit(50).all()
+    return jsonify({'ok': True, 'results': [serialize_msg(m) for m in msgs if str(session['uid']) not in (m.hidden_for or '')]})
 
 # ===================== SEND / POLL =====================
 @app.route('/send', methods=['POST'])
@@ -339,10 +317,9 @@ def send():
     if not oid or not content: return jsonify({'ok': False}), 400
 
     other = db.session.get(User, oid)
-    if not other: return jsonify({'ok': False, 'error': 'user not found'}), 404
+    if not other: return jsonify({'ok': False}), 404
 
-    msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content,
-                  timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
+    msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
     db.session.add(msg)
     me = db.session.get(User, session['uid'])
     if me: me.typing_to = 0; me.last_seen = time.time()
@@ -361,8 +338,7 @@ def send_group():
     reply_to_id = int(data.get('reply_to_id', 0)) or 0
     if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
 
-    msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content,
-                  timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
+    msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
     db.session.add(msg)
     me = db.session.get(User, session['uid'])
     if me: me.typing_to = 0; me.last_seen = time.time()
@@ -391,9 +367,7 @@ def upload_file():
 
     mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
     
-    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype,
-                  content=url_for('uploaded_file', fn=saved_name), file_name=f.filename,
-                  timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
     db.session.add(msg); db.session.commit()
 
     me = db.session.get(User, session['uid'])
@@ -413,8 +387,7 @@ def uploaded_file(fn):
     if not target.startswith(base + os.sep): abort(403)
     resp = send_from_directory(base, fn)
     ext = fn.rsplit('.', 1)[-1].lower() if '.' in fn else ''
-    if ext not in SAFE_INLINE_EXTS:
-        resp.headers['Content-Disposition'] = f'attachment; filename="{os.path.basename(fn)}"'
+    if ext not in SAFE_INLINE_EXTS: resp.headers['Content-Disposition'] = f'attachment; filename="{os.path.basename(fn)}"'
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     return resp
 
@@ -429,6 +402,7 @@ def poll(oid):
     me = db.session.get(User, uid)
     if me: me.last_seen = now; db.session.commit()
 
+    # Помечаем как прочитанные мгновенно
     Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).update({'read_at': now})
     db.session.commit()
 
@@ -493,11 +467,8 @@ def react_msg(mid):
     msg.reaction = emj if msg.reaction != emj else ''
     db.session.commit()
     
-    if msg.receiver_id >= 0:
-        sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
-    else:
-        recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()]
-        sse_publish(recipients, 'react', {'mid': mid})
+    if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
+    else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'react', {'mid': mid})
     return jsonify({'ok': True})
 
 @app.route('/edit_msg/<int:mid>', methods=['POST'])
@@ -511,6 +482,31 @@ def edit_msg(mid):
         msg.edited_at = time.time()
         db.session.commit()
         sse_publish([msg.sender_id, msg.receiver_id], 'edit', {'mid': mid})
+    return jsonify({'ok': True})
+
+@app.route('/forward_msg', methods=['POST'])
+def forward_msg():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    mid = int(data.get('mid', 0))
+    targets = data.get('targets') or []
+    src = db.session.get(Message, mid)
+    if not src or not targets: return jsonify({'ok': False}), 400
+
+    original_sender = db.session.get(User, src.sender_id)
+    fwd_label = (original_sender.name if original_sender else 'Аноним')[:80]
+    
+    for t in targets:
+        tid = int(t.get('id', 0))
+        if t.get('type') == 'user':
+            msg = Message(sender_id=session['uid'], receiver_id=tid, msg_type=src.msg_type, content=src.content, file_name=src.file_name, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), forwarded_from=fwd_label)
+            db.session.add(msg)
+            sse_publish([tid, session['uid']], 'new_message', serialize_msg(msg, 'Вы'))
+        elif t.get('type') == 'group':
+            msg = Message(sender_id=session['uid'], receiver_id=-tid, msg_type=src.msg_type, content=src.content, file_name=src.file_name, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), forwarded_from=fwd_label)
+            db.session.add(msg)
+            sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=tid).all()], 'new_message', serialize_msg(msg, 'Вы'))
+    db.session.commit()
     return jsonify({'ok': True})
 
 @app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
@@ -541,11 +537,8 @@ def pin_msg(mid):
     if msg:
         msg.pinned = 1 if msg.pinned == 0 else 0
         db.session.commit()
-        if msg.receiver_id >= 0:
-            sse_publish([msg.sender_id, msg.receiver_id], 'pin', {'mid': mid})
-        else:
-            recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()]
-            sse_publish(recipients, 'pin', {'mid': mid})
+        if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'pin', {'mid': mid})
+        else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'pin', {'mid': mid})
     return jsonify({'ok': True})
 
 @app.route('/update_profile', methods=['POST'])
