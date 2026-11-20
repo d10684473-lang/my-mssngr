@@ -12,13 +12,13 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import event, inspect, text
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
 
 # ===================== КОНФИГ =====================
-app.secret_key = os.environ.get('SECRET_KEY', 'ultra-secure-key-2026-messenger')
+app.secret_key = os.environ.get('SECRET_KEY', 'super-secret-god-mode-2026')
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
 if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
@@ -56,6 +56,9 @@ class User(db.Model):
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
     last_seen = db.Column(db.Float, default=0.0)
+    onboarded = db.Column(db.Integer, default=0)
+    theme = db.Column(db.String(20), default='dark')
+    font_size = db.Column(db.Integer, default=15)
 
 class Message(db.Model):
     __tablename__ = 'message'
@@ -93,7 +96,7 @@ class MessageRead(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
 
-# ===================== БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ =====================
+# ===================== ИНИЦИАЛИЗАЦИЯ =====================
 with app.app_context():
     try:
         db.session.rollback()
@@ -146,7 +149,7 @@ def stream():
     resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
     return resp
 
-# ===================== БЕЗОПАСНОСТЬ =====================
+# ===================== CSRF =====================
 @app.before_request
 def _ensure_csrf():
     if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
@@ -188,7 +191,7 @@ def index():
         name = request.form.get('name', '').strip() or username
         try:
             if not username or not password: error = 'Заполните поля'
-            elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов'
+            elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов (a-z, 0-9, _)'
             elif action == 'register':
                 if User.query.filter_by(username=username).first(): error = 'Логин занят'
                 else:
@@ -200,9 +203,9 @@ def index():
                 u = User.query.filter_by(username=username).first()
                 if u and check_password_hash(u.password, password): session['uid'] = u.id; return redirect(url_for('chat'))
                 error = 'Неверный логин или пароль'
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            error = 'Ошибка БД. Попробуйте снова.'
+            error = 'Ошибка базы данных. Попробуйте еще раз.'
     return render_template('login.html', error=error)
 
 @app.route('/logout')
@@ -243,19 +246,45 @@ def chat():
     users_for_group = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
     return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
 
-@app.route('/api/conversations')
-def api_conversations():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    me = db.session.get(User, session['uid'])
-    return jsonify({'ok': True, 'conversations': _build_conversations(me)})
-
+# ===================== API =====================
 @app.route('/api/search_users')
 def api_search_users():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     q = (request.args.get('q') or '').strip().lower()
     if not q or len(q) < 2: return jsonify({'ok': True, 'users': []})
-    users = User.query.filter(User.username.ilike(f'{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
+    users = User.query.filter(User.username.ilike(f'%{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
     return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
+
+@app.route('/api/search_messages')
+def api_search_messages():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    q = (request.args.get('q') or '').strip().lower()
+    if not q: return jsonify({'ok': True, 'messages': []})
+    try:
+        # Простой поиск по тексту
+        msgs = Message.query.filter(Message.content.ilike(f'%{q}%')).order_by(Message.id.desc()).limit(50).all()
+        out = []
+        for m in msgs:
+            if m.receiver_id == session['uid'] or m.sender_id == session['uid'] or (m.receiver_id < 0 and is_member(session['uid'], -m.receiver_id)):
+                out.append(serialize_msg(m))
+        return jsonify({'ok': True, 'messages': out})
+    except: return jsonify({'ok': False}), 500
+
+@app.route('/update_settings', methods=['POST'])
+def update_settings():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        me = db.session.get(User, session['uid'])
+        if me:
+            if 'name' in data: me.name = str(data['name']).strip()[:80]
+            if 'bio' in data: me.bio = str(data['bio']).strip()[:200]
+            if 'theme' in data: me.theme = str(data['theme'])
+            if 'font_size' in data: me.font_size = int(data['font_size'])
+            if 'avatar' in data and str(data['avatar']).startswith('data:image/'): me.avatar = data['avatar']
+            db.session.commit()
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
 # ===================== ОТПРАВКА =====================
 @app.route('/send', methods=['POST'])
