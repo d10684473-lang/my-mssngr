@@ -18,11 +18,9 @@ from sqlalchemy.engine import Engine
 app = Flask(__name__)
 
 # ===================== КОНФИГ =====================
-app.secret_key = os.environ.get('SECRET_KEY', 'billionaire-secret-2026-ultra')
-# По умолчанию используем локальную SQLite (ключи не нужны)
+app.secret_key = os.environ.get('SECRET_KEY', 'ultra-secure-key-2026-messenger')
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
-if _db_url.startswith('postgres://'): 
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -58,8 +56,6 @@ class User(db.Model):
     typing_to = db.Column(db.Integer, default=0)
     typing_at = db.Column(db.Float, default=0.0)
     last_seen = db.Column(db.Float, default=0.0)
-    theme = db.Column(db.String(20), default='gold') # Тема по умолчанию
-    is_bot = db.Column(db.Integer, default=0)
 
 class Message(db.Model):
     __tablename__ = 'message'
@@ -78,7 +74,6 @@ class Message(db.Model):
     edited_at = db.Column(db.Float, default=0.0)
     forwarded_from = db.Column(db.String(100), default='')
     hidden_for = db.Column(db.String(50), default='')
-    expires_at = db.Column(db.Float, default=0.0) # Секретные сообщения
 
 class Chat(db.Model):
     __tablename__ = 'chat'
@@ -92,20 +87,23 @@ class ChatMember(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer, primary_key=True, index=True)
 
-# ===================== БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ БД =====================
+class MessageRead(db.Model):
+    __tablename__ = 'message_read'
+    message_id = db.Column(db.Integer, primary_key=True, index=True)
+    user_id = db.Column(db.Integer, primary_key=True, index=True)
+    read_at = db.Column(db.Float, default=0.0)
+
+# ===================== БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ =====================
 with app.app_context():
     try:
+        db.session.rollback()
         db.create_all()
-        # Создаем AI-бота при первом запуске
-        if not User.query.filter_by(username='ai_bot').first():
-            bot = User(username='ai_bot', name='🤖 Ramplez AI', password='bot', bio='Ваш личный помощник', is_bot=1)
-            db.session.add(bot)
-            db.session.commit()
+        db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f"DB Init Error: {e}")
 
-# ===================== SSE HUB (Скорость света) =====================
+# ===================== SSE =====================
 _sse_subscribers = {}
 _sse_lock = threading.Lock()
 
@@ -128,7 +126,27 @@ def sse_unsubscribe(uid, q):
         if q in lst: lst.remove(q)
         if not lst: _sse_subscribers.pop(uid, None)
 
-# ===================== CSRF ЗАЩИТА =====================
+@app.route('/stream')
+def stream():
+    if 'uid' not in session: return Response('unauthorized', 401)
+    uid = session['uid']
+    q = sse_subscribe(uid)
+    def gen():
+        try:
+            yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
+            while True:
+                try:
+                    event, data = q.get(timeout=2.0)
+                    yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    yield ": ping\n\n"
+        except GeneratorExit: pass
+        finally: sse_unsubscribe(uid, q)
+    resp = Response(gen(), mimetype='text/event-stream')
+    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
+    return resp
+
+# ===================== БЕЗОПАСНОСТЬ =====================
 @app.before_request
 def _ensure_csrf():
     if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
@@ -156,7 +174,7 @@ def serialize_msg(m, sender_name=""):
             'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
             'created_at': m.created_at, 'read_at': m.read_at or 0.0, 'reaction': m.reaction,
             'pinned': m.pinned, 'reply_to_id': m.reply_to_id or 0, 'edited_at': m.edited_at or 0,
-            'forwarded_from': m.forwarded_from or '', 'sender_name': sender_name, 'expires_at': m.expires_at or 0}
+            'forwarded_from': m.forwarded_from or '', 'sender_name': sender_name}
 
 # ===================== AUTH =====================
 @app.route('/', methods=['GET', 'POST'])
@@ -168,10 +186,9 @@ def index():
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
         name = request.form.get('name', '').strip() or username
-        
         try:
             if not username or not password: error = 'Заполните поля'
-            elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов (a-z, 0-9, _)'
+            elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов'
             elif action == 'register':
                 if User.query.filter_by(username=username).first(): error = 'Логин занят'
                 else:
@@ -181,13 +198,11 @@ def index():
                     return redirect(url_for('chat'))
             else:
                 u = User.query.filter_by(username=username).first()
-                if u and check_password_hash(u.password, password): 
-                    session['uid'] = u.id; return redirect(url_for('chat'))
+                if u and check_password_hash(u.password, password): session['uid'] = u.id; return redirect(url_for('chat'))
                 error = 'Неверный логин или пароль'
         except Exception as e:
             db.session.rollback()
-            error = 'Ошибка базы данных. Попробуйте снова.'
-            
+            error = 'Ошибка БД. Попробуйте снова.'
     return render_template('login.html', error=error)
 
 @app.route('/logout')
@@ -196,11 +211,6 @@ def logout(): session.clear(); return redirect(url_for('index'))
 def _build_conversations(me):
     contact_ids = get_my_contacts(me.id)
     users = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
-    # Добавляем AI бота в список всегда
-    bot = User.query.filter_by(username='ai_bot').first()
-    if bot and bot.id not in contact_ids:
-        users.append(bot)
-
     my_groups = (db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all())
     convs = []
     for u in users:
@@ -218,8 +228,8 @@ def chat():
     if 'uid' not in session: return redirect(url_for('index'))
     me = db.session.get(User, session['uid'])
     if not me: session.clear(); return redirect(url_for('index'))
-    me.last_seen = time.time()
-    try: db.session.commit()
+    try:
+        me.last_seen = time.time(); db.session.commit()
     except: db.session.rollback()
 
     gid = request.args.get('g', type=int)
@@ -231,9 +241,8 @@ def chat():
     conversations = _build_conversations(me)
     contact_ids = get_my_contacts(me.id)
     users_for_group = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
-    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time(), theme=me.theme or 'gold')
+    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
 
-# ===================== API =====================
 @app.route('/api/conversations')
 def api_conversations():
     if 'uid' not in session: return jsonify({'ok': False}), 401
@@ -248,106 +257,79 @@ def api_search_users():
     users = User.query.filter(User.username.ilike(f'{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
     return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
 
-# ===================== ОТПРАВКА И ПОЛУЧЕНИЕ (СКОРОСТЬ СВЕТА) =====================
-@app.route('/stream')
-def stream():
-    if 'uid' not in session: return Response('unauthorized', 401)
-    uid = session['uid']
-    q = sse_subscribe(uid)
-    def gen():
-        try:
-            yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
-            last_ping = time.time()
-            while True:
-                try:
-                    event, data = q.get(timeout=1.0)
-                    yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-                except queue.Empty:
-                    if time.time() - last_ping > 20:
-                        yield ": ping\n\n"; last_ping = time.time()
-        except GeneratorExit: pass
-        finally: sse_unsubscribe(uid, q)
-    resp = Response(gen(), mimetype='text/event-stream')
-    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
-    return resp
-
+# ===================== ОТПРАВКА =====================
 @app.route('/send', methods=['POST'])
 def send():
     if 'uid' not in session: return jsonify({'ok': False}), 401
     data = request.get_json(silent=True) or {}
-    oid = int(data.get('oid', 0))
-    content = str(data.get('content', '')).strip()
-    expires_in = int(data.get('expires_in', 0)) # Секретные сообщения
-    
+    oid = int(data.get('oid', 0)); content = str(data.get('content', '')).strip()
+    reply_to_id = int(data.get('reply_to_id', 0)) or 0
     if not oid or not content: return jsonify({'ok': False}), 400
-    
     try:
         other = db.session.get(User, oid)
         if not other: return jsonify({'ok': False}), 404
-        
-        expires_at = time.time() + expires_in if expires_in > 0 else 0
-        msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, 
-                      timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), expires_at=expires_at)
+        msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
         db.session.add(msg)
         me = db.session.get(User, session['uid'])
         if me: me.typing_to = 0; me.last_seen = time.time()
         db.session.commit()
-        
         msg_data = serialize_msg(msg, me.name if me else "")
         sse_publish([oid, session['uid']], 'new_message', msg_data)
-        
-        # Логика AI Бота
-        if other.is_bot:
-            threading.Thread(target=ai_bot_reply, args=(session['uid'], content)).start()
-            
         return jsonify({'ok': True, 'message': msg_data})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
-def ai_bot_reply(user_id, text):
-    time.sleep(1) # Имитация раздумий
-    bot = User.query.filter_by(username='ai_bot').first()
-    if not bot: return
-    reply_text = "Я искусственный интеллект. Вы сказали: " + text
-    if 'привет' in text.lower(): reply_text = "Приветствую, мой господин! Чем могу помочь?"
-    
+@app.route('/send_group', methods=['POST'])
+def send_group():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    gid = int(data.get('gid', 0)); content = str(data.get('content', '')).strip()
+    reply_to_id = int(data.get('reply_to_id', 0)) or 0
+    if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
     try:
-        msg = Message(sender_id=bot.id, receiver_id=user_id, msg_type='text', content=reply_text, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
-        db.session.add(msg); db.session.commit()
-        sse_publish([user_id], 'new_message', serialize_msg(msg, bot.name))
-    except: db.session.rollback()
+        msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=reply_to_id)
+        db.session.add(msg)
+        me = db.session.get(User, session['uid'])
+        if me: me.typing_to = 0; me.last_seen = time.time()
+        db.session.commit()
+        recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
+        msg_data = serialize_msg(msg, me.name if me else "")
+        sse_publish(recipients, 'new_message', msg_data)
+        return jsonify({'ok': True, 'message': msg_data})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
     if 'uid' not in session: return jsonify({'ok': False}), 401
-    oid = request.form.get('oid', type=int)
-    gid = request.form.get('gid', type=int)
+    oid = request.form.get('oid', type=int); gid = request.form.get('gid', type=int)
     f = request.files.get('file')
     if not f or not f.filename: return jsonify({'ok': False}), 400
-    
     orig_name = secure_filename(f.filename) or 'file'
     ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
-    if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'file type not allowed'}), 400
-    
+    if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'bad file'}), 400
     try:
         saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
         f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
         mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
-        
-        msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, 
-                      content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
+        msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
         db.session.add(msg); db.session.commit()
         me = db.session.get(User, session['uid'])
         msg_data = serialize_msg(msg, me.name if me else "")
-        
         if gid: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()], 'new_message', msg_data)
         else: sse_publish([oid, session['uid']], 'new_message', msg_data)
         return jsonify({'ok': True, 'message': msg_data})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
+@app.route('/uploads/<path:fn>')
+def uploaded_file(fn):
+    base = os.path.abspath(app.config['UPLOAD_FOLDER'])
+    target = os.path.abspath(os.path.join(base, fn))
+    if not target.startswith(base + os.sep): abort(403)
+    resp = send_from_directory(base, fn)
+    ext = fn.rsplit('.', 1)[-1].lower() if '.' in fn else ''
+    if ext not in SAFE_INLINE_EXTS: resp.headers['Content-Disposition'] = f'attachment; filename="{os.path.basename(fn)}"'
+    return resp
+
+# ===================== ПОЛУЧЕНИЕ =====================
 @app.route('/poll/<int:oid>')
 def poll(oid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
@@ -358,31 +340,115 @@ def poll(oid):
         now = time.time()
         me = db.session.get(User, uid)
         if me: me.last_seen = now; db.session.commit()
-        
-        Message.query.filter(Message.receiver_id == uid, Message.expires_at > 0, Message.expires_at < now).delete()
-        
         Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).update({'read_at': now})
         db.session.commit()
-        
-        msgs = Message.query.filter(
-            ((Message.sender_id == uid) & (Message.receiver_id == oid)) |
-            ((Message.sender_id == oid) & (Message.receiver_id == uid))
-        ).order_by(Message.id.asc()).all()
-        
+        msgs = Message.query.filter(((Message.sender_id == uid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == uid))).order_by(Message.id.asc()).all()
         out = [serialize_msg(m, other.name if m.sender_id == oid else "Вы") for m in msgs if str(uid) not in (m.hidden_for or '')]
         return jsonify({'ok': True, 'messages': out, 'typing': bool(other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other)})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/poll_group/<int:gid>')
+def poll_group(gid):
+    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
+    uid = session['uid']
+    try:
+        now = time.time()
+        me = db.session.get(User, uid)
+        if me: me.last_seen = now; db.session.commit()
+        msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
+        member_users = User.query.filter(User.id.in_([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()])).all()
+        users_map = {u.id: u.name for u in member_users}
+        members_data = [{'id': u.id, 'name': u.name, 'username': u.username} for u in member_users]
+        for m in msgs:
+            if m.sender_id != uid and not MessageRead.query.filter_by(message_id=m.id, user_id=uid).first():
+                db.session.add(MessageRead(message_id=m.id, user_id=uid, read_at=now))
+        db.session.commit()
+        out = [serialize_msg(m, users_map.get(m.sender_id, 'Аноним')) for m in msgs if str(uid) not in (m.hidden_for or '')]
+        typing_users = [u.name for u in member_users if u.id != uid and u.typing_to == -gid and (now - (u.typing_at or 0)) < 3.5]
+        return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'members': members_data})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
 @app.route('/typing/<int:oid>', methods=['POST'])
 def typing(oid):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     try:
         me = db.session.get(User, session['uid'])
+        if me: me.typing_to = oid; me.typing_at = time.time(); db.session.commit(); sse_publish([oid], 'typing', {'from': me.id})
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/typing_group/<int:gid>', methods=['POST'])
+def typing_group(gid):
+    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
+    try:
+        me = db.session.get(User, session['uid'])
         if me:
-            me.typing_to = oid; me.typing_at = time.time(); db.session.commit()
-            sse_publish([oid], 'typing', {'from': me.id})
+            me.typing_to = -gid; me.typing_at = time.time(); db.session.commit()
+            recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all() if mb.user_id != me.id]
+            sse_publish(recipients, 'typing_group', {'gid': gid, 'from': me.id})
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+# ===================== ДЕЙСТВИЯ =====================
+@app.route('/react_msg/<int:mid>', methods=['POST'])
+def react_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    emj = str(data.get('emoji', '')).strip()[:20]
+    try:
+        msg = db.session.get(Message, mid)
+        if msg:
+            msg.reaction = emj if msg.reaction != emj else ''
+            db.session.commit()
+            if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
+            else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'react', {'mid': mid})
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/edit_msg/<int:mid>', methods=['POST'])
+def edit_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    new_content = str(data.get('content', '')).strip()
+    try:
+        msg = db.session.get(Message, mid)
+        if msg and msg.sender_id == session['uid']:
+            msg.content = new_content; msg.edited_at = time.time(); db.session.commit()
+            sse_publish([msg.sender_id, msg.receiver_id], 'edit', {'mid': mid})
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/del_me/<int:mid>', methods=['POST'])
+def del_me(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    try:
+        msg = db.session.get(Message, mid)
+        if msg:
+            hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
+            hidden.add(str(session['uid'])); msg.hidden_for = ','.join(hidden); db.session.commit()
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/del_all/<int:mid>', methods=['POST'])
+def del_all(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    try:
+        msg = db.session.get(Message, mid)
+        if msg and msg.sender_id == session['uid']:
+            recv = msg.receiver_id; db.session.delete(msg); db.session.commit()
+            sse_publish([recv], 'delete', {'mid': mid})
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/pin_msg/<int:mid>', methods=['POST'])
+def pin_msg(mid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    try:
+        msg = db.session.get(Message, mid)
+        if msg:
+            msg.pinned = 1 if msg.pinned == 0 else 0; db.session.commit()
+            if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'pin', {'mid': mid})
+            else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'pin', {'mid': mid})
         return jsonify({'ok': True})
     except: db.session.rollback(); return jsonify({'ok': False}), 500
 
@@ -395,6 +461,23 @@ def call_signal():
     me = db.session.get(User, session['uid'])
     sse_publish([target_id], 'call_signal', {'from': session['uid'], 'from_name': me.name, 'type': data.get('type'), 'payload': data.get('payload')})
     return jsonify({'ok': True})
+
+@app.route('/create_group', methods=['POST'])
+def create_group():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    data = request.get_json(silent=True) or {}
+    title = str(data.get('title', '')).strip()
+    ids = data.get('member_ids') or []
+    if not title or not isinstance(ids, list): return jsonify({'ok': False}), 400
+    try:
+        ids = [int(x) for x in ids if int(x) != session['uid']]
+        g = Chat(title=title[:100], owner_id=session['uid'], created_at=time.time())
+        db.session.add(g); db.session.commit()
+        for uid_ in set(ids + [session['uid']]): db.session.add(ChatMember(chat_id=g.id, user_id=uid_))
+        db.session.commit()
+        for uid_ in set(ids): sse_publish([uid_], 'new_group', {'gid': g.id})
+        return jsonify({'ok': True, 'gid': g.id})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
