@@ -27,6 +27,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
@@ -101,74 +102,26 @@ with app.app_context():
     try:
         db.session.rollback()
         db.create_all()
-        
-        # Проверяем и добавляем новые колонки в таблицу user
         insp = inspect(db.engine)
         if 'user' in insp.get_table_names():
             cols = [c['name'] for c in insp.get_columns('user')]
-            if 'onboarded' not in cols:
-                db.session.execute(text('ALTER TABLE "user" ADD COLUMN onboarded INTEGER DEFAULT 0'))
-            if 'theme' not in cols:
-                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN theme VARCHAR(20) DEFAULT 'dark'"))
-            if 'font_size' not in cols:
-                db.session.execute(text('ALTER TABLE "user" ADD COLUMN font_size INTEGER DEFAULT 15'))
+            if 'onboarded' not in cols: db.session.execute(text('ALTER TABLE "user" ADD COLUMN onboarded INTEGER DEFAULT 0'))
+            if 'theme' not in cols: db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN theme VARCHAR(20) DEFAULT 'dark'"))
+            if 'font_size' not in cols: db.session.execute(text('ALTER TABLE "user" ADD COLUMN font_size INTEGER DEFAULT 15'))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"DB Init/Migration Error: {e}")
+        print(f"DB Init Error: {e}")
 
-# ===================== CSRF (МЯГКАЯ ОБРАБОТКА) =====================
-@app.errorhandler(403)
-def handle_403(e):
-    # Вместо черного экрана с JSON, просто перекидываем на главную
-    return redirect(url_for('index'))
+# ===================== ЗАЩИТА ОТ КЕША БРАУЗЕРА =====================
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
 
-# ===================== SSE =====================
-_sse_subscribers = {}
-_sse_lock = threading.Lock()
-
-def sse_publish(user_ids, event_type, data):
-    payload = (event_type, data)
-    with _sse_lock:
-        for uid in user_ids:
-            for q in _sse_subscribers.get(uid, []):
-                try: q.put_nowait(payload)
-                except queue.Full: pass
-
-def sse_subscribe(uid):
-    q = queue.Queue(maxsize=200)
-    with _sse_lock: _sse_subscribers.setdefault(uid, []).append(q)
-    return q
-
-def sse_unsubscribe(uid, q):
-    with _sse_lock:
-        lst = _sse_subscribers.get(uid, [])
-        if q in lst: lst.remove(q)
-        if not lst: _sse_subscribers.pop(uid, None)
-
-@app.route('/stream')
-def stream():
-    if 'uid' not in session: return Response('unauthorized', 401)
-    uid = session['uid']
-    q = sse_subscribe(uid)
-    def gen():
-        try:
-            yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
-            last_ping = time.time()
-            while True:
-                try:
-                    event, data = q.get(timeout=1.0)
-                    yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-                except queue.Empty:
-                    if time.time() - last_ping > 20:
-                        yield ": ping\n\n"; last_ping = time.time()
-        except GeneratorExit: pass
-        finally: sse_unsubscribe(uid, q)
-    resp = Response(gen(), mimetype='text/event-stream')
-    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
-    return resp
-
-# ===================== CSRF =====================
+# ===================== МЯГКАЯ ЗАЩИТА CSRF =====================
 @app.before_request
 def _ensure_csrf():
     if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
@@ -176,11 +129,17 @@ def _ensure_csrf():
 @app.before_request
 def _csrf_protect():
     if request.method in ('GET', 'HEAD', 'OPTIONS'): return
-    if request.path == '/': return # Исключаем логин
+    if request.path == '/': return # Логин пропускаем
+    
+    # ФИКС: Если браузер обновляет страницу чата (POST на /chat), просто редиректим на GET /chat
+    if request.path == '/chat' and request.method == 'POST':
+        return redirect(url_for('chat'))
+
     token = session.get('csrf_token', '')
     sent = request.headers.get('X-CSRFToken', '')
     if not token or not sent or not hmac.compare_digest(token, sent):
-        return jsonify({'ok': False, 'error': 'csrf'}), 403
+        session.clear() # Сбрасываем сессию при ошибке
+        return redirect(url_for('index')) # Вместо ошибки кидаем на логин
 
 # ===================== ХЕЛПЕРЫ =====================
 def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
