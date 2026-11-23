@@ -41,14 +41,14 @@
   .chat-name { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 4px; }
   .chat-sub { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* MAIN CHAT */
+  /* MAIN */
   .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
   .chat-head { padding: 12px 20px; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
   .chat-head .avatar { width: 42px; height: 42px; font-size: 18px; }
   .status-line { font-size: 13px; color: var(--accent); margin-top: 2px; }
   .status-line.online { color: #10b981; }
   
-  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; background: var(--bg); }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
   .messages-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 8px; }
 
   .msg-row { display: flex; flex-direction: column; max-width: 70%; animation: fadeIn 0.15s ease-out; }
@@ -137,6 +137,7 @@
     <div class="avatar {{ 'online' if mode == 'personal' and other.last_seen > now - 30 else '' }}">{{ (other.name if mode == 'personal' else group.title)[0]|upper }}</div>
     <div style="flex:1;">
       <div style="font-weight:600; font-size:16px;">{{ other.name if mode == 'personal' else group.title }}</div>
+      <!-- ИСПРАВЛЕНО: Теперь now существует -->
       <div class="status-line {{ 'online' if mode == 'personal' and other.last_seen > now - 30 else '' }}" id="typingStatus">
         {{ 'в сети' if mode == 'personal' and other.last_seen > now - 30 else 'Групповой чат' if mode == 'group' else 'не в сети' }}
       </div>
@@ -147,8 +148,6 @@
 
   <div class="composer">
     <div class="composer-inner">
-      <input type="file" id="fileInput" hidden onchange="uploadFile(this)">
-      <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
       <textarea id="msgInput" rows="1" placeholder="Сообщение..." oninput="handleTyping(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey) sendMessage(event)"></textarea>
       <button class="send-btn" onclick="sendMessage(event)">➤</button>
     </div>
@@ -165,7 +164,8 @@
 <div class="modal" id="profileModal">
   <div class="modal-card">
     <h3>Профиль</h3>
-    <div style="text-align:center; color:var(--muted); font-size:14px; margin-bottom:10px;">@{{ me.username }}</div>
+    <div style="text-align:center; color:var(--muted); font-size:14px; margin-bottom:10px;">Текущий логин: @{{ me.username }}</div>
+    <input type="text" id="profUsername" value="{{ me.username }}" placeholder="Новый @username">
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
     <button class="btn btn-p" onclick="saveProfile()">Сохранить</button>
@@ -184,28 +184,17 @@
   const renderedMsgs = new Set();
 
   // ================= ГЛОБАЛЬНЫЙ РЕАЛТАЙМ =================
-  // Этот код работает ВСЕГДА, даже если ты на главной странице (списке чатов).
-  // Именно это исправляет баг "сообщения не приходят для собеседника".
-
   const es = new EventSource('/stream');
-  
   es.addEventListener('new_message', e => {
     const m = JSON.parse(e.data);
     
-    // 1. Если открыт этот чат - добавляем сообщение на экран
     if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
       appendMsg(m);
-      if (!document.hidden && m.sender_id !== ME_ID) fetch('/poll/' + m.sender_id); // Помечаем прочитанным
-    } 
-    // 2. Если мы на главной - обновляем список чатов
-    else if (!MODE) {
+      if (!document.hidden && m.sender_id !== ME_ID) fetch('/poll/' + m.sender_id);
+    } else if (!MODE) {
       fetchConversations();
-      if (m.sender_id !== ME_ID) {
-        if (document.hidden && Notification.permission === 'granted') new Notification(m.sender_name, { body: m.content });
-      }
-    } 
-    // 3. Если мы в другом чате - обновляем список чатов, чтобы увидеть непрочитанное
-    else {
+      if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') new Notification(m.sender_name, { body: m.content });
+    } else {
       fetchConversations();
     }
   });
@@ -226,7 +215,7 @@
     const dStr = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
     if (dStr && dStr !== lastDate) {
       const sep = document.createElement('div');
-      sep.style = 'align-self:center; background:var(--hover); color:var(--muted); font-size:12px; padding:4px 12px; border-radius:12px; margin:15px 0; font-weight:600;';
+      sep.style.cssText = 'align-self:center; background:var(--hover); color:var(--muted); font-size:12px; padding:4px 12px; border-radius:12px; margin:15px 0; font-weight:600;';
       sep.textContent = new Date(m.created_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
       messagesInner.appendChild(sep);
       lastDate = dStr;
@@ -237,10 +226,7 @@
     row.className = `msg-row ${isMine ? 'mine' : 'theirs'}`;
     row.id = 'msg-' + m.id;
 
-    let contentHtml = '';
-    if(m.msg_type === 'image') contentHtml += `<img src="${m.content}" style="max-width:100%; border-radius:8px;">`;
-    else contentHtml += `<div>${m.content.replace(/\n/g, '<br>')}</div>`;
-
+    let contentHtml = `<div>${m.content.replace(/\n/g, '<br>')}</div>`;
     const time = m.timestamp;
     const readStatus = isMine ? (m.read_at > 0 ? '<span class="read">✓✓</span>' : '<span>✓</span>') : '';
     
@@ -281,7 +267,7 @@
     } catch(err) {}
   }
 
-  // ================= ОПРОС (ЗАПАСНОЙ ВАРИАНТ) =================
+  // ================= ОПРОС =================
   async function pollHistory() {
     if(!CHAT_ID) return;
     try {
@@ -329,9 +315,15 @@
   }
 
   async function saveProfile() {
-    const payload = { name: document.getElementById('profName').value, bio: document.getElementById('profBio').value };
-    await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    location.reload();
+    const payload = {
+      username: document.getElementById('profUsername').value,
+      name: document.getElementById('profName').value,
+      bio: document.getElementById('profBio').value
+    };
+    const res = await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.ok) location.reload();
+    else alert(data.error);
   }
 
   let searchTimer;
