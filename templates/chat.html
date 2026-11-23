@@ -1,418 +1,456 @@
-import os
-import json
-import time
-import re
-import hmac
-import secrets
-import queue
-import threading
-from datetime import datetime
-from flask import (Flask, render_template, request, redirect, url_for,
-                   session, jsonify, send_from_directory, abort, Response)
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from sqlalchemy import event, inspect, text
-from sqlalchemy.engine import Engine
+<!DOCTYPE html>
+<html lang="ru" class="{{ theme }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<title>Ramplez</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --panel: #141414; --border: #262626;
+    --text: #f5f5f5; --muted: #a3a3a3; --accent: #3b82f6;
+    --my-msg: #2563eb; --other-msg: #262626; --hover: #1f1f1f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
+  
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-app = Flask(__name__)
+  /* SIDEBAR */
+  .sidebar { width: 340px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
+  .side-head { padding: 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .logo-text { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1.5px; }
+  .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  
+  .search-box { padding: 15px 20px; }
+  .search-box input { width: 100%; padding: 12px 16px; border-radius: 12px; border: none; background: var(--bg); color: var(--text); outline: none; font-size: 14px; }
+  .search-box input:focus { box-shadow: 0 0 0 2px var(--accent); }
 
-# ===================== КОНФИГ =====================
-app.secret_key = os.environ.get('SECRET_KEY', 'ultra-secret-key-2026')
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///ramplez.db?timeout=30')
-if _db_url.startswith('postgres://'): _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+  .chat-list { flex: 1; overflow-y: auto; padding: 10px; }
+  .chat-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; text-decoration: none; color: var(--text); cursor: pointer; transition: 0.2s; margin-bottom: 4px; }
+  .chat-item:hover { background: var(--hover); }
+  .chat-item.active { background: var(--accent); color: #fff; }
+  .chat-item.active .chat-sub { color: rgba(255,255,255,0.8); }
+  
+  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--border); color: var(--text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; position: relative; object-fit: cover; }
+  .avatar.online::after { content: ''; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid var(--panel); border-radius: 50%; }
+  .chat-info { flex: 1; min-width: 0; }
+  .chat-name { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .chat-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
 
-app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; position: relative; }
+  .chat-head { padding: 15px 25px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; z-index: 5; }
+  .status-line { font-size: 13px; color: var(--accent); font-weight: 500; margin-top: 2px; height: 16px; }
+  .status-line.online { color: #10b981; }
+  
+  .messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .messages-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 8px; }
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-SAFE_INLINE_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'webm', 'm4a', 'mp4'}
-DANGEROUS_EXTS = {'php', 'phtml', 'exe', 'dll', 'bat', 'cmd', 'js', 'html', 'htm', 'svg', 'xml', 'apk'}
+  .msg-row { display: flex; flex-direction: column; max-width: 75%; animation: slideUp 0.2s ease-out; position: relative; }
+  .msg-row.mine { align-self: flex-end; align-items: flex-end; }
+  .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-@event.listens_for(Engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record):
-    try:
-        cur = dbapi_connection.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.execute("PRAGMA synchronous=NORMAL")
-        cur.execute("PRAGMA busy_timeout=5000")
-        cur.close()
-    except Exception: pass
+  .date-sep { align-self: center; background: var(--panel); color: var(--muted); font-size: 12px; padding: 4px 12px; border-radius: 12px; margin: 10px 0; font-weight: 600; }
+  
+  .bubble { padding: 12px 16px; border-radius: 20px; line-height: 1.5; position: relative; word-break: break-word; min-width: 80px; }
+  .mine .bubble { background: var(--my-msg); color: #fff; border-bottom-right-radius: 4px; }
+  .theirs .bubble { background: var(--other-msg); color: var(--text); border-bottom-left-radius: 4px; }
+  
+  .msg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; margin-top: 4px; opacity: 0.7; }
+  .msg-foot .read { color: #10b981; letter-spacing: -2px; font-weight: 800; }
+  
+  .bubble img { max-width: 250px; max-height: 250px; border-radius: 12px; display: block; margin-bottom: 5px; cursor: pointer; object-fit: cover; }
+  .bubble audio { max-width: 240px; height: 40px; display: block; margin-bottom: 5px; }
 
-db = SQLAlchemy(app)
+  /* COMPOSER */
+  .composer { padding: 20px 25px; background: var(--panel); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; z-index: 5; }
+  .composer-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 24px; padding: 8px 16px; }
+  .composer textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; font-size: 15px; resize: none; max-height: 120px; padding: 6px 0; font-family: inherit; }
+  .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 
-# ===================== МОДЕЛИ =====================
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    name = db.Column(db.String(80), nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    bio = db.Column(db.String(200), default='')
-    avatar = db.Column(db.Text, default='')
-    typing_to = db.Column(db.Integer, default=0)
-    typing_at = db.Column(db.Float, default=0.0)
-    last_seen = db.Column(db.Float, default=0.0)
-    theme = db.Column(db.String(20), default='dark')
+  /* MODALS */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal.show { display: flex; }
+  .modal-card { background: var(--panel); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 24px; padding: 25px; display: flex; flex-direction: column; gap: 16px; }
+  .modal-card h3 { font-size: 20px; font-weight: 700; text-align: center; }
+  .input-group input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
+  .status-msg { font-size: 12px; margin-top: 5px; display: none; }
+  .status-msg.error { color: #ef4444; display: block; }
+  .status-msg.success { color: #10b981; display: block; }
+  .btn-primary { background: var(--accent); color: #fff; border: none; padding: 14px; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 15px; }
+  .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 14px; border-radius: 14px; cursor: pointer; font-size: 15px; text-align: center; text-decoration: none; }
 
-class Message(db.Model):
-    __tablename__ = 'message'
-    id = db.Column(db.Integer, primary_key=True)
-    sender_id = db.Column(db.Integer, nullable=False)
-    receiver_id = db.Column(db.Integer, nullable=False, index=True)
-    msg_type = db.Column(db.String(20), default='text')
-    content = db.Column(db.Text, nullable=False)
-    file_name = db.Column(db.String(200), default='')
-    timestamp = db.Column(db.String(10), default='')
-    created_at = db.Column(db.Float, default=0.0, index=True)
-    read_at = db.Column(db.Float, default=0.0)
-    reaction = db.Column(db.String(20), default='')
-    reply_to_id = db.Column(db.Integer, default=0)
-    hidden_for = db.Column(db.String(50), default='')
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
+    .main { display: {{ 'flex' if mode else 'none' }}; }
+    .messages { padding: 15px; }
+    .msg-row { max-width: 85%; }
+  }
+</style>
+</head>
+<body>
 
-class Chat(db.Model):
-    __tablename__ = 'chat'
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    owner_id = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.Float, default=0.0)
+<script>
+  const CSRF_TOKEN = "{{ session.get('csrf_token', '') }}";
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    const method = (opts.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      const headers = new Headers(opts.headers || {});
+      headers.set('X-CSRFToken', CSRF_TOKEN);
+      opts.headers = headers;
+    }
+    return originalFetch(url, opts);
+  };
 
-class ChatMember(db.Model):
-    __tablename__ = 'chat_member'
-    chat_id = db.Column(db.Integer, primary_key=True, index=True)
-    user_id = db.Column(db.Integer, primary_key=True, index=True)
+  function requestNotifications() {
+    if ("Notification" in window && Notification.permission === 'default') Notification.requestPermission();
+  }
+</script>
 
-class MessageRead(db.Model):
-    __tablename__ = 'message_read'
-    message_id = db.Column(db.Integer, primary_key=True, index=True)
-    user_id = db.Column(db.Integer, primary_key=True, index=True)
-    read_at = db.Column(db.Float, default=0.0)
+<div class="sidebar" id="sidebar">
+  <div class="side-head">
+    <span class="logo-text">ramplez</span>
+    <div style="display:flex; gap:8px;">
+      <button class="icon-btn" onclick="requestNotifications(); document.getElementById('profileModal').classList.add('show')" title="Профиль">⚙️</button>
+    </div>
+  </div>
+  
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Поиск по @username..." oninput="searchUsers(this.value)">
+    <div id="searchResults" style="margin-top:10px; display:none;"></div>
+  </div>
 
-with app.app_context():
-    db.create_all()
+  <div class="chat-list" id="chatList">
+    {% for c in conversations %}
+    <a href="/chat?{{ 'g=' if c.type == 'group' else 'u=' }}{{ c.id }}" class="chat-item {{ 'active' if (mode == 'group' and group.id == c.id) or (mode == 'personal' and other.id == c.id) else '' }}">
+      <div class="avatar {{ 'online' if c.online else '' }}">{{ c.title[0]|upper }}</div>
+      <div class="chat-info">
+        <div class="chat-name">{{ c.title }} {% if c.unread > 0 %}<span class="badge">{{ c.unread }}</span>{% endif %}</div>
+        <div class="chat-sub">{{ c.sub }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
 
-# ===================== ЗАЩИТА =====================
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    return response
+<div class="main" id="mainPanel">
+  {% if mode %}
+  <div class="chat-head">
+    <a href="/chat" class="icon-btn">←</a>
+    <div class="avatar {{ 'online' if mode == 'personal' and other.last_seen > now - 30 else '' }}">{{ (other.name if mode == 'personal' else group.title)[0]|upper }}</div>
+    <div style="flex:1;">
+      <div style="font-weight:600; font-size:16px;">{{ other.name if mode == 'personal' else group.title }}</div>
+      <div class="status-line {{ 'online' if mode == 'personal' and other.last_seen > now - 30 else '' }}" id="typingStatus">
+        {{ 'в сети' if mode == 'personal' and other.last_seen > now - 30 else 'Групповой чат' if mode == 'group' else 'не в сети' }}
+      </div>
+    </div>
+    {% if mode == 'personal' %}
+    <button class="icon-btn" onclick="startCall(false)">📞</button>
+    <button class="icon-btn" onclick="startCall(true)">📹</button>
+    {% endif %}
+  </div>
 
-@app.before_request
-def _ensure_csrf():
-    if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
+  <div class="messages" id="messagesBox"><div class="messages-inner" id="messagesInner"></div></div>
 
-@app.before_request
-def _csrf_protect():
-    if request.method in ('GET', 'HEAD', 'OPTIONS'): return
-    if request.path == '/': return
-    token = session.get('csrf_token', '')
-    sent = request.headers.get('X-CSRFToken', '')
-    if not token or not sent or not hmac.compare_digest(token, sent):
-        return jsonify({'ok': False, 'error': 'csrf'}), 403
+  <div class="composer">
+    <div class="composer-inner">
+      <input type="file" id="fileInput" hidden onchange="uploadFile(this)">
+      <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+      <textarea id="msgInput" rows="1" placeholder="Сообщение..." oninput="handleTyping(this)" onkeydown="if(event.key==='Enter' && !event.shiftKey) sendMessage(event)"></textarea>
+      <button class="send-btn" onclick="sendMessage(event)">➤</button>
+    </div>
+  </div>
+  {% else %}
+  <div style="margin: auto; text-align: center; color: var(--muted);">
+    <h1 style="font-size: 50px; margin-bottom:10px;">💬</h1>
+    <h2>Выберите чат</h2>
+  </div>
+  {% endif %}
+</div>
 
-# ===================== ХЕЛПЕРЫ =====================
-def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
-def is_member(uid, gid): return ChatMember.query.filter_by(chat_id=gid, user_id=uid).first() is not None
-def get_my_contacts(me_id):
-    sent = {r[0] for r in db.session.query(Message.receiver_id).filter(Message.sender_id == me_id, Message.receiver_id > 0).distinct()}
-    received = {r[0] for r in db.session.query(Message.sender_id).filter(Message.receiver_id == me_id).distinct()}
-    return list(sent | received)
+<!-- MODAL: ACTION MENU -->
+<div class="modal" id="actionModal">
+  <div class="modal-card">
+    <div style="display:flex; justify-content:space-between; font-size:24px; padding:10px; background:var(--bg); border-radius:12px;" id="emojiRow">
+      <span data-e="❤️">❤️</span><span data-e="🔥">🔥</span><span data-e="😂">😂</span><span data-e="👍">👍</span><span data-e="😮">😮</span>
+    </div>
+    <button class="btn-secondary" onclick="actionReply()">↩️ Ответить</button>
+    <button class="btn-secondary" id="btnDelAll" onclick="actionDelete('all')" style="color:#ef4444; display:none;">🗑️ Удалить у всех</button>
+    <button class="btn-secondary" onclick="actionDelete('me')" style="color:#ef4444;">🗑️ Удалить у себя</button>
+    <button class="btn-secondary" onclick="closeModal('actionModal')">Отмена</button>
+  </div>
+</div>
 
-def serialize_msg(m, sender_name=""):
-    return {'id': m.id, 'sender_id': m.sender_id, 'receiver_id': m.receiver_id, 'msg_type': m.msg_type,
-            'content': m.content, 'file_name': m.file_name, 'timestamp': m.timestamp,
-            'created_at': m.created_at, 'read_at': m.read_at or 0.0, 'reaction': m.reaction,
-            'reply_to_id': m.reply_to_id or 0, 'sender_name': sender_name}
+<!-- MODAL: PROFILE -->
+<div class="modal" id="profileModal">
+  <div class="modal-card">
+    <h3>Настройки профиля</h3>
+    <div style="text-align:center; margin-bottom:10px;">
+      <span style="color:var(--muted); font-size:14px;">Ваш текущий логин: <b style="color:var(--text);">@{{ me.username }}</b></span>
+    </div>
+    <div class="input-group">
+      <input type="text" id="profUsername" value="{{ me.username }}" placeholder="@username">
+      <div class="status-msg" id="userStatus"></div>
+    </div>
+    <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
+    <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
+    <button class="btn-primary" onclick="saveProfile()">Сохранить</button>
+    <a href="/logout" class="btn-secondary">Выйти</a>
+    <button class="btn-secondary" onclick="closeModal('profileModal')">Закрыть</button>
+  </div>
+</div>
 
-# ===================== SSE =====================
-_sse_subscribers = {}
-_sse_lock = threading.Lock()
+<script>
+  const ME_ID = {{ me.id }};
+  const MODE = "{{ mode or '' }}";
+  const CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
+  
+  let selectedMsg = null;
+  let replyToMsg = null;
+  const renderedMsgs = new Set();
+  const messagesBox = document.getElementById('messagesBox');
+  const messagesInner = document.getElementById('messagesInner');
 
-def sse_publish(user_ids, event_type, data):
-    payload = (event_type, data)
-    with _sse_lock:
-        for uid in user_ids:
-            for q in _sse_subscribers.get(uid, []):
-                try: q.put_nowait(payload)
-                except queue.Full: pass
+  const closeModal = (id) => document.getElementById(id).classList.remove('show');
+  function openActionMenu(m) {
+    selectedMsg = m;
+    document.getElementById('btnDelAll').style.display = m.sender_id === ME_ID ? 'block' : 'none';
+    document.getElementById('actionModal').classList.add('show');
+  }
 
-def sse_subscribe(uid):
-    q = queue.Queue(maxsize=200)
-    with _sse_lock: _sse_subscribers.setdefault(uid, []).append(q)
-    return q
+  // ==== RENDER MESSAGES ====
+  let lastDate = null;
+  function appendMsg(m) {
+    if(renderedMsgs.has(m.id)) return;
+    renderedMsgs.add(m.id);
 
-def sse_unsubscribe(uid, q):
-    with _sse_lock:
-        lst = _sse_subscribers.get(uid, [])
-        if q in lst: lst.remove(q)
-        if not lst: _sse_subscribers.pop(uid, None)
+    const dStr = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
+    if (dStr && dStr !== lastDate) {
+      const sep = document.createElement('div');
+      sep.className = 'date-sep';
+      sep.textContent = new Date(m.created_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      messagesInner.appendChild(sep);
+      lastDate = dStr;
+    }
 
-@app.route('/stream')
-def stream():
-    if 'uid' not in session: return Response('unauthorized', 401)
-    uid = session['uid']
-    q = sse_subscribe(uid)
-    def gen():
-        try:
-            yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
-            last_ping = time.time()
-            while True:
-                try:
-                    event, data = q.get(timeout=1.0)
-                    yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-                except queue.Empty:
-                    if time.time() - last_ping > 15:
-                        yield ": ping\n\n"; last_ping = time.time()
-        except GeneratorExit: pass
-        finally: sse_unsubscribe(uid, q)
-    resp = Response(gen(), mimetype='text/event-stream')
-    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
-    return resp
+    const isMine = m.sender_id === ME_ID;
+    const row = document.createElement('div');
+    row.className = `msg-row ${isMine ? 'mine' : 'theirs'}`;
+    row.id = 'msg-' + m.id;
 
-# ===================== AUTH & CHAT =====================
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if 'uid' in session: return redirect(url_for('chat'))
-    error = None
-    if request.method == 'POST':
-        action = request.form.get('action', 'login')
-        username = request.form.get('username', '').strip().lower()
-        password = request.form.get('password', '')
-        name = request.form.get('name', '').strip() or username
-        if not username or not password: error = 'Заполните поля'
-        elif action == 'register':
-            if User.query.filter_by(username=username).first(): error = 'Логин занят'
-            else:
-                u = User(username=username, name=name, password=generate_password_hash(password))
-                db.session.add(u); db.session.commit()
-                session['uid'] = u.id
-                return redirect(url_for('chat'))
-        else:
-            u = User.query.filter_by(username=username).first()
-            if u and check_password_hash(u.password, password): session['uid'] = u.id; return redirect(url_for('chat'))
-            error = 'Неверный логин или пароль'
-    return render_template('login.html', error=error)
+    let contentHtml = '';
+    if(m.msg_type === 'image') contentHtml += `<img src="${m.content}" onclick="window.open('${m.content}')">`;
+    else if(m.msg_type === 'audio') contentHtml += `<audio controls src="${m.content}"></audio>`;
+    else if(m.msg_type === 'file') contentHtml += `<a href="${m.content}" download style="color:inherit;">📄 ${m.file_name}</a>`;
+    else contentHtml += `<div>${m.content.replace(/\n/g, '<br>')}</div>`;
 
-@app.route('/logout')
-def logout(): session.clear(); return redirect(url_for('index'))
-
-@app.route('/chat')
-def chat():
-    if 'uid' not in session: return redirect(url_for('index'))
-    me = db.session.get(User, session['uid'])
-    if not me: session.clear(); return redirect(url_for('index'))
-    me.last_seen = time.time(); db.session.commit()
-
-    gid = request.args.get('g', type=int); oid = request.args.get('u', type=int)
-    mode, other, group = None, None, None
-    if gid and is_member(me.id, gid): group = db.session.get(Chat, gid); mode = 'group'
-    elif oid: other = db.session.get(User, oid); mode = 'personal' if other and other.id != me.id else None
-
-    contact_ids = get_my_contacts(me.id)
-    users = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
-    my_groups = db.session.query(Chat).join(ChatMember, ChatMember.chat_id == Chat.id).filter(ChatMember.user_id == me.id).all()
+    const time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+    const readStatus = isMine ? (m.read_at > 0 ? '<span class="read">✓✓</span>' : '<span>✓</span>') : '';
     
-    convs = []
-    for u in users:
-        unread = Message.query.filter_by(sender_id=u.id, receiver_id=me.id, read_at=0).count()
-        convs.append({'type': 'user', 'id': u.id, 'title': u.name, 'avatar': u.avatar, 'sub': u.bio or ('@' + u.username), 'online': is_online(u), 'unread': unread, 'username': u.username})
-    for g in my_groups:
-        unread_g = sum(1 for m in Message.query.filter_by(receiver_id=-g.id).all() if m.sender_id != me.id and not MessageRead.query.filter_by(message_id=m.id, user_id=me.id).first())
-        convs.append({'type': 'group', 'id': g.id, 'title': g.title, 'avatar': '', 'sub': 'Групповой чат', 'online': False, 'unread': unread_g, 'username': ''})
-    convs.sort(key=lambda c: (not c['online'], -c['unread'], c['title'].lower()))
+    row.innerHTML = `
+      <div class="bubble">
+        ${contentHtml}
+        <div class="msg-foot"><span>${time}</span> ${readStatus}</div>
+      </div>
+      ${m.reaction ? `<div style="position:absolute; bottom:-10px; right:10px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:2px 6px; font-size:12px; cursor:pointer;" onclick="window.reactTo(${m.id},'${m.reaction}')">${m.reaction}</div>` : ''}
+    `;
 
-    return render_template('chat.html', me=me, users=users, other=other, group=group, mode=mode, conversations=convs, now=time.time(), theme=me.theme or 'dark')
-
-# ===================== API =====================
-@app.route('/api/search_users')
-def api_search_users():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    q = (request.args.get('q') or '').strip().lower()
-    if not q or len(q) < 2: return jsonify({'ok': True, 'users': []})
-    users = User.query.filter(User.username.ilike(f'%{q}%'), User.id != session['uid']).limit(20).all()
-    return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
-
-@app.route('/update_settings', methods=['POST'])
-def update_settings():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    me = db.session.get(User, session['uid'])
-    if me:
-        if 'username' in data:
-            new_un = str(data['username']).strip().lower().replace('@', '')
-            if new_un != me.username:
-                if not re.match(r'^[a-z0-9_]+$', new_un): return jsonify({'ok': False, 'error': 'Только a-z, 0-9, _'})
-                if len(new_un) < 3: return jsonify({'ok': False, 'error': 'Минимум 3 символа'})
-                if User.query.filter_by(username=new_un).first(): return jsonify({'ok': False, 'error': 'Юзернейм занят'})
-                me.username = new_un
-        if 'name' in data: me.name = str(data['name']).strip()[:80]
-        if 'bio' in data: me.bio = str(data['bio']).strip()[:200]
-        if 'avatar' in data and str(data['avatar']).startswith('data:image/'): me.avatar = data['avatar']
-        db.session.commit()
-    return jsonify({'ok': True})
-
-@app.route('/send', methods=['POST'])
-def send():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    oid = int(data.get('oid', 0)); content = str(data.get('content', '')).strip()
-    if not oid or not content: return jsonify({'ok': False}), 400
-    msg = Message(sender_id=session['uid'], receiver_id=oid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time(), reply_to_id=int(data.get('reply_to_id', 0)))
-    db.session.add(msg)
-    me = db.session.get(User, session['uid'])
-    if me: me.typing_to = 0; me.last_seen = time.time()
-    db.session.commit()
-    msg_data = serialize_msg(msg, me.name if me else "")
-    sse_publish([oid, session['uid']], 'new_message', msg_data)
-    return jsonify({'ok': True, 'message': msg_data})
-
-@app.route('/send_group', methods=['POST'])
-def send_group():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    gid = int(data.get('gid', 0)); content = str(data.get('content', '')).strip()
-    if not gid or not content or not is_member(session['uid'], gid): return jsonify({'ok': False}), 400
-    msg = Message(sender_id=session['uid'], receiver_id=-gid, msg_type='text', content=content, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
-    db.session.add(msg)
-    me = db.session.get(User, session['uid'])
-    if me: me.typing_to = 0; me.last_seen = time.time()
-    db.session.commit()
-    recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()]
-    msg_data = serialize_msg(msg, me.name if me else "")
-    sse_publish(recipients, 'new_message', msg_data)
-    return jsonify({'ok': True, 'message': msg_data})
-
-@app.route('/poll/<int:oid>')
-def poll(oid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    uid = session['uid']
-    other = db.session.get(User, oid)
-    if not other: return jsonify({'ok': False}), 404
-    now = time.time()
-    me = db.session.get(User, uid)
-    if me: me.last_seen = now; db.session.commit()
-    Message.query.filter_by(sender_id=oid, receiver_id=uid, read_at=0).update({'read_at': now})
-    db.session.commit()
-    msgs = Message.query.filter(((Message.sender_id == uid) & (Message.receiver_id == oid)) | ((Message.sender_id == oid) & (Message.receiver_id == uid))).order_by(Message.id.asc()).all()
-    out = [serialize_msg(m, other.name if m.sender_id == oid else "Вы") for m in msgs if str(uid) not in (m.hidden_for or '')]
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(other.typing_to == uid and (now - (other.typing_at or 0)) < 3.5), 'other_online': is_online(other)})
-
-@app.route('/poll_group/<int:gid>')
-def poll_group(gid):
-    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
-    uid = session['uid']
-    now = time.time()
-    me = db.session.get(User, uid)
-    if me: me.last_seen = now; db.session.commit()
-    msgs = Message.query.filter(Message.receiver_id == -gid).order_by(Message.id.asc()).all()
-    member_users = User.query.filter(User.id.in_([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()])).all()
-    users_map = {u.id: u.name for u in member_users}
-    out = [serialize_msg(m, users_map.get(m.sender_id, 'Аноним')) for m in msgs if str(uid) not in (m.hidden_for or '')]
-    typing_users = [u.name for u in member_users if u.id != uid and u.typing_to == -gid and (now - (u.typing_at or 0)) < 3.5]
-    return jsonify({'ok': True, 'messages': out, 'typing': bool(typing_users), 'typing_names': typing_users, 'other_online': False})
-
-@app.route('/typing/<int:oid>', methods=['POST'])
-def typing(oid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    me = db.session.get(User, session['uid'])
-    if me:
-        me.typing_to = oid; me.typing_at = time.time(); db.session.commit()
-        sse_publish([oid], 'typing', {'from': me.id})
-    return jsonify({'ok': True})
-
-@app.route('/typing_group/<int:gid>', methods=['POST'])
-def typing_group(gid):
-    if 'uid' not in session or not is_member(session['uid'], gid): return jsonify({'ok': False}), 403
-    me = db.session.get(User, session['uid'])
-    if me:
-        me.typing_to = -gid; me.typing_at = time.time(); db.session.commit()
-        recipients = [mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all() if mb.user_id != me.id]
-        sse_publish(recipients, 'typing_group', {'gid': gid, 'from': me.id})
-    return jsonify({'ok': True})
-
-@app.route('/call_signal', methods=['POST'])
-def call_signal():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    target_id = int(data.get('target_id', 0))
-    me = db.session.get(User, session['uid'])
-    if target_id and me:
-        sse_publish([target_id], 'call_signal', {'from': session['uid'], 'from_name': me.name, 'type': data.get('type'), 'payload': data.get('payload')})
-    return jsonify({'ok': True})
-
-@app.route('/upload_file', methods=['POST'])
-def upload_file():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    oid = request.form.get('oid', type=int); gid = request.form.get('gid', type=int)
-    f = request.files.get('file')
-    if not f or not f.filename: return jsonify({'ok': False}), 400
-    orig_name = secure_filename(f.filename) or 'file'
-    ext = orig_name.rsplit('.', 1)[-1].lower() if '.' in orig_name else ''
-    if ext in DANGEROUS_EXTS: return jsonify({'ok': False, 'error': 'bad file'}), 400
+    let pressTimer;
+    row.addEventListener('contextmenu', (e) => { e.preventDefault(); openActionMenu(m); });
+    row.addEventListener('touchstart', () => { pressTimer = setTimeout(() => openActionMenu(m), 500); });
+    row.addEventListener('touchend', () => clearTimeout(pressTimer));
     
-    saved_name = f"{int(time.time() * 1000)}_{secrets.token_hex(4)}_{orig_name}"
-    f.save(os.path.join(app.config['UPLOAD_FOLDER'], saved_name))
-    mtype = 'image' if ext in ('png','jpg','jpeg','gif','webp') else ('audio' if ext in ('webm','ogg','mp3','wav','m4a') else 'file')
-    msg = Message(sender_id=session['uid'], receiver_id=(-gid if gid else oid), msg_type=mtype, content=url_for('uploaded_file', fn=saved_name), file_name=f.filename, timestamp=datetime.now().strftime('%H:%M'), created_at=time.time())
-    db.session.add(msg); db.session.commit()
-    
-    me = db.session.get(User, session['uid'])
-    msg_data = serialize_msg(msg, me.name if me else "")
-    if gid: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=gid).all()], 'new_message', msg_data)
-    else: sse_publish([oid, session['uid']], 'new_message', msg_data)
-    return jsonify({'ok': True, 'message': msg_data})
+    const isAtBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
+    messagesInner.appendChild(row);
+    if (isAtBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
 
-@app.route('/uploads/<path:fn>')
-def uploaded_file(fn):
-    base = os.path.abspath(app.config['UPLOAD_FOLDER'])
-    target = os.path.abspath(os.path.join(base, fn))
-    if not target.startswith(base + os.sep): abort(403)
-    return send_from_directory(base, fn)
+  window.reactTo = async (mid, current) => {
+    const newEmj = current === '❤️' ? '' : '❤️';
+    await fetch('/react_msg/' + mid, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: newEmj}) });
+    location.reload();
+  };
 
-@app.route('/react_msg/<int:mid>', methods=['POST'])
-def react_msg(mid):
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    emj = str(data.get('emoji', '')).strip()[:20]
-    msg = db.session.get(Message, mid)
-    if msg and emj:
-        msg.reaction = emj if msg.reaction != emj else ''
-        db.session.commit()
-        if msg.receiver_id >= 0: sse_publish([msg.sender_id, msg.receiver_id], 'react', {'mid': mid})
-        else: sse_publish([mb.user_id for mb in ChatMember.query.filter_by(chat_id=-msg.receiver_id).all()], 'react', {'mid': mid})
-    return jsonify({'ok': True})
+  // ==== ОТПРАВКА ====
+  async function sendMessage(e) {
+    if(e) e.preventDefault();
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if(!text) return;
 
-@app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
-def del_me(mid, u):
-    msg = db.session.get(Message, mid)
-    if msg:
-        hidden = set(msg.hidden_for.split(',')) if msg.hidden_for else set()
-        hidden.add(str(session['uid'])); msg.hidden_for = ','.join(hidden); db.session.commit()
-    return jsonify({'ok': True})
+    const tempId = 'tmp_' + Date.now();
+    appendMsg({ id: tempId, sender_id: ME_ID, msg_type: 'text', content: text, timestamp: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}), created_at: Date.now()/1000, read_at: 0 });
+    input.value = ''; input.style.height = 'auto';
 
-@app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
-def del_all(mid, u):
-    msg = db.session.get(Message, mid)
-    if msg and msg.sender_id == session['uid']:
-        db.session.delete(msg); db.session.commit()
-        sse_publish([u], 'delete', {'mid': mid})
-    return jsonify({'ok': True})
+    const payload = { content: text };
+    if (MODE === 'group') payload.gid = CHAT_ID; else payload.oid = CHAT_ID;
+    if (replyToMsg) { payload.reply_to_id = replyToMsg.id; replyToMsg = null; }
 
-@app.route('/create_group', methods=['POST'])
-def create_group():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    data = request.get_json(silent=True) or {}
-    title = str(data.get('title', '')).strip()
-    if not title: return jsonify({'ok': False}), 400
-    g = Chat(title=title[:100], owner_id=session['uid'], created_at=time.time())
-    db.session.add(g); db.session.commit()
-    db.session.add(ChatMember(chat_id=g.id, user_id=session['uid']))
-    db.session.commit()
-    return jsonify({'ok': True, 'gid': g.id})
+    try {
+      const res = await fetch(MODE === 'group' ? '/send_group' : '/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if(data.ok) {
+        document.getElementById('msg-' + tempId)?.remove();
+        renderedMsgs.delete(tempId);
+        appendMsg(data.message);
+      }
+    } catch(err) {}
+  }
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
+  // ==== ДВОЙНОЙ РЕАЛТАЙМ (SSE + ГАРАНТИРОВАННЫЙ ОПРОС) ====
+  let lastMsgId = 0;
+  
+  async function fetchNewMessages() {
+    if(!CHAT_ID) return;
+    try {
+      const res = await fetch(MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID);
+      const data = await res.json();
+      if (data.ok) {
+        data.messages.forEach(m => {
+          if (!renderedMsgs.has(m.id)) {
+            appendMsg(m);
+            if (m.id > lastMsgId) lastMsgId = m.id;
+            if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') {
+              new Notification("Ramplez", { body: m.content || "Новое сообщение" });
+            }
+          }
+        });
+        const statusEl = document.getElementById('typingStatus');
+        if (statusEl) {
+          if (data.typing) { statusEl.textContent = 'печатает...'; statusEl.classList.remove('online'); }
+          else if (MODE === 'personal') { statusEl.textContent = data.other_online ? 'в сети' : 'не в сети'; statusEl.classList.toggle('online', !!data.other_online); }
+        }
+      }
+    } catch(e) {}
+  }
+
+  if(CHAT_ID) {
+    fetchNewMessages();
+    setInterval(() => { if (!document.hidden) fetchNewMessages(); }, 1500); // Железобетонный опрос каждые 1.5 сек
+  }
+
+  const es = new EventSource('/stream');
+  es.addEventListener('new_message', e => {
+    const m = JSON.parse(e.data);
+    if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
+      appendMsg(m);
+      if (m.id > lastMsgId) lastMsgId = m.id;
+      if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') new Notification("Ramplez", { body: m.content || "Файл" });
+    }
+  });
+  es.addEventListener('typing', () => {
+    const el = document.getElementById('typingStatus');
+    if(el) { el.textContent = 'печатает...'; setTimeout(fetchNewMessages, 3000); }
+  });
+
+  // ==== ПЕЧАТАЕТ... ====
+  let typingTimeout;
+  function handleTyping(el) {
+    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      fetch(MODE === 'group' ? '/typing_group/' + CHAT_ID : '/typing/' + CHAT_ID, { method: 'POST' }).catch(()=>{});
+    }, 500);
+  }
+
+  // ==== СОХРАНЕНИЕ ПРОФИЛЯ ====
+  async function saveProfile() {
+    const statusEl = document.getElementById('userStatus');
+    statusEl.className = 'status-msg'; statusEl.style.display = 'none';
+    const payload = {
+      username: document.getElementById('profUsername').value.trim(),
+      name: document.getElementById('profName').value,
+      bio: document.getElementById('profBio').value
+    };
+    try {
+      const res = await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if(data.ok) { statusEl.textContent = 'Сохранено!'; statusEl.className = 'status-msg success'; setTimeout(() => location.reload(), 800); }
+      else { statusEl.textContent = data.error; statusEl.className = 'status-msg error'; }
+    } catch(e) { statusEl.textContent = 'Ошибка'; statusEl.className = 'status-msg error'; }
+  }
+
+  // ==== ДЕЙСТВИЯ ====
+  document.getElementById('emojiRow').addEventListener('click', async (e) => {
+    if(!e.target.dataset.e || !selectedMsg) return;
+    await fetch('/react_msg/' + selectedMsg.id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: e.target.dataset.e}) });
+    closeModal('actionModal'); location.reload();
+  });
+  async function actionDelete(type) {
+    if(!selectedMsg) return;
+    await fetch(type === 'all' ? `/del_all/${selectedMsg.id}/0` : `/del_me/${selectedMsg.id}/0`, { method:'POST' });
+    closeModal('actionModal'); location.reload();
+  }
+  function actionReply() {
+    if(!selectedMsg) return;
+    replyToMsg = selectedMsg; document.getElementById('msgInput').focus(); closeModal('actionModal');
+  }
+
+  // ==== ФАЙЛЫ ====
+  async function uploadFile(input) {
+    if(!input.files.length) return;
+    const fd = new FormData(); fd.append(MODE === 'group' ? 'gid' : 'oid', CHAT_ID); fd.append('file', input.files[0]);
+    input.value = '';
+    try {
+      const res = await fetch('/upload_file', { method: 'POST', body: fd });
+      const data = await res.json();
+      if(data.ok) appendMsg(data.message);
+    } catch(e) { alert('Ошибка'); }
+  }
+
+  // ==== ПОИСК ====
+  let searchTimer;
+  async function searchUsers(q) {
+    clearTimeout(searchTimer);
+    const resBox = document.getElementById('searchResults'), listBox = document.getElementById('chatList');
+    if(!q.trim()) { resBox.style.display = 'none'; listBox.style.display = 'block'; return; }
+    searchTimer = setTimeout(async () => {
+      listBox.style.display = 'none'; resBox.style.display = 'block'; resBox.innerHTML = 'Поиск...';
+      try {
+        const r = await fetch('/api/search_users?q=' + encodeURIComponent(q));
+        const d = await r.json();
+        if(d.ok && d.users.length) {
+          resBox.innerHTML = d.users.map(u => `<a href="/chat?u=${u.id}" class="chat-item"><div class="avatar">${u.name[0].toUpperCase()}</div><div class="chat-info"><div class="chat-name">${u.name}</div><div class="chat-sub">@${u.username}</div></div></a>`).join('');
+        } else resBox.innerHTML = 'Никого не найдено';
+      } catch(e) {}
+    }, 400);
+  }
+
+  // ==== ЗВОНКИ ====
+  let pc, localStream;
+  async function startCall(video) {
+    if(!CHAT_ID || MODE !== 'personal') return;
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
+    pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    pc.onicecandidate = e => { if(e.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'ice', payload: e.candidate}) }); };
+    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+    fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'offer', payload: offer}) });
+  }
+  es.addEventListener('call_signal', async e => {
+    const d = JSON.parse(e.data);
+    if(d.type === 'offer' && confirm('Звонок от ' + d.from_name)) {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      pc.onicecandidate = ev => { if(ev.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'ice', payload: ev.candidate}) }); };
+      await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
+      const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
+      fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'answer', payload: answer}) });
+    } else if(d.type === 'answer' && pc) await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
+    else if(d.type === 'ice' && pc) await pc.addIceCandidate(new RTCIceCandidate(d.payload));
+  });
+</script>
+</body>
+</html>
+
