@@ -1,97 +1,90 @@
 <!DOCTYPE html>
-<html lang="ru" class="{{ theme }}">
+<html lang="ru" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#0e1621">
 <title>Ramplez</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0a; --panel: #141414; --border: #262626;
-    --text: #f5f5f5; --muted: #a3a3a3; --accent: #3b82f6;
-    --my-msg: #2563eb; --other-msg: #262626; --hover: #1f1f1f;
+    --bg: #0e1621; --sidebar: #17212b; --border: #242f3d;
+    --text: #ffffff; --muted: #7f91a4; --accent: #3b82f6;
+    --my-msg: #2b5278; --other-msg: #182533; --hover: #202b36;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
   body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
   
-  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
   /* SIDEBAR */
-  .sidebar { width: 340px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
-  .side-head { padding: 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
-  .logo-text { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1.5px; }
+  .sidebar { width: 340px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
+  .side-head { padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
   .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
   .icon-btn:hover { background: var(--hover); color: var(--text); }
   
-  .search-box { padding: 15px 20px; }
-  .search-box input { width: 100%; padding: 12px 16px; border-radius: 12px; border: none; background: var(--bg); color: var(--text); outline: none; font-size: 14px; }
-  .search-box input:focus { box-shadow: 0 0 0 2px var(--accent); }
+  .search-box { padding: 10px 15px; }
+  .search-box input { width: 100%; padding: 12px 16px; border-radius: 10px; border: none; background: var(--hover); color: var(--text); outline: none; font-size: 14px; }
 
-  .chat-list { flex: 1; overflow-y: auto; padding: 10px; }
-  .chat-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; text-decoration: none; color: var(--text); cursor: pointer; transition: 0.2s; margin-bottom: 4px; }
+  .chat-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: var(--text); cursor: pointer; transition: 0.1s; margin-bottom: 2px; }
   .chat-item:hover { background: var(--hover); }
   .chat-item.active { background: var(--accent); color: #fff; }
   .chat-item.active .chat-sub { color: rgba(255,255,255,0.8); }
   
-  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--border); color: var(--text); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; position: relative; object-fit: cover; }
-  .avatar.online::after { content: ''; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid var(--panel); border-radius: 50%; }
+  .avatar { width: 50px; height: 50px; border-radius: 50%; background: #2b5278; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 20px; flex-shrink: 0; position: relative; }
+  .avatar.online::after { content: ''; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid var(--sidebar); border-radius: 50%; }
   .chat-info { flex: 1; min-width: 0; }
   .chat-name { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 4px; }
-  .chat-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .badge { background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+  .chat-sub { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* MAIN */
-  .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; position: relative; }
-  .chat-head { padding: 15px 25px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; z-index: 5; }
-  .status-line { font-size: 13px; color: var(--accent); font-weight: 500; margin-top: 2px; height: 16px; }
+  /* MAIN CHAT */
+  .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+  .chat-head { padding: 12px 20px; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .chat-head .avatar { width: 42px; height: 42px; font-size: 18px; }
+  .status-line { font-size: 13px; color: var(--accent); margin-top: 2px; }
   .status-line.online { color: #10b981; }
   
-  .messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; background: var(--bg); }
   .messages-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 8px; }
 
-  .msg-row { display: flex; flex-direction: column; max-width: 75%; animation: slideUp 0.2s ease-out; position: relative; }
+  .msg-row { display: flex; flex-direction: column; max-width: 70%; animation: fadeIn 0.15s ease-out; }
   .msg-row.mine { align-self: flex-end; align-items: flex-end; }
   .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
-  .date-sep { align-self: center; background: var(--panel); color: var(--muted); font-size: 12px; padding: 4px 12px; border-radius: 12px; margin: 10px 0; font-weight: 600; }
-  
-  .bubble { padding: 12px 16px; border-radius: 20px; line-height: 1.5; position: relative; word-break: break-word; min-width: 80px; }
+  .bubble { padding: 10px 14px; border-radius: 16px; line-height: 1.4; position: relative; word-break: break-word; font-size: 15px; }
   .mine .bubble { background: var(--my-msg); color: #fff; border-bottom-right-radius: 4px; }
   .theirs .bubble { background: var(--other-msg); color: var(--text); border-bottom-left-radius: 4px; }
   
   .msg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; margin-top: 4px; opacity: 0.7; }
-  .msg-foot .read { color: #10b981; letter-spacing: -2px; font-weight: 800; }
-  
-  .bubble img { max-width: 250px; max-height: 250px; border-radius: 12px; display: block; margin-bottom: 5px; cursor: pointer; object-fit: cover; }
-  .bubble audio { max-width: 240px; height: 40px; display: block; margin-bottom: 5px; }
+  .msg-foot .read { color: #10b981; letter-spacing: -2px; }
 
   /* COMPOSER */
-  .composer { padding: 20px 25px; background: var(--panel); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; z-index: 5; }
-  .composer-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 24px; padding: 8px 16px; }
-  .composer textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; font-size: 15px; resize: none; max-height: 120px; padding: 6px 0; font-family: inherit; }
-  .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .composer { padding: 15px 20px; background: var(--sidebar); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .composer-inner { max-width: 800px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 10px; background: var(--hover); border-radius: 20px; padding: 5px 12px; }
+  .composer textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; font-size: 15px; resize: none; max-height: 100px; padding: 8px 0; font-family: inherit; }
+  .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
-  /* MODALS */
-  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  /* MODALS & SEARCH RESULTS */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(2px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
   .modal.show { display: flex; }
-  .modal-card { background: var(--panel); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 24px; padding: 25px; display: flex; flex-direction: column; gap: 16px; }
-  .modal-card h3 { font-size: 20px; font-weight: 700; text-align: center; }
-  .input-group input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
-  .status-msg { font-size: 12px; margin-top: 5px; display: none; }
-  .status-msg.error { color: #ef4444; display: block; }
-  .status-msg.success { color: #10b981; display: block; }
-  .btn-primary { background: var(--accent); color: #fff; border: none; padding: 14px; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 15px; }
-  .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 14px; border-radius: 14px; cursor: pointer; font-size: 15px; text-align: center; text-decoration: none; }
+  .modal-card { background: var(--sidebar); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .modal-card h3 { font-size: 18px; text-align: center; }
+  .modal-card input { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--bg); color: var(--text); outline: none; }
+  .btn { padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; border: none; text-align: center; text-decoration: none; font-size: 15px; }
+  .btn-p { background: var(--accent); color: #fff; }
+  .btn-s { background: var(--hover); color: var(--text); }
+  
+  .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; cursor: pointer; text-decoration: none; color: var(--text); }
+  .search-result-item:hover { background: var(--hover); }
 
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
     .main { display: {{ 'flex' if mode else 'none' }}; }
-    .messages { padding: 15px; }
     .msg-row { max-width: 85%; }
   }
 </style>
@@ -100,28 +93,22 @@
 
 <script>
   const CSRF_TOKEN = "{{ session.get('csrf_token', '') }}";
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = function(url, opts) {
-    opts = opts || {};
-    const method = (opts.method || 'GET').toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-      const headers = new Headers(opts.headers || {});
-      headers.set('X-CSRFToken', CSRF_TOKEN);
-      opts.headers = headers;
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (url, opts = {}) => {
+    const m = (opts.method || 'GET').toUpperCase();
+    if (m !== 'GET' && m !== 'HEAD') {
+      opts.headers = new Headers(opts.headers || {});
+      opts.headers.set('X-CSRFToken', CSRF_TOKEN);
     }
-    return originalFetch(url, opts);
+    return _fetch(url, opts);
   };
-
-  function requestNotifications() {
-    if ("Notification" in window && Notification.permission === 'default') Notification.requestPermission();
-  }
 </script>
 
 <div class="sidebar" id="sidebar">
   <div class="side-head">
-    <span class="logo-text">ramplez</span>
-    <div style="display:flex; gap:8px;">
-      <button class="icon-btn" onclick="requestNotifications(); document.getElementById('profileModal').classList.add('show')" title="Профиль">⚙️</button>
+    <span class="logo">ramplez</span>
+    <div style="display:flex; gap:5px;">
+      <button class="icon-btn" onclick="document.getElementById('profileModal').classList.add('show')">⚙️</button>
     </div>
   </div>
   
@@ -135,7 +122,7 @@
     <a href="/chat?{{ 'g=' if c.type == 'group' else 'u=' }}{{ c.id }}" class="chat-item {{ 'active' if (mode == 'group' and group.id == c.id) or (mode == 'personal' and other.id == c.id) else '' }}">
       <div class="avatar {{ 'online' if c.online else '' }}">{{ c.title[0]|upper }}</div>
       <div class="chat-info">
-        <div class="chat-name">{{ c.title }} {% if c.unread > 0 %}<span class="badge">{{ c.unread }}</span>{% endif %}</div>
+        <div class="chat-name">{{ c.title }}</div>
         <div class="chat-sub">{{ c.sub }}</div>
       </div>
     </a>
@@ -154,10 +141,6 @@
         {{ 'в сети' if mode == 'personal' and other.last_seen > now - 30 else 'Групповой чат' if mode == 'group' else 'не в сети' }}
       </div>
     </div>
-    {% if mode == 'personal' %}
-    <button class="icon-btn" onclick="startCall(false)">📞</button>
-    <button class="icon-btn" onclick="startCall(true)">📹</button>
-    {% endif %}
   </div>
 
   <div class="messages" id="messagesBox"><div class="messages-inner" id="messagesInner"></div></div>
@@ -172,41 +155,22 @@
   </div>
   {% else %}
   <div style="margin: auto; text-align: center; color: var(--muted);">
-    <h1 style="font-size: 50px; margin-bottom:10px;">💬</h1>
+    <h1 style="font-size: 40px; margin-bottom:10px;">💬</h1>
     <h2>Выберите чат</h2>
   </div>
   {% endif %}
 </div>
 
-<!-- MODAL: ACTION MENU -->
-<div class="modal" id="actionModal">
-  <div class="modal-card">
-    <div style="display:flex; justify-content:space-between; font-size:24px; padding:10px; background:var(--bg); border-radius:12px;" id="emojiRow">
-      <span data-e="❤️">❤️</span><span data-e="🔥">🔥</span><span data-e="😂">😂</span><span data-e="👍">👍</span><span data-e="😮">😮</span>
-    </div>
-    <button class="btn-secondary" onclick="actionReply()">↩️ Ответить</button>
-    <button class="btn-secondary" id="btnDelAll" onclick="actionDelete('all')" style="color:#ef4444; display:none;">🗑️ Удалить у всех</button>
-    <button class="btn-secondary" onclick="actionDelete('me')" style="color:#ef4444;">🗑️ Удалить у себя</button>
-    <button class="btn-secondary" onclick="closeModal('actionModal')">Отмена</button>
-  </div>
-</div>
-
-<!-- MODAL: PROFILE -->
+<!-- MODAL PROFILE -->
 <div class="modal" id="profileModal">
   <div class="modal-card">
-    <h3>Настройки профиля</h3>
-    <div style="text-align:center; margin-bottom:10px;">
-      <span style="color:var(--muted); font-size:14px;">Ваш текущий логин: <b style="color:var(--text);">@{{ me.username }}</b></span>
-    </div>
-    <div class="input-group">
-      <input type="text" id="profUsername" value="{{ me.username }}" placeholder="@username">
-      <div class="status-msg" id="userStatus"></div>
-    </div>
+    <h3>Профиль</h3>
+    <div style="text-align:center; color:var(--muted); font-size:14px; margin-bottom:10px;">@{{ me.username }}</div>
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
-    <button class="btn-primary" onclick="saveProfile()">Сохранить</button>
-    <a href="/logout" class="btn-secondary">Выйти</a>
-    <button class="btn-secondary" onclick="closeModal('profileModal')">Закрыть</button>
+    <button class="btn btn-p" onclick="saveProfile()">Сохранить</button>
+    <a href="/logout" class="btn btn-s">Выйти</a>
+    <button class="btn btn-s" onclick="document.getElementById('profileModal').classList.remove('show')">Закрыть</button>
   </div>
 </div>
 
@@ -215,20 +179,45 @@
   const MODE = "{{ mode or '' }}";
   const CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
   
-  let selectedMsg = null;
-  let replyToMsg = null;
-  const renderedMsgs = new Set();
   const messagesBox = document.getElementById('messagesBox');
   const messagesInner = document.getElementById('messagesInner');
+  const renderedMsgs = new Set();
 
-  const closeModal = (id) => document.getElementById(id).classList.remove('show');
-  function openActionMenu(m) {
-    selectedMsg = m;
-    document.getElementById('btnDelAll').style.display = m.sender_id === ME_ID ? 'block' : 'none';
-    document.getElementById('actionModal').classList.add('show');
-  }
+  // ================= ГЛОБАЛЬНЫЙ РЕАЛТАЙМ =================
+  // Этот код работает ВСЕГДА, даже если ты на главной странице (списке чатов).
+  // Именно это исправляет баг "сообщения не приходят для собеседника".
 
-  // ==== RENDER MESSAGES ====
+  const es = new EventSource('/stream');
+  
+  es.addEventListener('new_message', e => {
+    const m = JSON.parse(e.data);
+    
+    // 1. Если открыт этот чат - добавляем сообщение на экран
+    if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
+      appendMsg(m);
+      if (!document.hidden && m.sender_id !== ME_ID) fetch('/poll/' + m.sender_id); // Помечаем прочитанным
+    } 
+    // 2. Если мы на главной - обновляем список чатов
+    else if (!MODE) {
+      fetchConversations();
+      if (m.sender_id !== ME_ID) {
+        if (document.hidden && Notification.permission === 'granted') new Notification(m.sender_name, { body: m.content });
+      }
+    } 
+    // 3. Если мы в другом чате - обновляем список чатов, чтобы увидеть непрочитанное
+    else {
+      fetchConversations();
+    }
+  });
+
+  es.addEventListener('typing', () => {
+    if (MODE === 'personal' && CHAT_ID) {
+      const el = document.getElementById('typingStatus');
+      if (el) { el.textContent = 'печатает...'; el.classList.remove('online'); setTimeout(pollHistory, 3500); }
+    }
+  });
+
+  // ================= ОТРИСОВКА =================
   let lastDate = null;
   function appendMsg(m) {
     if(renderedMsgs.has(m.id)) return;
@@ -237,7 +226,7 @@
     const dStr = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
     if (dStr && dStr !== lastDate) {
       const sep = document.createElement('div');
-      sep.className = 'date-sep';
+      sep.style = 'align-self:center; background:var(--hover); color:var(--muted); font-size:12px; padding:4px 12px; border-radius:12px; margin:15px 0; font-weight:600;';
       sep.textContent = new Date(m.created_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
       messagesInner.appendChild(sep);
       lastDate = dStr;
@@ -249,12 +238,10 @@
     row.id = 'msg-' + m.id;
 
     let contentHtml = '';
-    if(m.msg_type === 'image') contentHtml += `<img src="${m.content}" onclick="window.open('${m.content}')">`;
-    else if(m.msg_type === 'audio') contentHtml += `<audio controls src="${m.content}"></audio>`;
-    else if(m.msg_type === 'file') contentHtml += `<a href="${m.content}" download style="color:inherit;">📄 ${m.file_name}</a>`;
+    if(m.msg_type === 'image') contentHtml += `<img src="${m.content}" style="max-width:100%; border-radius:8px;">`;
     else contentHtml += `<div>${m.content.replace(/\n/g, '<br>')}</div>`;
 
-    const time = m.timestamp || new Date(m.created_at * 1000).toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+    const time = m.timestamp;
     const readStatus = isMine ? (m.read_at > 0 ? '<span class="read">✓✓</span>' : '<span>✓</span>') : '';
     
     row.innerHTML = `
@@ -262,26 +249,14 @@
         ${contentHtml}
         <div class="msg-foot"><span>${time}</span> ${readStatus}</div>
       </div>
-      ${m.reaction ? `<div style="position:absolute; bottom:-10px; right:10px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:2px 6px; font-size:12px; cursor:pointer;" onclick="window.reactTo(${m.id},'${m.reaction}')">${m.reaction}</div>` : ''}
     `;
 
-    let pressTimer;
-    row.addEventListener('contextmenu', (e) => { e.preventDefault(); openActionMenu(m); });
-    row.addEventListener('touchstart', () => { pressTimer = setTimeout(() => openActionMenu(m), 500); });
-    row.addEventListener('touchend', () => clearTimeout(pressTimer));
-    
     const isAtBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
     messagesInner.appendChild(row);
     if (isAtBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
   }
 
-  window.reactTo = async (mid, current) => {
-    const newEmj = current === '❤️' ? '' : '❤️';
-    await fetch('/react_msg/' + mid, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: newEmj}) });
-    location.reload();
-  };
-
-  // ==== ОТПРАВКА ====
+  // ================= ОТПРАВКА =================
   async function sendMessage(e) {
     if(e) e.preventDefault();
     const input = document.getElementById('msgInput');
@@ -294,7 +269,6 @@
 
     const payload = { content: text };
     if (MODE === 'group') payload.gid = CHAT_ID; else payload.oid = CHAT_ID;
-    if (replyToMsg) { payload.reply_to_id = replyToMsg.id; replyToMsg = null; }
 
     try {
       const res = await fetch(MODE === 'group' ? '/send_group' : '/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
@@ -307,108 +281,59 @@
     } catch(err) {}
   }
 
-  // ==== ДВОЙНОЙ РЕАЛТАЙМ (SSE + ГАРАНТИРОВАННЫЙ ОПРОС) ====
-  let lastMsgId = 0;
-  
-  async function fetchNewMessages() {
+  // ================= ОПРОС (ЗАПАСНОЙ ВАРИАНТ) =================
+  async function pollHistory() {
     if(!CHAT_ID) return;
     try {
       const res = await fetch(MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID);
       const data = await res.json();
       if (data.ok) {
-        data.messages.forEach(m => {
-          if (!renderedMsgs.has(m.id)) {
-            appendMsg(m);
-            if (m.id > lastMsgId) lastMsgId = m.id;
-            if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') {
-              new Notification("Ramplez", { body: m.content || "Новое сообщение" });
-            }
-          }
-        });
+        data.messages.forEach(m => { if (!renderedMsgs.has(m.id)) appendMsg(m); });
         const statusEl = document.getElementById('typingStatus');
-        if (statusEl) {
+        if (statusEl && MODE === 'personal') {
           if (data.typing) { statusEl.textContent = 'печатает...'; statusEl.classList.remove('online'); }
-          else if (MODE === 'personal') { statusEl.textContent = data.other_online ? 'в сети' : 'не в сети'; statusEl.classList.toggle('online', !!data.other_online); }
+          else { statusEl.textContent = data.other_online ? 'в сети' : 'не в сети'; statusEl.classList.toggle('online', !!data.other_online); }
         }
       }
     } catch(e) {}
   }
 
   if(CHAT_ID) {
-    fetchNewMessages();
-    setInterval(() => { if (!document.hidden) fetchNewMessages(); }, 1500); // Железобетонный опрос каждые 1.5 сек
+    pollHistory();
+    setInterval(() => { if (!document.hidden) pollHistory(); }, 2000);
   }
 
-  const es = new EventSource('/stream');
-  es.addEventListener('new_message', e => {
-    const m = JSON.parse(e.data);
-    if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
-      appendMsg(m);
-      if (m.id > lastMsgId) lastMsgId = m.id;
-      if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') new Notification("Ramplez", { body: m.content || "Файл" });
-    }
-  });
-  es.addEventListener('typing', () => {
-    const el = document.getElementById('typingStatus');
-    if(el) { el.textContent = 'печатает...'; setTimeout(fetchNewMessages, 3000); }
-  });
+  // ================= УТИЛИТЫ =================
+  function fetchConversations() {
+    fetch('/api/conversations').then(r => r.json()).then(d => {
+      if(d.ok) {
+        const list = document.getElementById('chatList');
+        list.innerHTML = d.conversations.map(c => `
+          <a href="/chat?${c.type === 'group' ? 'g=' : 'u='}${c.id}" class="chat-item">
+            <div class="avatar ${c.online ? 'online' : ''}">${c.title[0].toUpperCase()}</div>
+            <div class="chat-info">
+              <div class="chat-name">${c.title} ${c.unread > 0 ? `<span style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:10px;font-size:11px;">${c.unread}</span>` : ''}</div>
+              <div class="chat-sub">${c.sub}</div>
+            </div>
+          </a>
+        `).join('');
+      }
+    });
+  }
 
-  // ==== ПЕЧАТАЕТ... ====
   let typingTimeout;
   function handleTyping(el) {
-    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px';
     clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      fetch(MODE === 'group' ? '/typing_group/' + CHAT_ID : '/typing/' + CHAT_ID, { method: 'POST' }).catch(()=>{});
-    }, 500);
+    typingTimeout = setTimeout(() => { fetch(MODE === 'group' ? '/typing_group/' + CHAT_ID : '/typing/' + CHAT_ID, { method: 'POST' }).catch(()=>{}); }, 500);
   }
 
-  // ==== СОХРАНЕНИЕ ПРОФИЛЯ ====
   async function saveProfile() {
-    const statusEl = document.getElementById('userStatus');
-    statusEl.className = 'status-msg'; statusEl.style.display = 'none';
-    const payload = {
-      username: document.getElementById('profUsername').value.trim(),
-      name: document.getElementById('profName').value,
-      bio: document.getElementById('profBio').value
-    };
-    try {
-      const res = await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const data = await res.json();
-      if(data.ok) { statusEl.textContent = 'Сохранено!'; statusEl.className = 'status-msg success'; setTimeout(() => location.reload(), 800); }
-      else { statusEl.textContent = data.error; statusEl.className = 'status-msg error'; }
-    } catch(e) { statusEl.textContent = 'Ошибка'; statusEl.className = 'status-msg error'; }
+    const payload = { name: document.getElementById('profName').value, bio: document.getElementById('profBio').value };
+    await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    location.reload();
   }
 
-  // ==== ДЕЙСТВИЯ ====
-  document.getElementById('emojiRow').addEventListener('click', async (e) => {
-    if(!e.target.dataset.e || !selectedMsg) return;
-    await fetch('/react_msg/' + selectedMsg.id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: e.target.dataset.e}) });
-    closeModal('actionModal'); location.reload();
-  });
-  async function actionDelete(type) {
-    if(!selectedMsg) return;
-    await fetch(type === 'all' ? `/del_all/${selectedMsg.id}/0` : `/del_me/${selectedMsg.id}/0`, { method:'POST' });
-    closeModal('actionModal'); location.reload();
-  }
-  function actionReply() {
-    if(!selectedMsg) return;
-    replyToMsg = selectedMsg; document.getElementById('msgInput').focus(); closeModal('actionModal');
-  }
-
-  // ==== ФАЙЛЫ ====
-  async function uploadFile(input) {
-    if(!input.files.length) return;
-    const fd = new FormData(); fd.append(MODE === 'group' ? 'gid' : 'oid', CHAT_ID); fd.append('file', input.files[0]);
-    input.value = '';
-    try {
-      const res = await fetch('/upload_file', { method: 'POST', body: fd });
-      const data = await res.json();
-      if(data.ok) appendMsg(data.message);
-    } catch(e) { alert('Ошибка'); }
-  }
-
-  // ==== ПОИСК ====
   let searchTimer;
   async function searchUsers(q) {
     clearTimeout(searchTimer);
@@ -420,37 +345,11 @@
         const r = await fetch('/api/search_users?q=' + encodeURIComponent(q));
         const d = await r.json();
         if(d.ok && d.users.length) {
-          resBox.innerHTML = d.users.map(u => `<a href="/chat?u=${u.id}" class="chat-item"><div class="avatar">${u.name[0].toUpperCase()}</div><div class="chat-info"><div class="chat-name">${u.name}</div><div class="chat-sub">@${u.username}</div></div></a>`).join('');
-        } else resBox.innerHTML = 'Никого не найдено';
+          resBox.innerHTML = d.users.map(u => `<a href="/chat?u=${u.id}" class="search-result-item"><div class="avatar" style="width:40px;height:40px;font-size:16px;">${u.name[0].toUpperCase()}</div><div><div style="font-weight:600;">${u.name}</div><div style="font-size:12px;color:var(--muted);">@${u.username}</div></div></a>`).join('');
+        } else resBox.innerHTML = '<div style="text-align:center;color:var(--muted);margin-top:10px;">Никого</div>';
       } catch(e) {}
-    }, 400);
+    }, 300);
   }
-
-  // ==== ЗВОНКИ ====
-  let pc, localStream;
-  async function startCall(video) {
-    if(!CHAT_ID || MODE !== 'personal') return;
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
-    pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-    pc.onicecandidate = e => { if(e.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'ice', payload: e.candidate}) }); };
-    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-    fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'offer', payload: offer}) });
-  }
-  es.addEventListener('call_signal', async e => {
-    const d = JSON.parse(e.data);
-    if(d.type === 'offer' && confirm('Звонок от ' + d.from_name)) {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      pc.onicecandidate = ev => { if(ev.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'ice', payload: ev.candidate}) }); };
-      await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
-      const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
-      fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'answer', payload: answer}) });
-    } else if(d.type === 'answer' && pc) await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
-    else if(d.type === 'ice' && pc) await pc.addIceCandidate(new RTCIceCandidate(d.payload));
-  });
 </script>
 </body>
 </html>
-
