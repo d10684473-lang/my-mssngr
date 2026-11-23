@@ -12,7 +12,7 @@
     --accent: #6366f1;
     --accent-hover: #4f46e5;
     --bg: #09090b;
-    --panel: rgba(24, 24, 27, 0.75);
+    --panel: #18181b;
     --border: rgba(255, 255, 255, 0.1);
     --text: #f4f4f5;
     --muted: #a1a1aa;
@@ -20,41 +20,42 @@
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--text); overflow: hidden; }
   
-  /* Анимированный градиентный фон */
   .bg { position: absolute; inset: 0; background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%); z-index: -1; animation: pulseBg 10s infinite alternate; }
   @keyframes pulseBg { 0% { opacity: 0.5; } 100% { opacity: 1; } }
   
-  /* Стеклянная карточка */
-  .card { background: var(--panel); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); padding: 40px; border-radius: 28px; border: 1px solid var(--border); width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  .card { background: var(--panel); padding: 40px; border-radius: 28px; border: 1px solid var(--border); width: 100%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; z-index: 1; }
   @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
   
   h1 { font-size: 36px; font-weight: 800; margin-bottom: 30px; text-align: center; background: linear-gradient(90deg, #fff, #a1a1aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1.5px; }
   
-  /* Вкладки */
   .tabs { display: flex; background: rgba(0,0,0,0.3); border-radius: 16px; padding: 6px; margin-bottom: 25px; }
   .tab { flex: 1; padding: 12px; text-align: center; border: none; background: transparent; color: var(--muted); font-size: 15px; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.3s; }
   .tab.active { background: var(--accent); color: #fff; box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
   
-  /* Ошибка */
   .error { color: #ef4444; font-size: 14px; margin-bottom: 20px; background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 12px; text-align: center; border: 1px solid rgba(239,68,68,0.2); animation: shake 0.4s; }
   @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
   
-  /* Поля ввода */
   .input-group { position: relative; margin-bottom: 20px; }
-  .input-group input { width: 100%; padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-size: 15px; outline: none; transition: all 0.3s; }
-  .input-group input:focus { border-color: var(--accent); background: rgba(99,102,241,0.05); box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }
-  .input-group label { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; transition: all 0.3s; }
-  .input-group input:focus ~ label, .input-group input:not(:placeholder-shown) ~ label { top: 0; font-size: 12px; background: var(--panel); padding: 0 6px; color: var(--accent); border-radius: 4px; }
   
-  /* Кнопки */
+  /* ФИКС БЕЛЫХ ПОЛЕЙ */
+  .input-group input { width: 100%; padding: 16px; background: #09090b !important; border: 1px solid var(--border); border-radius: 14px; color: var(--text) !important; font-size: 15px; outline: none; transition: all 0.3s; -webkit-appearance: none; }
+  .input-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }
+  
+  /* ФИКС АВТОЗАПОЛНЕНИЯ БРАУЗЕРА */
+  .input-group input:-webkit-autofill,
+  .input-group input:-webkit-autofill:hover, 
+  .input-group input:-webkit-autofill:focus, 
+  .input-group input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px #09090b inset !important;
+      -webkit-text-fill-color: var(--text) !important;
+  }
+
+  .input-group label { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; transition: all 0.3s; }
+  .input-group input:focus ~ label, .input-group input:not(:placeholder-shown) ~ label { top: 0; font-size: 12px; background: #18181b; padding: 0 6px; color: var(--accent); border-radius: 4px; }
+  
   .btn-main { width: 100%; padding: 16px; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; background: var(--accent); color: #fff; box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
   .btn-main:hover { background: var(--accent-hover); transform: translateY(-2px); }
   .btn-main:active { transform: scale(0.98); }
-  
-  /* Скрытие шагов */
-  .step { display: none; animation: fadeIn 0.3s; }
-  .step.active { display: block; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 </style>
 </head>
 <body>
@@ -64,17 +65,15 @@
   <h1>RAMPLEZ</h1>
   
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('login')" id="tab-login">Вход</button>
-    <button class="tab" onclick="switchTab('register')" id="tab-register">Регистрация</button>
+    <button type="button" class="tab active" onclick="switchTab('login')" id="tab-login">Вход</button>
+    <button type="button" class="tab" onclick="switchTab('register')" id="tab-register">Регистрация</button>
   </div>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
-  <!-- Форма (одна для обоих режимов) -->
   <form method="POST" id="authForm">
     <input type="hidden" name="action" id="formAction" value="login">
     
-    <!-- Поле Имя (только для регистрации) -->
     <div class="input-group" id="nameGroup" style="display:none;">
       <input type="text" name="name" id="regName" placeholder=" " autocomplete="off">
       <label for="regName">Ваше имя</label>
@@ -116,13 +115,6 @@
       usernameInput.focus();
     }
   }
-
-  // Небольшая вибрация для мобилок при переключении
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      if (navigator.vibrate) navigator.vibrate(10);
-    });
-  });
 </script>
 </body>
 </html>
