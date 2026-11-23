@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0e1015">
 <title>Ramplez</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,14 +14,13 @@
     --text: #ffffff; --muted: #8b949e; --accent: #3c6c73;
     --my-msg: #3c6c73; --other-msg: #252a33; --hover: #2d323e;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
   body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
   
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-  /* ЛОГОТИП В УГЛУ */
-  .logo-text { font-size: 26px; font-weight: 800; color: #3c6c73; letter-spacing: -1.5px; font-family: 'Inter', sans-serif; user-select: none; }
+  .logo-text { font-size: 26px; font-weight: 800; color: var(--accent); letter-spacing: -1.5px; user-select: none; }
 
   /* --- SIDEBAR --- */
   .sidebar { width: 340px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
@@ -68,8 +67,6 @@
   
   .msg-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; margin-top: 6px; opacity: 0.7; }
   .msg-foot .read { color: #10b981; letter-spacing: -2px; font-weight: 800; }
-  .reply-quote { border-left: 3px solid rgba(255,255,255,0.5); padding-left: 8px; margin-bottom: 6px; font-size: 12px; opacity: 0.8; }
-  .msg-reaction { position: absolute; bottom: -12px; right: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; z-index: 2; }
   
   .bubble img { max-width: 250px; max-height: 250px; border-radius: 12px; display: block; margin-bottom: 5px; cursor: pointer; object-fit: cover; }
   .bubble audio { max-width: 240px; height: 40px; display: block; margin-bottom: 5px; }
@@ -82,17 +79,24 @@
   .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: transform 0.15s; }
   .send-btn:active { transform: scale(0.9); }
 
-  /* --- MODALS --- */
+  /* --- MODALS & SETTINGS --- */
   .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; opacity: 0; transition: opacity 0.2s; }
   .modal.show { display: flex; opacity: 1; }
   .modal-card { background: var(--panel); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 24px; padding: 25px; display: flex; flex-direction: column; gap: 16px; transform: scale(0.95); transition: transform 0.2s; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
   .modal.show .modal-card { transform: scale(1); }
   .modal-card h3 { font-size: 20px; font-weight: 700; text-align: center; }
-  .modal-card input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
+  
+  .input-group { position: relative; }
+  .input-group input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
+  .input-group input:focus { border-color: var(--accent); }
+  .status-msg { font-size: 12px; margin-top: 5px; margin-left: 5px; color: var(--muted); display: none; }
+  .status-msg.error { color: #ef4444; display: block; }
+  .status-msg.success { color: #10b981; display: block; }
+
   .btn-primary { background: var(--accent); color: #fff; border: none; padding: 14px; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 15px; transition: 0.2s; }
   .btn-primary:hover { opacity: 0.9; }
-  .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 14px; border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 500; transition: 0.2s; }
-  
+  .btn-secondary { background: var(--hover); color: var(--text); border: none; padding: 14px; border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 500; transition: 0.2s; text-align: center; text-decoration: none; }
+
   .search-result-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; cursor: pointer; text-decoration: none; color: var(--text); }
   .search-result-item:hover { background: var(--hover); }
 
@@ -100,7 +104,7 @@
   .emoji-row span { cursor: pointer; transition: transform 0.1s; }
   .emoji-row span:hover { transform: scale(1.3); }
 
-  /* --- WEBRTC CALLS --- */
+  /* --- CALL OVERLAY --- */
   .call-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 10000; flex-direction: column; align-items: center; justify-content: center; }
   .call-overlay.show { display: flex; }
   .call-video-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -110,7 +114,6 @@
   .call-controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 10; }
   .call-btn { width: 64px; height: 64px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; color: #fff; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
   .btn-end { background: #ef4444; width: 72px; height: 72px; font-size: 28px; }
-  
   #unmuteBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; display: none; padding: 16px 24px; background: var(--accent); color: #fff; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
 
   @media (max-width: 768px) {
@@ -124,19 +127,7 @@
 <body>
 
 <script>
-  // Инициализация
   const CSRF_TOKEN = "{{ session.get('csrf_token', '') }}";
-  
-  // Аудио контекст (для мобилок)
-  let audioCtx;
-  document.addEventListener('click', () => {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-  }, { once: true });
-
-  // CSRF Обертка
   const originalFetch = window.fetch.bind(window);
   window.fetch = function(url, opts) {
     opts = opts || {};
@@ -148,8 +139,6 @@
     }
     return originalFetch(url, opts);
   };
-
-  // Уведомления
   if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
     setTimeout(() => Notification.requestPermission(), 3000);
   }
@@ -161,12 +150,11 @@
     <span class="logo-text">ramplez</span>
     <div style="display:flex; gap:8px;">
       <button class="icon-btn" onclick="document.getElementById('profileModal').classList.add('show')" title="Профиль">👤</button>
-      <button class="icon-btn" onclick="document.getElementById('groupModal').classList.add('show')" title="Группа">➕</button>
     </div>
   </div>
   
   <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Поиск по username..." oninput="searchUsers(this.value)">
+    <input type="text" id="searchInput" placeholder="Поиск по @username..." oninput="searchUsers(this.value)">
     <div id="searchResults" style="margin-top:10px; display:none;"></div>
   </div>
 
@@ -187,7 +175,7 @@
 <div class="main" id="mainPanel">
   {% if mode %}
   <div class="chat-head">
-    <a href="/chat" class="icon-btn" style="display: {{ 'block' if mode else 'none' }};">←</a>
+    <a href="/chat" class="icon-btn">←</a>
     <div class="avatar {{ 'online' if mode == 'personal' and other.last_seen > now - 30 else '' }}">{{ (other.name if mode == 'personal' else group.title)[0]|upper }}</div>
     <div style="flex:1;">
       <div style="font-weight:600; font-size:16px;">{{ other.name if mode == 'personal' else group.title }}</div>
@@ -226,7 +214,6 @@
       <span data-e="❤️">❤️</span><span data-e="🔥">🔥</span><span data-e="😂">😂</span><span data-e="👍">👍</span><span data-e="😮">😮</span>
     </div>
     <button class="btn-secondary" onclick="actionReply()">↩️ Ответить</button>
-    <button class="btn-secondary" id="btnEdit" onclick="actionEdit()" style="display:none;">✏️ Редактировать</button>
     <button class="btn-secondary" id="btnDelAll" onclick="actionDelete('all')" style="color:#ef4444; display:none;">🗑️ Удалить у всех</button>
     <button class="btn-secondary" onclick="actionDelete('me')" style="color:#ef4444;">🗑️ Удалить у себя</button>
     <button class="btn-secondary" onclick="closeModal('actionModal')">Отмена</button>
@@ -236,26 +223,20 @@
 <!-- MODAL: PROFILE -->
 <div class="modal" id="profileModal">
   <div class="modal-card">
-    <h3>Настройки</h3>
-    <div style="display:flex; align-items:center; gap:10px;">
-      <img id="avatarPreview" class="avatar" style="display:none;" src="">
-      <input type="file" id="avatarInput" accept="image/*" style="font-size:12px;">
+    <h3>Настройки профиля</h3>
+    
+    <!-- Юзернейм с проверкой -->
+    <div class="input-group">
+      <input type="text" id="profUsername" value="{{ me.username }}" placeholder="@username">
+      <div class="status-msg" id="userStatus"></div>
     </div>
+
     <input type="text" id="profName" value="{{ me.name }}" placeholder="Имя">
     <input type="text" id="profBio" value="{{ me.bio }}" placeholder="О себе">
+    
     <button class="btn-primary" onclick="saveProfile()">Сохранить</button>
-    <a href="/logout" class="btn-secondary" style="text-align:center; text-decoration:none;">Выйти</a>
-    <button class="btn-secondary" onclick="closeModal('profileModal')">Закрыть</button>
-  </div>
-</div>
-
-<!-- MODAL: GROUP -->
-<div class="modal" id="groupModal">
-  <div class="modal-card">
-    <h3>Новая группа</h3>
-    <input type="text" id="groupTitle" placeholder="Название группы">
-    <button class="btn-primary" onclick="createGroup()">Создать</button>
-    <button class="btn-secondary" onclick="closeModal('groupModal')">Отмена</button>
+    <a href="/logout" class="btn-secondary">Выйти</a>
+    <button class="btn-secondary" onclick="closeModal('profileModal')">Отмена</button>
   </div>
 </div>
 
@@ -277,7 +258,6 @@
 </div>
 
 <script>
-  // ================= STATE =================
   const ME_ID = {{ me.id }};
   const MODE = "{{ mode or '' }}";
   const CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
@@ -289,38 +269,25 @@
   const messagesBox = document.getElementById('messagesBox');
   const messagesInner = document.getElementById('messagesInner');
 
-  // ================= UI UTILS =================
   const closeModal = (id) => document.getElementById(id).classList.remove('show');
-  
   function openActionMenu(m) {
     selectedMsg = m;
     const isMine = m.sender_id === ME_ID;
-    document.getElementById('btnEdit').style.display = (isMine && m.msg_type === 'text') ? 'block' : 'none';
     document.getElementById('btnDelAll').style.display = isMine ? 'block' : 'none';
     document.getElementById('actionModal').classList.add('show');
   }
 
-  // ================= MESSAGES RENDER =================
-  function formatDate(ts) {
-    const d = new Date(ts * 1000), today = new Date(), yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return 'Сегодня';
-    if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  }
-
+  // ==== RENDER MESSAGES ====
   let lastDate = null;
-
   function appendMsg(m) {
     if(renderedMsgs.has(m.id)) return;
     renderedMsgs.add(m.id);
 
-    // Date Separator
     const dStr = m.created_at > 0 ? new Date(m.created_at * 1000).toDateString() : null;
     if (dStr && dStr !== lastDate) {
       const sep = document.createElement('div');
       sep.className = 'date-sep';
-      sep.textContent = formatDate(m.created_at);
+      sep.textContent = new Date(m.created_at * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
       messagesInner.appendChild(sep);
       lastDate = dStr;
     }
@@ -331,8 +298,6 @@
     row.id = 'msg-' + m.id;
 
     let contentHtml = '';
-    if(m.reply_to_id) contentHtml += `<div class="reply-quote">Ответ на сообщение</div>`;
-    
     if(m.msg_type === 'image') contentHtml += `<img src="${m.content}" onclick="window.open('${m.content}')">`;
     else if(m.msg_type === 'audio') contentHtml += `<audio controls src="${m.content}"></audio>`;
     else if(m.msg_type === 'file') contentHtml += `<a href="${m.content}" download class="file-link">📄 ${m.file_name}</a>`;
@@ -353,15 +318,13 @@
     row.addEventListener('contextmenu', (e) => { e.preventDefault(); openActionMenu(m); });
     row.addEventListener('touchstart', () => { pressTimer = setTimeout(() => openActionMenu(m), 500); });
     row.addEventListener('touchend', () => clearTimeout(pressTimer));
-    row.addEventListener('mousedown', () => { pressTimer = setTimeout(() => openActionMenu(m), 500); });
-    row.addEventListener('mouseup', () => clearTimeout(pressTimer));
-
+    
     const isAtBottom = messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
     messagesInner.appendChild(row);
     if (isAtBottom) messagesBox.scrollTop = messagesBox.scrollHeight;
   }
 
-  // ================= SEND & POLLING =================
+  // ==== ОТПРАВКА ====
   async function sendMessage(e) {
     if(e) e.preventDefault();
     const input = document.getElementById('msgInput');
@@ -369,9 +332,7 @@
     if(!text) return;
 
     const tempId = 'tmp_' + Date.now();
-    const tempMsg = { id: tempId, sender_id: ME_ID, msg_type: 'text', content: text, timestamp: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}), created_at: Date.now()/1000, read_at: 0 };
-    
-    appendMsg(tempMsg);
+    appendMsg({ id: tempId, sender_id: ME_ID, msg_type: 'text', content: text, timestamp: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}), created_at: Date.now()/1000, read_at: 0 });
     input.value = ''; input.style.height = 'auto';
 
     const payload = { content: text };
@@ -389,234 +350,130 @@
         renderedMsgs.delete(tempId);
         appendMsg(data.message);
       }
-    } catch(err) { console.error(err); }
+    } catch(err) {}
   }
 
-  // ГАРАНТИРОВАННОЕ ПОЛУЧЕНИЕ СООБЩЕНИЙ (Поллинг)
-  async function loadMessages() {
+  // ==== ПОЛУЧЕНИЕ (SSE + Резервный опрос) ====
+  async function loadHistory() {
     if(!CHAT_ID) return;
     try {
       const res = await fetch(MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID);
       const data = await res.json();
-      if (data.ok) {
-        data.messages.forEach(m => {
-          if (!renderedMsgs.has(m.id)) {
-            // Уведомление, если вкладка неактивна и сообщение не от нас
-            if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') {
-              new Notification("Ramplez", { body: m.content || "Новое сообщение", icon: "/static/favicon.png" });
-            }
-            appendMsg(m);
-          }
-        });
-      }
+      if (data.ok) data.messages.forEach(appendMsg);
     } catch(e) {}
   }
-
-  if (CHAT_ID) {
-    loadMessages(); // Загружаем при старте
-    setInterval(loadMessages, 2000); // Каждые 2 секунды проверяем новые (надежнее чем SSE)
+  
+  if(CHAT_ID) {
+    loadHistory();
+    // Резервная проверка каждые 3 секунды (на случай если SSE отвалится)
+    setInterval(() => {
+      if (document.hidden) return; // Не грузим сервер, если вкладка свернута
+      fetch(MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID)
+        .then(r => r.json())
+        .then(d => { if (d.ok) d.messages.forEach(appendMsg); });
+    }, 3000);
   }
 
-  // ================= FILE UPLOAD =================
-  async function uploadFile(input) {
-    if(!input.files.length) return;
-    const fd = new FormData();
-    if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
-    fd.append('file', input.files[0]);
-    input.value = '';
+  // ==== SSE (МГНОВЕННЫЕ СООБЩЕНИЯ) ====
+  const es = new EventSource('/stream');
+  es.addEventListener('new_message', e => {
+    const m = JSON.parse(e.data);
+    if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
+      appendMsg(m);
+      // Уведомление
+      if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') {
+        new Notification("Ramplez", { body: m.content || "Файл/Фото" });
+      }
+    }
+  });
+
+  // ==== СОХРАНЕНИЕ ПРОФИЛЯ ====
+  async function saveProfile() {
+    const usernameInput = document.getElementById('profUsername');
+    const statusEl = document.getElementById('userStatus');
+    const newUsername = usernameInput.value.trim();
+
+    statusEl.className = 'status-msg';
+    statusEl.style.display = 'none';
+
+    if(newUsername.length > 0) {
+      statusEl.textContent = 'Сохранение...';
+      statusEl.className = 'status-msg success'; // Временно зеленый
+    }
+
+    const payload = {
+      username: newUsername,
+      name: document.getElementById('profName').value,
+      bio: document.getElementById('profBio').value
+    };
+
     try {
-      const res = await fetch('/upload_file', { method: 'POST', body: fd });
+      const res = await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const data = await res.json();
-      if(data.ok) appendMsg(data.message);
-    } catch(e) { alert('Ошибка загрузки файла'); }
+      
+      if(data.ok) {
+        statusEl.textContent = 'Успешно сохранено!';
+        statusEl.className = 'status-msg success';
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        statusEl.textContent = data.error || 'Ошибка';
+        statusEl.className = 'status-msg error';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Ошибка сети';
+      statusEl.className = 'status-msg error';
+    }
   }
 
-  // ================= ACTIONS =================
+  // ==== ОСТАЛЬНЫЕ ДЕЙСТВИЯ ====
   document.getElementById('emojiRow').addEventListener('click', async (e) => {
     if(!e.target.dataset.e || !selectedMsg) return;
     await fetch('/react_msg/' + selectedMsg.id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: e.target.dataset.e}) });
     closeModal('actionModal'); location.reload();
   });
-  async function actionEdit() {
-    if(!selectedMsg) return;
-    const newText = prompt('Редактировать:', selectedMsg.content);
-    if(newText && newText !== selectedMsg.content) {
-      await fetch('/edit_msg/' + selectedMsg.id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content: newText}) });
-      closeModal('actionModal'); location.reload();
-    }
-  }
   async function actionDelete(type) {
     if(!selectedMsg) return;
     const url = type === 'all' ? `/del_all/${selectedMsg.id}/0` : `/del_me/${selectedMsg.id}/0`;
     await fetch(url, { method:'POST' });
     closeModal('actionModal'); location.reload();
   }
-  function actionReply() {
-    if(!selectedMsg) return;
-    replyToMsg = selectedMsg;
-    document.getElementById('msgInput').focus();
-    closeModal('actionModal');
-  }
 
-  // ================= PROFILE & GROUP =================
-  let newAvatar = '';
-  document.getElementById('avatarInput').addEventListener('change', function(e) {
-    const file = e.target.files[0]; if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height, max = 200;
-        if (w > h && w > max) { h = h * max / w; w = max; } else if (h > max) { w = w * max / h; h = max; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        newAvatar = canvas.toDataURL('image/jpeg', 0.8);
-        const prev = document.getElementById('avatarPreview');
-        prev.src = newAvatar; prev.style.display = 'block';
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-  async function saveProfile() {
-    const payload = {
-      name: document.getElementById('profName').value,
-      bio: document.getElementById('profBio').value
-    };
-    if(newAvatar) payload.avatar = newAvatar;
-    await fetch('/update_settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    location.reload();
-  }
-  async function createGroup() {
-    const title = document.getElementById('groupTitle').value.trim();
-    if(!title) return alert('Введите название');
-    const res = await fetch('/create_group', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title, member_ids: []}) });
-    const data = await res.json();
-    if(data.ok) window.location.href = '/chat?g=' + data.gid;
-  }
-
-  // ================= SEARCH =================
-  let searchTimer;
-  async function searchUsers(q) {
-    clearTimeout(searchTimer);
-    const resBox = document.getElementById('searchResults');
-    const listBox = document.getElementById('chatList');
-    
-    if(!q.trim()) {
-      resBox.style.display = 'none';
-      listBox.style.display = 'block';
-      return;
-    }
-    
-    searchTimer = setTimeout(async () => {
-      listBox.style.display = 'none';
-      resBox.style.display = 'block';
-      resBox.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Поиск...</div>';
-      
-      try {
-        const r = await fetch('/api/search_users?q=' + encodeURIComponent(q));
-        const d = await r.json();
-        if(d.ok && d.users.length) {
-          resBox.innerHTML = d.users.map(u => `
-            <a href="/chat?u=${u.id}" class="search-result-item">
-              <div class="avatar" style="width:36px; height:36px; font-size:14px;">${u.name[0].toUpperCase()}</div>
-              <div><div style="font-weight:600; font-size:14px;">${u.name}</div><div style="font-size:12px; color:var(--muted);">@${u.username}</div></div>
-            </a>
-          `).join('');
-        } else {
-          resBox.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Никого не найдено</div>';
-        }
-      } catch(e) {}
-    }, 400);
-  }
-
-  // ================= WEBRTC CALLS =================
+  // ==== WEBRTC (Звонки) ====
   let pc, localStream;
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-  const unmuteBtn = document.getElementById('unmuteBtn');
-  let isMuted = false;
-
   async function startCall(video) {
     if(!CHAT_ID || MODE !== 'personal') return;
     document.getElementById('callOverlay').classList.add('show');
-    document.getElementById('callPeerName').textContent = OTHER_NAME;
-    document.getElementById('localVideo').style.display = video ? 'block' : 'none';
-
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
-      if(video) document.getElementById('localVideo').srcObject = localStream;
-      
-      pc = new RTCPeerConnection(rtcConfig);
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      
-      pc.onicecandidate = e => { if(e.candidate) sendSignal('ice', e.candidate); };
-      pc.ontrack = e => {
-        const remote = document.getElementById('remoteVideo');
-        remote.srcObject = e.streams[0];
-        remote.play().catch(() => { unmuteBtn.style.display = 'block'; });
-      };
-      
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      sendSignal('offer', offer);
-    } catch(e) { alert('Ошибка доступа к камере/микрофону'); endCall(); }
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
+    if(video) document.getElementById('localVideo').srcObject = localStream;
+    pc = new RTCPeerConnection(rtcConfig);
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    pc.onicecandidate = e => { if(e.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'ice', payload: e.candidate}) }); };
+    pc.ontrack = e => { document.getElementById('remoteVideo').srcObject = e.streams[0]; };
+    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+    fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type: 'offer', payload: offer}) });
   }
-
-  function sendSignal(type, payload) {
-    fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: CHAT_ID, type, payload}) });
-  }
-
-  const es = new EventSource('/stream');
   es.addEventListener('call_signal', async e => {
     const d = JSON.parse(e.data);
     if(d.type === 'offer') {
       if(!confirm('Звонок от ' + d.from_name)) return;
       document.getElementById('callOverlay').classList.add('show');
-      document.getElementById('callPeerName').textContent = d.from_name;
-      
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       document.getElementById('localVideo').srcObject = localStream;
-      
       pc = new RTCPeerConnection(rtcConfig);
       localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      pc.onicecandidate = ev => { if(ev.candidate) sendSignal('ice', ev.candidate); };
-      pc.ontrack = ev => {
-        const remote = document.getElementById('remoteVideo');
-        remote.srcObject = ev.streams[0];
-        remote.play().catch(() => { unmuteBtn.style.display = 'block'; });
-      };
-      
+      pc.ontrack = ev => { document.getElementById('remoteVideo').srcObject = ev.streams[0]; };
+      pc.onicecandidate = ev => { if(ev.candidate) fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'ice', payload: ev.candidate}) }); };
       await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      sendSignal('answer', answer);
-    } else if(d.type === 'answer' && pc) {
-      await pc.setRemoteDescription(new RTCSessionDescription(d.payload));
-    } else if(d.type === 'ice' && pc) {
-      await pc.addIceCandidate(new RTCIceCandidate(d.payload));
-    }
+      const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
+      fetch('/call_signal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_id: d.from, type: 'answer', payload: answer}) });
+    } else if(d.type === 'answer' && pc) { await pc.setRemoteDescription(new RTCSessionDescription(d.payload)); }
+    else if(d.type === 'ice' && pc) { await pc.addIceCandidate(new RTCIceCandidate(d.payload)); }
   });
-
-  unmuteBtn.addEventListener('click', () => {
-    document.getElementById('remoteVideo').play();
-    unmuteBtn.style.display = 'none';
-  });
-
-  function toggleMute() {
-    if(!localStream) return;
-    isMuted = !isMuted;
-    localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-    document.getElementById('muteBtn').style.background = isMuted ? '#ef4444' : '';
-  }
-
   function endCall() {
     if(pc) pc.close();
     if(localStream) localStream.getTracks().forEach(t => t.stop());
     document.getElementById('callOverlay').classList.remove('show');
-    document.getElementById('remoteVideo').srcObject = null;
-    document.getElementById('localVideo').srcObject = null;
-    unmuteBtn.style.display = 'none';
   }
 </script>
 </body>
