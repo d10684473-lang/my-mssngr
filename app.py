@@ -96,7 +96,7 @@ class MessageRead(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
 
-# ===================== ИНИЦИАЛИЗАЦИЯ =====================
+# ===================== БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ =====================
 with app.app_context():
     try:
         db.session.rollback()
@@ -137,12 +137,14 @@ def stream():
     def gen():
         try:
             yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
+            last_ping = time.time()
             while True:
                 try:
-                    event, data = q.get(timeout=2.0)
+                    event, data = q.get(timeout=1.0)
                     yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
                 except queue.Empty:
-                    yield ": ping\n\n"
+                    if time.time() - last_ping > 20:
+                        yield ": ping\n\n"; last_ping = time.time()
         except GeneratorExit: pass
         finally: sse_unsubscribe(uid, q)
     resp = Response(gen(), mimetype='text/event-stream')
@@ -244,7 +246,7 @@ def chat():
     conversations = _build_conversations(me)
     contact_ids = get_my_contacts(me.id)
     users_for_group = User.query.filter(User.id.in_(contact_ids)).all() if contact_ids else []
-    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time())
+    return render_template('chat.html', me=me, users=users_for_group, other=other, group=group, mode=mode, conversations=conversations, now=time.time(), theme=me.theme or 'dark', font_size=me.font_size or 15)
 
 # ===================== API =====================
 @app.route('/api/search_users')
@@ -254,21 +256,6 @@ def api_search_users():
     if not q or len(q) < 2: return jsonify({'ok': True, 'users': []})
     users = User.query.filter(User.username.ilike(f'%{q}%'), User.id != session['uid']).order_by(User.username).limit(20).all()
     return jsonify({'ok': True, 'users': [{'id': u.id, 'username': u.username, 'name': u.name, 'avatar': u.avatar, 'online': is_online(u)} for u in users]})
-
-@app.route('/api/search_messages')
-def api_search_messages():
-    if 'uid' not in session: return jsonify({'ok': False}), 401
-    q = (request.args.get('q') or '').strip().lower()
-    if not q: return jsonify({'ok': True, 'messages': []})
-    try:
-        # Простой поиск по тексту
-        msgs = Message.query.filter(Message.content.ilike(f'%{q}%')).order_by(Message.id.desc()).limit(50).all()
-        out = []
-        for m in msgs:
-            if m.receiver_id == session['uid'] or m.sender_id == session['uid'] or (m.receiver_id < 0 and is_member(session['uid'], -m.receiver_id)):
-                out.append(serialize_msg(m))
-        return jsonify({'ok': True, 'messages': out})
-    except: return jsonify({'ok': False}), 500
 
 @app.route('/update_settings', methods=['POST'])
 def update_settings():
@@ -447,8 +434,8 @@ def edit_msg(mid):
         return jsonify({'ok': True})
     except: db.session.rollback(); return jsonify({'ok': False}), 500
 
-@app.route('/del_me/<int:mid>', methods=['POST'])
-def del_me(mid):
+@app.route('/del_me/<int:mid>/<int:u>', methods=['POST'])
+def del_me(mid, u):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     try:
         msg = db.session.get(Message, mid)
@@ -458,8 +445,8 @@ def del_me(mid):
         return jsonify({'ok': True})
     except: db.session.rollback(); return jsonify({'ok': False}), 500
 
-@app.route('/del_all/<int:mid>', methods=['POST'])
-def del_all(mid):
+@app.route('/del_all/<int:mid>/<int:u>', methods=['POST'])
+def del_all(mid, u):
     if 'uid' not in session: return jsonify({'ok': False}), 401
     try:
         msg = db.session.get(Message, mid)
@@ -507,6 +494,21 @@ def create_group():
         for uid_ in set(ids): sse_publish([uid_], 'new_group', {'gid': g.id})
         return jsonify({'ok': True, 'gid': g.id})
     except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/leave_group/<int:gid>', methods=['POST'])
+def leave_group(gid):
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    try:
+        ChatMember.query.filter_by(chat_id=gid, user_id=session['uid']).delete(); db.session.commit()
+        return jsonify({'ok': True})
+    except: db.session.rollback(); return jsonify({'ok': False}), 500
+
+@app.route('/complete_onboarding', methods=['POST'])
+def complete_onboarding():
+    if 'uid' not in session: return jsonify({'ok': False}), 401
+    me = db.session.get(User, session['uid'])
+    if me: me.onboarded = 1; db.session.commit()
+    return jsonify({'ok': True})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), threaded=True)
