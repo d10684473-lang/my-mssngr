@@ -79,7 +79,7 @@
   .send-btn { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: transform 0.15s; }
   .send-btn:active { transform: scale(0.9); }
 
-  /* --- MODALS & SETTINGS --- */
+  /* --- MODALS --- */
   .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; opacity: 0; transition: opacity 0.2s; }
   .modal.show { display: flex; opacity: 1; }
   .modal-card { background: var(--panel); border: 1px solid var(--border); width: 100%; max-width: 400px; border-radius: 24px; padding: 25px; display: flex; flex-direction: column; gap: 16px; transform: scale(0.95); transition: transform 0.2s; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
@@ -89,7 +89,7 @@
   .input-group { position: relative; }
   .input-group input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-size: 15px; }
   .input-group input:focus { border-color: var(--accent); }
-  .status-msg { font-size: 12px; margin-top: 5px; margin-left: 5px; color: var(--muted); display: none; }
+  .status-msg { font-size: 12px; margin-top: 5px; margin-left: 5px; display: none; }
   .status-msg.error { color: #ef4444; display: block; }
   .status-msg.success { color: #10b981; display: block; }
 
@@ -104,7 +104,7 @@
   .emoji-row span { cursor: pointer; transition: transform 0.1s; }
   .emoji-row span:hover { transform: scale(1.3); }
 
-  /* --- CALL OVERLAY --- */
+  /* --- CALL --- */
   .call-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 10000; flex-direction: column; align-items: center; justify-content: center; }
   .call-overlay.show { display: flex; }
   .call-video-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -114,7 +114,7 @@
   .call-controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 10; }
   .call-btn { width: 64px; height: 64px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; color: #fff; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
   .btn-end { background: #ef4444; width: 72px; height: 72px; font-size: 28px; }
-  #unmuteBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; display: none; padding: 16px 24px; background: var(--accent); color: #fff; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #unmuteBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; display: none; padding: 16px 24px; background: var(--accent); color: #fff; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; }
 
   @media (max-width: 768px) {
     .sidebar { width: 100%; display: {{ 'none' if mode else 'flex' }}; }
@@ -139,8 +139,12 @@
     }
     return originalFetch(url, opts);
   };
-  if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-    setTimeout(() => Notification.requestPermission(), 3000);
+
+  // ИСПРАВЛЕНО: Запрос уведомлений строго по клику, а не по таймеру
+  function requestNotifications() {
+    if ("Notification" in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }
 </script>
 
@@ -149,7 +153,7 @@
   <div class="side-head">
     <span class="logo-text">ramplez</span>
     <div style="display:flex; gap:8px;">
-      <button class="icon-btn" onclick="document.getElementById('profileModal').classList.add('show')" title="Профиль">👤</button>
+      <button class="icon-btn" onclick="requestNotifications(); document.getElementById('profileModal').classList.add('show')" title="Профиль">👤</button>
     </div>
   </div>
   
@@ -225,7 +229,10 @@
   <div class="modal-card">
     <h3>Настройки профиля</h3>
     
-    <!-- Юзернейм с проверкой -->
+    <div style="text-align:center; margin-bottom:10px;">
+      <span style="color:var(--muted); font-size:14px;">Ваш текущий логин: <b style="color:var(--text);">@{{ me.username }}</b></span>
+    </div>
+
     <div class="input-group">
       <input type="text" id="profUsername" value="{{ me.username }}" placeholder="@username">
       <div class="status-msg" id="userStatus"></div>
@@ -245,7 +252,7 @@
   <div class="call-video-container">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay playsinline muted></video>
-    <button id="unmuteBtn">🔈 Включить звук</button>
+    <button id="unmuteBtn" onclick="document.getElementById('remoteVideo').play(); this.style.display='none';">🔈 Включить звук</button>
   </div>
   <div class="call-info">
     <h2 id="callPeerName">Собеседник</h2>
@@ -261,7 +268,6 @@
   const ME_ID = {{ me.id }};
   const MODE = "{{ mode or '' }}";
   const CHAT_ID = {{ (other.id if mode == 'personal' and other else (group.id if mode == 'group' and group else 0)) }};
-  const OTHER_NAME = "{{ other.name if mode == 'personal' and other else '' }}";
   
   let selectedMsg = null;
   let replyToMsg = null;
@@ -353,7 +359,7 @@
     } catch(err) {}
   }
 
-  // ==== ПОЛУЧЕНИЕ (SSE + Резервный опрос) ====
+  // ==== ПОЛУЧЕНИЕ (SSE) ====
   async function loadHistory() {
     if(!CHAT_ID) return;
     try {
@@ -363,24 +369,13 @@
     } catch(e) {}
   }
   
-  if(CHAT_ID) {
-    loadHistory();
-    // Резервная проверка каждые 3 секунды (на случай если SSE отвалится)
-    setInterval(() => {
-      if (document.hidden) return; // Не грузим сервер, если вкладка свернута
-      fetch(MODE === 'group' ? '/poll_group/' + CHAT_ID : '/poll/' + CHAT_ID)
-        .then(r => r.json())
-        .then(d => { if (d.ok) d.messages.forEach(appendMsg); });
-    }, 3000);
-  }
+  if(CHAT_ID) loadHistory();
 
-  // ==== SSE (МГНОВЕННЫЕ СООБЩЕНИЯ) ====
   const es = new EventSource('/stream');
   es.addEventListener('new_message', e => {
     const m = JSON.parse(e.data);
     if ((MODE === 'personal' && (m.sender_id === CHAT_ID || m.receiver_id === CHAT_ID)) || (MODE === 'group' && m.receiver_id === -CHAT_ID)) {
       appendMsg(m);
-      // Уведомление
       if (document.hidden && m.sender_id !== ME_ID && Notification.permission === 'granted') {
         new Notification("Ramplez", { body: m.content || "Файл/Фото" });
       }
@@ -391,15 +386,10 @@
   async function saveProfile() {
     const usernameInput = document.getElementById('profUsername');
     const statusEl = document.getElementById('userStatus');
-    const newUsername = usernameInput.value.trim();
+    const newUsername = usernameInput.value.trim().replace('@', '');
 
     statusEl.className = 'status-msg';
     statusEl.style.display = 'none';
-
-    if(newUsername.length > 0) {
-      statusEl.textContent = 'Сохранение...';
-      statusEl.className = 'status-msg success'; // Временно зеленый
-    }
 
     const payload = {
       username: newUsername,
@@ -425,7 +415,7 @@
     }
   }
 
-  // ==== ОСТАЛЬНЫЕ ДЕЙСТВИЯ ====
+  // ==== ДЕЙСТВИЯ ====
   document.getElementById('emojiRow').addEventListener('click', async (e) => {
     if(!e.target.dataset.e || !selectedMsg) return;
     await fetch('/react_msg/' + selectedMsg.id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({emoji: e.target.dataset.e}) });
@@ -437,8 +427,57 @@
     await fetch(url, { method:'POST' });
     closeModal('actionModal'); location.reload();
   }
+  function actionReply() {
+    if(!selectedMsg) return;
+    replyToMsg = selectedMsg;
+    document.getElementById('msgInput').focus();
+    closeModal('actionModal');
+  }
 
-  // ==== WEBRTC (Звонки) ====
+  // ==== ФАЙЛЫ ====
+  async function uploadFile(input) {
+    if(!input.files.length) return;
+    const fd = new FormData();
+    if (MODE === 'group') fd.append('gid', CHAT_ID); else fd.append('oid', CHAT_ID);
+    fd.append('file', input.files[0]);
+    input.value = '';
+    try {
+      const res = await fetch('/upload_file', { method: 'POST', body: fd });
+      const data = await res.json();
+      if(data.ok) appendMsg(data.message);
+    } catch(e) { alert('Ошибка загрузки файла'); }
+  }
+
+  // ==== ПОИСК ====
+  let searchTimer;
+  async function searchUsers(q) {
+    clearTimeout(searchTimer);
+    const resBox = document.getElementById('searchResults');
+    const listBox = document.getElementById('chatList');
+    
+    if(!q.trim()) { resBox.style.display = 'none'; listBox.style.display = 'block'; return; }
+    
+    searchTimer = setTimeout(async () => {
+      listBox.style.display = 'none'; resBox.style.display = 'block';
+      resBox.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Поиск...</div>';
+      try {
+        const r = await fetch('/api/search_users?q=' + encodeURIComponent(q));
+        const d = await r.json();
+        if(d.ok && d.users.length) {
+          resBox.innerHTML = d.users.map(u => `
+            <a href="/chat?u=${u.id}" class="search-result-item">
+              <div class="avatar" style="width:36px; height:36px; font-size:14px;">${u.name[0].toUpperCase()}</div>
+              <div><div style="font-weight:600; font-size:14px;">${u.name}</div><div style="font-size:12px; color:var(--muted);">@${u.username}</div></div>
+            </a>
+          `).join('');
+        } else {
+          resBox.innerHTML = '<div style="color:var(--muted); font-size:13px; text-align:center;">Никого не найдено</div>';
+        }
+      } catch(e) {}
+    }, 400);
+  }
+
+  // ==== WEBRTC ====
   let pc, localStream;
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   async function startCall(video) {
@@ -470,6 +509,12 @@
     } else if(d.type === 'answer' && pc) { await pc.setRemoteDescription(new RTCSessionDescription(d.payload)); }
     else if(d.type === 'ice' && pc) { await pc.addIceCandidate(new RTCIceCandidate(d.payload)); }
   });
+  function toggleMute() {
+    if(!localStream) return;
+    const tracks = localStream.getAudioTracks();
+    tracks.forEach(t => t.enabled = !t.enabled);
+    document.getElementById('muteBtn').style.background = tracks[0].enabled ? '' : '#ef4444';
+  }
   function endCall() {
     if(pc) pc.close();
     if(localStream) localStream.getTracks().forEach(t => t.stop());
