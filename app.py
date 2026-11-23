@@ -113,7 +113,7 @@ with app.app_context():
         db.session.rollback()
         print(f"DB Init Error: {e}")
 
-# ===================== ЗАЩИТА ОТ КЕША БРАУЗЕРА =====================
+# ===================== ЖЕСТКАЯ ЗАЩИТА ОТ КЕША =====================
 @app.after_request
 def add_header(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
@@ -121,7 +121,52 @@ def add_header(response):
     response.headers['Expires'] = '-1'
     return response
 
-# ===================== МЯГКАЯ ЗАЩИТА CSRF =====================
+# ===================== SSE =====================
+_sse_subscribers = {}
+_sse_lock = threading.Lock()
+
+def sse_publish(user_ids, event_type, data):
+    payload = (event_type, data)
+    with _sse_lock:
+        for uid in user_ids:
+            for q in _sse_subscribers.get(uid, []):
+                try: q.put_nowait(payload)
+                except queue.Full: pass
+
+def sse_subscribe(uid):
+    q = queue.Queue(maxsize=200)
+    with _sse_lock: _sse_subscribers.setdefault(uid, []).append(q)
+    return q
+
+def sse_unsubscribe(uid, q):
+    with _sse_lock:
+        lst = _sse_subscribers.get(uid, [])
+        if q in lst: lst.remove(q)
+        if not lst: _sse_subscribers.pop(uid, None)
+
+@app.route('/stream')
+def stream():
+    if 'uid' not in session: return Response('unauthorized', 401)
+    uid = session['uid']
+    q = sse_subscribe(uid)
+    def gen():
+        try:
+            yield f"event: hello\ndata: {json.dumps({'ok': True})}\n\n"
+            last_ping = time.time()
+            while True:
+                try:
+                    event, data = q.get(timeout=1.0)
+                    yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    if time.time() - last_ping > 20:
+                        yield ": ping\n\n"; last_ping = time.time()
+        except GeneratorExit: pass
+        finally: sse_unsubscribe(uid, q)
+    resp = Response(gen(), mimetype='text/event-stream')
+    resp.headers['Cache-Control'] = 'no-cache'; resp.headers['X-Accel-Buffering'] = 'no'
+    return resp
+
+# ===================== CSRF (ЗАЩИТА ОТ ДУРАКА) =====================
 @app.before_request
 def _ensure_csrf():
     if 'csrf_token' not in session: session['csrf_token'] = secrets.token_urlsafe(32)
@@ -129,17 +174,20 @@ def _ensure_csrf():
 @app.before_request
 def _csrf_protect():
     if request.method in ('GET', 'HEAD', 'OPTIONS'): return
-    if request.path == '/': return # Логин пропускаем
+    if request.path == '/': return # Логин/регистрация пропускаем (они редиректят)
     
-    # ФИКС: Если браузер обновляет страницу чата (POST на /chat), просто редиректим на GET /chat
-    if request.path == '/chat' and request.method == 'POST':
-        return redirect(url_for('chat'))
-
     token = session.get('csrf_token', '')
     sent = request.headers.get('X-CSRFToken', '')
-    if not token or not sent or not hmac.compare_digest(token, sent):
-        session.clear() # Сбрасываем сессию при ошибке
-        return redirect(url_for('index')) # Вместо ошибки кидаем на логин
+    
+    # Если это API-запрос (fetch), возвращаем JSON
+    if request.path.startswith('/api') or request.is_json:
+        if not token or not sent or not hmac.compare_digest(token, sent):
+            return jsonify({'ok': False, 'error': 'csrf'}), 403
+    else:
+        # Если это обычная форма/обновление страницы — просто редиректим на вход
+        if not token or not sent or not hmac.compare_digest(token, sent):
+            session.clear()
+            return redirect(url_for('index'))
 
 # ===================== ХЕЛПЕРЫ =====================
 def is_online(u): return bool(u and u.last_seen and (time.time() - u.last_seen) < 30)
@@ -208,7 +256,7 @@ def _build_conversations(me):
     convs.sort(key=lambda c: (not c['online'], -c['unread'], c['title'].lower()))
     return convs
 
-@app.route('/chat')
+@app.route('/chat', methods=['GET']) # СТРОГО GET! Никаких POST на этот роут.
 def chat():
     if 'uid' not in session: return redirect(url_for('index'))
     me = db.session.get(User, session['uid'])
