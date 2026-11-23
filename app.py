@@ -96,13 +96,13 @@ class MessageRead(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
 
-# ===================== АВТО-МИГРАЦИЯ БАЗЫ ДАННЫХ =====================
+# ===================== АВТО-МИГРАЦИЯ =====================
 with app.app_context():
     try:
         db.session.rollback()
         db.create_all()
         
-        # Проверяем, есть ли новые колонки в таблице user (для старых баз)
+        # Проверяем и добавляем новые колонки в таблицу user
         insp = inspect(db.engine)
         if 'user' in insp.get_table_names():
             cols = [c['name'] for c in insp.get_columns('user')]
@@ -117,10 +117,11 @@ with app.app_context():
         db.session.rollback()
         print(f"DB Init/Migration Error: {e}")
 
-# ===================== СПАСЕНИЕ ОТ CSRF =====================
+# ===================== CSRF (МЯГКАЯ ОБРАБОТКА) =====================
 @app.errorhandler(403)
 def handle_403(e):
-    return redirect(url_for('index')) # Перенаправляем на вход вместо голого JSON
+    # Вместо черного экрана с JSON, просто перекидываем на главную
+    return redirect(url_for('index'))
 
 # ===================== SSE =====================
 _sse_subscribers = {}
@@ -175,7 +176,7 @@ def _ensure_csrf():
 @app.before_request
 def _csrf_protect():
     if request.method in ('GET', 'HEAD', 'OPTIONS'): return
-    if request.path == '/': return # Исключаем форму входа из защиты
+    if request.path == '/': return # Исключаем логин
     token = session.get('csrf_token', '')
     sent = request.headers.get('X-CSRFToken', '')
     if not token or not sent or not hmac.compare_digest(token, sent):
@@ -226,7 +227,7 @@ def index():
                 error = 'Неверный логин или пароль'
         except Exception as e:
             db.session.rollback()
-            print(f"Auth Error: {e}") # Выведет ошибку в логи Render, если что-то пойдет не так
+            print(f"Auth Error: {e}")
             error = 'Ошибка базы данных. Попробуйте еще раз.'
     return render_template('login.html', error=error)
 
