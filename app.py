@@ -106,6 +106,12 @@ with app.app_context():
         db.session.rollback()
         print(f"DB Init Error: {e}")
 
+# ===================== СПАСЕНИЕ ОТ ОШИБКИ CSRF =====================
+@app.errorhandler(403)
+def handle_403(e):
+    # Если это ошибка CSRF, мягко перенаправляем на главную
+    return redirect(url_for('index'))
+
 # ===================== SSE =====================
 _sse_subscribers = {}
 _sse_lock = threading.Lock()
