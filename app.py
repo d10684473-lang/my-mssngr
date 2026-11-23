@@ -12,7 +12,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 
 app = Flask(__name__)
@@ -96,21 +96,31 @@ class MessageRead(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, index=True)
     read_at = db.Column(db.Float, default=0.0)
 
-# ===================== БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ =====================
+# ===================== АВТО-МИГРАЦИЯ БАЗЫ ДАННЫХ =====================
 with app.app_context():
     try:
         db.session.rollback()
         db.create_all()
+        
+        # Проверяем, есть ли новые колонки в таблице user (для старых баз)
+        insp = inspect(db.engine)
+        if 'user' in insp.get_table_names():
+            cols = [c['name'] for c in insp.get_columns('user')]
+            if 'onboarded' not in cols:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN onboarded INTEGER DEFAULT 0'))
+            if 'theme' not in cols:
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN theme VARCHAR(20) DEFAULT 'dark'"))
+            if 'font_size' not in cols:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN font_size INTEGER DEFAULT 15'))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"DB Init Error: {e}")
+        print(f"DB Init/Migration Error: {e}")
 
-# ===================== СПАСЕНИЕ ОТ ОШИБКИ CSRF =====================
+# ===================== СПАСЕНИЕ ОТ CSRF =====================
 @app.errorhandler(403)
 def handle_403(e):
-    # Если это ошибка CSRF, мягко перенаправляем на главную
-    return redirect(url_for('index'))
+    return redirect(url_for('index')) # Перенаправляем на вход вместо голого JSON
 
 # ===================== SSE =====================
 _sse_subscribers = {}
@@ -165,7 +175,7 @@ def _ensure_csrf():
 @app.before_request
 def _csrf_protect():
     if request.method in ('GET', 'HEAD', 'OPTIONS'): return
-    if request.path == '/': return
+    if request.path == '/': return # Исключаем форму входа из защиты
     token = session.get('csrf_token', '')
     sent = request.headers.get('X-CSRFToken', '')
     if not token or not sent or not hmac.compare_digest(token, sent):
@@ -201,7 +211,8 @@ def index():
             if not username or not password: error = 'Заполните поля'
             elif len(username) < 3 or not re.match(r'^[a-z0-9_]+$', username): error = 'Логин 3+ символов (a-z, 0-9, _)'
             elif action == 'register':
-                if User.query.filter_by(username=username).first(): error = 'Логин занят'
+                if User.query.filter_by(username=username).first(): 
+                    error = 'Логин занят'
                 else:
                     u = User(username=username, name=name, password=generate_password_hash(password))
                     db.session.add(u); db.session.commit()
@@ -209,10 +220,13 @@ def index():
                     return redirect(url_for('chat'))
             else:
                 u = User.query.filter_by(username=username).first()
-                if u and check_password_hash(u.password, password): session['uid'] = u.id; return redirect(url_for('chat'))
+                if u and check_password_hash(u.password, password): 
+                    session['uid'] = u.id
+                    return redirect(url_for('chat'))
                 error = 'Неверный логин или пароль'
-        except Exception:
+        except Exception as e:
             db.session.rollback()
+            print(f"Auth Error: {e}") # Выведет ошибку в логи Render, если что-то пойдет не так
             error = 'Ошибка базы данных. Попробуйте еще раз.'
     return render_template('login.html', error=error)
 
